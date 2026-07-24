@@ -10,6 +10,7 @@ playwright-report/
 !.env.example
 .nixhost/
 .e2e-data/
+.e2e-data-ci/
 .local-data/
 result
 result-*
