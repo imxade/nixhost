@@ -17,8 +17,14 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
     const deployment = getDeployment(id);
     const locations = appPaths(deployment.app_id);
     const files = [
-      { stream: "stdout", file: path.join(locations.logs, `${id}.stdout.log`) },
-      { stream: "stderr", file: path.join(locations.logs, `${id}.stderr.log`) },
+      {
+        stream: "stdout",
+        file: path.join(/*turbopackIgnore: true*/ locations.logs, `${id}.stdout.log`),
+      },
+      {
+        stream: "stderr",
+        file: path.join(/*turbopackIgnore: true*/ locations.logs, `${id}.stderr.log`),
+      },
     ];
     const encoder = new TextEncoder();
     let interval: NodeJS.Timeout | undefined;
@@ -38,16 +44,20 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
             const offset = offsets.get(item.file) ?? 0;
             try {
               const stat = fs.statSync(item.file);
-              if (stat.size <= offset) continue;
-              const maxRead = Math.min(stat.size - offset, 256 * 1024);
+              if (stat.size < offset) offsets.set(item.file, 0);
+              const currentOffset = stat.size < offset ? 0 : offset;
+              if (stat.size <= currentOffset) continue;
+              const maxRead = Math.min(stat.size - currentOffset, 256 * 1024);
               const buffer = Buffer.alloc(maxRead);
               const fd = fs.openSync(item.file, "r");
-              const read = fs.readSync(fd, buffer, 0, maxRead, offset);
+              const read = fs.readSync(fd, buffer, 0, maxRead, currentOffset);
               fs.closeSync(fd);
-              offsets.set(item.file, offset + read);
+              offsets.set(item.file, currentOffset + read);
               const text = buffer.subarray(0, read).toString("utf8");
               controller.enqueue(
-                encoder.encode(`event: log\ndata: ${JSON.stringify({ stream: item.stream, text })}\n\n`),
+                encoder.encode(
+                  `event: log\ndata: ${JSON.stringify({ stream: item.stream, text })}\n\n`,
+                ),
               );
             } catch {}
           }
@@ -68,6 +78,9 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
       },
     });
   } catch {
-    return Response.json({ ok: false, error: { code: "unauthenticated", message: "Authentication required" } }, { status: 401 });
+    return Response.json(
+      { ok: false, error: { code: "unauthenticated", message: "Authentication required" } },
+      { status: 401 },
+    );
   }
 }

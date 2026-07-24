@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { ensureDataDirectories, paths } from "./paths.js";
-import { logger } from "./logger.js";
+import { logger } from "./logger.ts";
+import { ensureDataDirectories, paths } from "./paths.ts";
 
 let instance: Database.Database | undefined;
 
@@ -13,6 +13,7 @@ export function getDb(): Database.Database {
     timeout: 5000,
     fileMustExist: false,
   });
+  fs.chmodSync(paths.database, 0o600);
   instance.pragma("journal_mode = WAL");
   instance.pragma("foreign_keys = ON");
   instance.pragma("busy_timeout = 5000");
@@ -29,7 +30,7 @@ function migrate(db: Database.Database): void {
       applied_at TEXT NOT NULL
     );
   `);
-  const migrationDir = path.join(process.cwd(), "migrations");
+  const migrationDir = path.join(/*turbopackIgnore: true*/ process.cwd(), "migrations");
   if (!fs.existsSync(migrationDir)) {
     throw new Error(`Migration directory is missing: ${migrationDir}`);
   }
@@ -44,7 +45,7 @@ function migrate(db: Database.Database): void {
     .sort();
   for (const file of files) {
     if (applied.has(file)) continue;
-    const sql = fs.readFileSync(path.join(migrationDir, file), "utf8");
+    const sql = fs.readFileSync(path.join(process.cwd(), "migrations", file), "utf8");
     const apply = db.transaction(() => {
       db.exec(sql);
       db.prepare("INSERT INTO schema_migrations(name, applied_at) VALUES (?, ?)").run(
@@ -67,9 +68,9 @@ export function nowIso(): string {
 }
 
 export function setting(key: string): string | undefined {
-  const row = getDb()
-    .prepare("SELECT value FROM settings WHERE key = ?")
-    .get(key) as { value: string } | undefined;
+  const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
   return row?.value;
 }
 

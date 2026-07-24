@@ -1,11 +1,11 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs";
 
 const defaultDataDir = path.join(os.homedir(), ".local", "share", "nixhost");
 
 export const paths = {
-  data: path.resolve(process.env.NIXHOST_DATA_DIR || defaultDataDir),
+  data: path.resolve(/*turbopackIgnore: true*/ process.env.NIXHOST_DATA_DIR || defaultDataDir),
   get database() {
     return path.join(this.data, "nixhost.sqlite");
   },
@@ -63,7 +63,13 @@ export function appPaths(appId: string, deploymentId?: string) {
     repository: path.join(paths.repositories, appId),
     release: deploymentId ? path.join(paths.releases, appId, deploymentId) : undefined,
   };
-  for (const directory of [result.base, result.data, result.cache, result.logs, result.repository]) {
+  for (const directory of [
+    result.base,
+    result.data,
+    result.cache,
+    result.logs,
+    result.repository,
+  ]) {
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   }
   if (result.release) fs.mkdirSync(result.release, { recursive: true, mode: 0o700 });

@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { promisify } from "node:util";
-import { paths } from "./paths.js";
-import { logger } from "./logger.js";
+import { logger } from "./logger.ts";
+import { paths } from "./paths.ts";
 
-const scrypt = promisify(crypto.scrypt);
 let cachedMasterKey: Buffer | undefined;
 
 export function randomToken(bytes = 32): string {
@@ -28,7 +26,12 @@ export async function hashPassword(password: string): Promise<string> {
   const r = 8;
   const p = 1;
   const length = 64;
-  const derived = (await scrypt(password, salt, length, { N: n, r, p, maxmem: 64 * 1024 * 1024 })) as Buffer;
+  const derived = await deriveScrypt(password, salt, length, {
+    N: n,
+    r,
+    p,
+    maxmem: 64 * 1024 * 1024,
+  });
   return ["scrypt", n, r, p, salt.toString("base64"), derived.toString("base64")].join("$");
 }
 
@@ -43,12 +46,12 @@ export async function verifyPassword(password: string, encoded: string): Promise
   if (n !== 1 << 15 || r !== 8 || p !== 1) return false;
   const expected = Buffer.from(hashText, "base64");
   if (expected.length !== 64) return false;
-  const actual = (await scrypt(password, Buffer.from(saltText, "base64"), expected.length, {
+  const actual = await deriveScrypt(password, Buffer.from(saltText, "base64"), expected.length, {
     N: n,
     r,
     p,
     maxmem: 64 * 1024 * 1024,
-  })) as Buffer;
+  });
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
@@ -82,7 +85,9 @@ export function encryptSecret(plaintext: string): string {
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return ["v1", iv.toString("base64"), tag.toString("base64"), ciphertext.toString("base64")].join(".");
+  return ["v1", iv.toString("base64"), tag.toString("base64"), ciphertext.toString("base64")].join(
+    ".",
+  );
 }
 
 export function decryptSecret(encoded: string): string {
@@ -90,7 +95,11 @@ export function decryptSecret(encoded: string): string {
   if (version !== "v1" || !ivText || !tagText || !cipherText) {
     throw new Error("Unsupported encrypted secret format");
   }
-  const decipher = crypto.createDecipheriv("aes-256-gcm", loadMasterKey(), Buffer.from(ivText, "base64"));
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    loadMasterKey(),
+    Buffer.from(ivText, "base64"),
+  );
   decipher.setAuthTag(Buffer.from(tagText, "base64"));
   return Buffer.concat([
     decipher.update(Buffer.from(cipherText, "base64")),
@@ -102,10 +111,26 @@ export function signJwtRs256(payload: Record<string, unknown>, privateKeyPem: st
   const header = { alg: "RS256", typ: "JWT" };
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const body = `${encode(header)}.${encode(payload)}`;
-  const signature = crypto.sign("RSA-SHA256", Buffer.from(body), privateKeyPem).toString("base64url");
+  const signature = crypto
+    .sign("RSA-SHA256", Buffer.from(body), privateKeyPem)
+    .toString("base64url");
   return `${body}.${signature}`;
 }
 
 export function hmacSha256Hex(secret: string, body: Buffer): string {
   return crypto.createHmac("sha256", secret).update(body).digest("hex");
+}
+
+function deriveScrypt(
+  password: string,
+  salt: Buffer,
+  length: number,
+  options: crypto.ScryptOptions,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, length, options, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
 }

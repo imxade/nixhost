@@ -1,13 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { getDb,nowIso } from "../src/server/db.js";
-import { ensureDataDirectories,paths } from "../src/server/paths.js";
-ensureDataDirectories();
-const stamp=new Date().toISOString().replace(/[:.]/g,"-");const target=path.resolve(process.argv[2]||path.join(paths.backups,stamp));
-fs.mkdirSync(target,{recursive:true,mode:0o700});
-await getDb().backup(path.join(target,"nixhost.sqlite"));
-if(fs.existsSync(paths.keyFile))fs.copyFileSync(paths.keyFile,path.join(target,"master.key"));
-const tar=spawnSync("tar",["-C",paths.data,"-czf",path.join(target,"applications.tar.gz"),"applications"],{stdio:"inherit"});if(tar.status!==0)throw new Error("Unable to archive application data");
-fs.writeFileSync(path.join(target,"manifest.json"),JSON.stringify({createdAt:nowIso(),sourceDataDir:paths.data,includes:["nixhost.sqlite","master.key when locally managed","applications.tar.gz"]},null,2),{mode:0o600});
-console.log(target);
+import { createBackup } from "../src/server/backup.ts";
+
+console.log(await createBackup(process.argv[2]));
