@@ -5,8 +5,16 @@ import { audit } from "./audit.ts";
 import { encryptSecret } from "./crypto.ts";
 import { getDb, nowIso } from "./db.ts";
 import { HttpError } from "./errors.ts";
+import { isValidGitBranchName, remoteDefaultBranch } from "./git.ts";
 import { allocatePublicPort } from "./ports.ts";
 import type { AppRow, DeploymentRow } from "./types.ts";
+
+const branchSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .refine(isValidGitBranchName, "Enter a valid Git branch name");
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -18,7 +26,10 @@ const createSchema = z.object({
       isSupportedGitHubRepositoryUrl,
       "Use an HTTPS GitHub repository URL such as https://github.com/owner/repository.git",
     ),
-  branch: z.string().trim().min(1).max(200).default("main"),
+  branch: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    branchSchema.optional(),
+  ),
   flakeOutput: z
     .string()
     .trim()
@@ -33,7 +44,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
-  branch: z.string().trim().min(1).max(200).optional(),
+  branch: branchSchema.optional(),
   flakeOutput: z
     .string()
     .trim()
@@ -52,6 +63,9 @@ export async function createApplication(
 ): Promise<AppRow> {
   const input = createSchema.parse(raw);
   input.repositoryUrl = normalizeGitHubRepositoryUrl(input.repositoryUrl);
+  const branch =
+    input.branch ??
+    (await remoteDefaultBranch(input.repositoryUrl, input.githubInstallationId ?? null));
   const id = crypto.randomUUID();
   const slug = uniqueSlug(input.name);
   const publicPort = input.kind === "web" ? await allocatePublicPort() : null;
@@ -69,7 +83,7 @@ export async function createApplication(
       slug,
       input.kind,
       input.repositoryUrl,
-      input.branch,
+      branch,
       input.flakeOutput,
       input.githubRepositoryId ?? null,
       input.githubInstallationId ?? null,

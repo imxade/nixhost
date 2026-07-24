@@ -43,3 +43,9 @@ Create/reconnect the GitHub App so its webhook URL points to that origin. Webhoo
 ## Offline behavior
 
 A missed webhook is recovered by branch reconciliation after the node regains internet access. Webhooks improve latency; repository state remains the eventual source of truth.
+
+When an application is created without an explicit production branch, NixHost
+resolves the repository's symbolic remote `HEAD`. It stores that concrete branch
+name for deterministic webhook filtering and reconciliation. If the remote does
+not advertise a symbolic `HEAD`, the fallback is `main`. Branch names are
+validated before they enter Git refspecs.

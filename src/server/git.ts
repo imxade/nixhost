@@ -6,12 +6,69 @@ import { gitAuthenticationEnvironment, installationToken } from "./github.ts";
 import { appPaths } from "./paths.ts";
 import type { AppRow } from "./types.ts";
 
+export const FALLBACK_DEFAULT_BRANCH = "main";
+
+export function isValidGitBranchName(value: string): boolean {
+  if (
+    value.length < 1 ||
+    value.length > 200 ||
+    value === "@" ||
+    value.startsWith("-") ||
+    value.startsWith("/") ||
+    value.endsWith("/") ||
+    value.endsWith(".") ||
+    value.includes("..") ||
+    value.includes("//") ||
+    value.includes("@{") ||
+    [...value].some((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code <= 32 || code === 127 || "~^:?*[\\ ".includes(character);
+    })
+  ) {
+    return false;
+  }
+  return value.split("/").every((component) => {
+    return component.length > 0 && !component.startsWith(".") && !component.endsWith(".lock");
+  });
+}
+
+export function defaultBranchFromLsRemote(output: string): string {
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.match(/^ref:\s+refs\/heads\/([^\s]+)\s+HEAD$/);
+    const branch = match?.[1];
+    if (branch && isValidGitBranchName(branch)) return branch;
+  }
+  return FALLBACK_DEFAULT_BRANCH;
+}
+
+export async function remoteDefaultBranch(
+  repositoryUrl: string,
+  installationId?: number | null,
+): Promise<string> {
+  const token = installationId ? await installationToken(installationId) : undefined;
+  const result = await runCommand("git", ["ls-remote", "--symref", repositoryUrl, "HEAD"], {
+    env: gitAuthenticationEnvironment(token),
+    timeoutMs: 60_000,
+  });
+  if (result.code !== 0) {
+    throw new HttpError(
+      400,
+      `Unable to resolve the repository default branch: ${sanitize(result.stderr)}`,
+      "git_default_branch_failed",
+    );
+  }
+  return defaultBranchFromLsRemote(result.stdout);
+}
+
 export async function prepareRelease(
   app: AppRow,
   deploymentId: string,
   requestedCommit?: string | null,
   signal?: AbortSignal,
 ): Promise<{ commit: string; releaseDir: string }> {
+  if (!isValidGitBranchName(app.branch)) {
+    throw new HttpError(400, "The configured Git branch is invalid", "invalid_git_branch");
+  }
   const locations = appPaths(app.id, deploymentId);
   const repository = locations.repository;
   const releaseDir = locations.release;

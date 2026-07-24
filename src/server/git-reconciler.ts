@@ -3,6 +3,7 @@ import { runCommand } from "./command.ts";
 import { config } from "./config.ts";
 import { getDb } from "./db.ts";
 import { events } from "./events.ts";
+import { isValidGitBranchName } from "./git.ts";
 import { gitAuthenticationEnvironment, repositoryHead } from "./github.ts";
 import { logger } from "./logger.ts";
 import type { AppRow, DeploymentRow } from "./types.ts";
@@ -69,6 +70,9 @@ export class GitReconciler {
 }
 
 async function remoteHead(app: AppRow): Promise<string> {
+  if (!isValidGitBranchName(app.branch)) {
+    throw new Error("The configured Git branch is invalid");
+  }
   if (app.github_installation_id)
     return repositoryHead(app.repository_url, app.github_installation_id, app.branch);
   const result = await runCommand(

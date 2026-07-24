@@ -77,7 +77,7 @@ export function AppsClient() {
         body: JSON.stringify({
           name: form.get("name"),
           repositoryUrl,
-          branch: form.get("branch") || selected?.default_branch || "main",
+          branch: form.get("branch") || selected?.default_branch || undefined,
           flakeOutput: form.get("flakeOutput") || "default",
           kind: form.get("kind") || "web",
           healthPath: form.get("healthPath") || "/",
