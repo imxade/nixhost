@@ -97,6 +97,8 @@ The built-in Node HTTP proxy supports ordinary HTTP and WebSocket upgrades. It r
 
 Web applications can also own multiple normalized DNS hostnames. Ordinary HTTP requests on the dashboard listener are dispatched by `Host`; each app's stable port remains the provider-neutral origin for WebSockets and external DNS/TLS proxies.
 
+Cloudflare synchronization persists one result per project hostname. The application Domains tab and the global Cloudflare page share that state, including managed/external/error status, zone, last error and synchronization time. Removal cleanup is ownership-checked before deleting a DNS record.
+
 ## Scaling boundary
 
 The initial host is one control-plane process and SQLite. It is designed for a personal node, not horizontal multi-node scheduling. A future central control plane must use a separate architecture and durable relay; it should not turn this SQLite node into a distributed database.

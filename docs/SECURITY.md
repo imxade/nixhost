@@ -47,10 +47,8 @@ For the integrated Android app, replace the local key-file fallback with Android
 
 ## Remaining high-priority hardening
 
-- Verify PID start time to defend against PID reuse before signalling recovered processes.
 - Add re-authentication for owner password/user/Cloudflare changes.
-- Add encrypted configuration export and tested restore.
 - Add optional local TLS and passkeys.
 - Verify Cloudflare API token permissions before storing.
-- Add dependency vulnerability and license scanning to CI.
+- Add interrupted-write and disk-full fault injection to backup/restore tests.
 - Obtain independent security review before exposing the dashboard to the internet.

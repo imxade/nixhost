@@ -10,7 +10,7 @@
 
 ## ADR-002 — Nix flakes are the only deployment definition
 
-**Decision:** Require `flake.nix`, `flake.lock`, and a runnable flake app output. Do not add dashboard-defined build/start shell commands.
+**Decision:** Require `flake.nix`, `flake.lock`, and a runnable flake app output. A project can isolate production packaging in `nixhost.nix`, imported by the flake, but NixHost never evaluates that loose file directly. Do not add dashboard-defined build/start shell commands.
 
 **Reason:** This keeps the application package reproducible and prevents the control plane from becoming an unrestricted remote shell interface.
 
@@ -62,4 +62,4 @@
 
 **Reason:** The intended Android experience is install, open, configure and host. The Next.js control plane, Nix flake application contract, authenticated LAN access and optional Cloudflare path remain consistent across distributions.
 
-**Consequence:** APK readiness requires an explicit Android packaging design, compliant delivery of the Nix/runtime dependencies, Maestro UI automation and physical multi-OEM lifecycle tests. Documentation must not imply that this APK exists until those gates pass.
+**Consequence:** APK readiness requires an explicit Android packaging design, compliant delivery of the Nix/runtime dependencies, Maestro UI automation and physical multi-OEM lifecycle tests. The APK source, foreground-service adapter, signing configuration and binaries belong to a separate Android distribution repository. Documentation in this repository must not imply that the APK exists until those gates pass.

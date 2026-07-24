@@ -15,7 +15,7 @@ NixHost is comparable in workflow to a small Vercel, Coolify or Dokploy node, bu
 3. Claim it with the one-time terminal token.
 4. Create the owner account.
 5. Connect GitHub or enter a public HTTPS GitHub repository URL.
-6. Select repository, branch and flake app output.
+6. Select repository and flake app output; optionally override the repository's default branch.
 7. Configure health path and environment variables.
 8. Deploy.
 9. Open the stable LAN endpoint.
@@ -61,6 +61,7 @@ NixHost is comparable in workflow to a small Vercel, Coolify or Dokploy node, bu
 - Create or reuse one named tunnel per host.
 - Map dashboard and application hostnames to local ports.
 - Create/update CNAME records for configured hostnames.
+- Show the Cloudflare route state, stable origin and last synchronization result for every project hostname.
 - Start and supervise cloudflared.
 - Keep LAN applications running when the tunnel is disabled or disconnected.
 
@@ -75,7 +76,7 @@ NixHost is comparable in workflow to a small Vercel, Coolify or Dokploy node, bu
 ## Non-functional requirements
 
 - Strict TypeScript.
-- No default credentials.
+- No default production credentials. The explicit loopback-only CI startup may create documented disposable test credentials.
 - No secrets returned after storage.
 - No shell interpolation for Git/Nix execution.
 - Bounded request sizes and log buffering.

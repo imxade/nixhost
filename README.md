@@ -6,7 +6,7 @@ This is not merely “Vercel for Android.” A `flake.nix` can package far more 
 
 > “VPS-like” describes the general-purpose application-hosting experience, not an isolation claim. NixHost does **not** turn Android into a virtual machine or a real VPS. Flakes provide reproducible software and commands, but cannot add missing kernel capabilities or bypass Android architecture, memory, battery, force-stop, and background-process restrictions. All deployed repositories run as the NixHost account and must be trusted.
 
-Today, Android development and physical-device validation use Nix-on-Droid. The distribution roadmap is a plug-and-play APK: install it, open it, and configure NixHost through the automatically started web interface without separate terminal setup. That APK is not shipped yet; it must first pass the Maestro, multi-device, foreground-service, packaging and licensing gates in [`docs/TESTING.md`](docs/TESTING.md). LAN access and optional Cloudflare exposure will keep the same NixHost authentication model.
+Today, Android development and physical-device validation use Nix-on-Droid. The distribution roadmap is a plug-and-play APK: install it, open it, and configure NixHost through the automatically started web interface without separate terminal setup. The APK, its native foreground-service wrapper, and Android distribution artifacts deliberately belong in a separate future repository; they are not part of this repository. That distribution must pass the Maestro, multi-device, foreground-service, packaging and licensing gates in [`docs/TESTING.md`](docs/TESTING.md). LAN access and optional Cloudflare exposure will keep the same NixHost authentication model.
 
 ## Current product contract
 
@@ -49,7 +49,8 @@ migrations/              Transactional SQLite migrations
 scripts/                 Diagnostics and launch helpers
 tests/                   Unit and browser tests
 docs/                    Product, architecture and operations documentation
-examples/hello-nixhost/  Minimal deployable flake example
+examples/hello-nixhost/      Minimal deployable flake example
+examples/npm-start-nixhost/  npm-start application packaged for deployment
 server.ts                 Custom persistent Next.js server
 instrumentation.ts        Runtime boot hook for standard Next.js paths
 flake.nix                 Locked Nix entry point and development shell
@@ -128,6 +129,7 @@ Each web application can have multiple hostnames such as `api.example.com` and `
 
 - Cloudflare-managed zones available to the configured API token are synchronized automatically.
 - Hostnames managed elsewhere are left untouched. Point them through your chosen DNS/TLS reverse proxy to the app's stable LAN port.
+- Each application's Domains tab shows whether every hostname is Cloudflare-managed, externally managed, awaiting synchronization, or failed, together with the stable origin port and last synchronization result.
 - Plain HTTP requests reaching the NixHost dashboard listener are also routed by `Host`.
 - TLS termination remains the responsibility of Cloudflare or the external reverse proxy.
 

@@ -6,14 +6,14 @@ This file is the compact implementation contract. Detailed rationale and operati
 
 NixHost is a LAN-first personal application host. It runs as one persistent self-hosted Next.js and TypeScript control plane on a Nix-capable host, with Android through Nix-on-Droid as the first target. It is not a VPS, virtual machine, container runtime, NixOS installation, or multi-tenant sandbox.
 
-Only trusted GitHub repositories are accepted. Every production deployment requires `flake.nix`, `flake.lock`, and a runnable `apps.<system>.<name>` output. The normal deployment path never accepts arbitrary dashboard shell commands.
+Only trusted GitHub repositories are accepted. Every production deployment requires `flake.nix`, `flake.lock`, and a runnable `apps.<system>.<name>` output. A project may keep its production package in `nixhost.nix`, but the locked flake remains the only discovery and execution entry point. The normal deployment path never accepts arbitrary dashboard shell commands.
 
 ## Required behavior
 
 1. A one-time terminal token claims a new node and creates the owner account.
 2. Every dashboard/API operation requires an authenticated role after setup.
 3. GitHub is connected from the dashboard through a per-node GitHub App manifest flow.
-4. The user selects an accessible repository, branch, and flake app output.
+4. The user selects an accessible repository and flake app output. An omitted branch resolves from the remote symbolic `HEAD`, with `main` used only when no symbolic default is advertised.
 5. Push webhooks deploy the exact production-branch commit when the node is public.
 6. Periodic branch reconciliation catches pushes missed while the node was LAN-only or offline.
 7. Candidate releases receive private local ports; web apps retain stable LAN proxy ports.
@@ -25,12 +25,14 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 13. Cloudflare Tunnel remains optional and can expose selected applications or the dashboard later.
 14. Restart recovery must preserve running application processes where the host permits it.
 15. Web applications may have multiple normalized custom domains. DNS and TLS may be managed by Cloudflare or by another provider targeting the application's stable LAN port.
+16. Failed password checks are bounded in one-hour windows by source and username, and throttled responses provide retry timing.
+17. Every project hostname exposes a persisted Cloudflare route result: managed, external, pending/not configured, or failed.
 
 ## Android distribution tracks
 
 The current Android track runs NixHost through Nix-on-Droid. It is not release-validated until the complete host and dashboard flow passes on physical ARM64 Android devices. Device acceptance combines command-level Nix-on-Droid checks with Maestro automation of the Android browser UI, including setup, authentication, GitHub connection, application creation, deployment status, LAN access and session expiry.
 
-The future distribution target is a self-contained APK with no separate Nix-on-Droid installation or terminal setup. The APK must start and supervise the local control plane through an Android foreground-service platform adapter, open an embedded or system web interface for first-run configuration, preserve the existing Next.js/TypeScript control plane and Nix flake deployment contract, and surface lifecycle failures honestly. It must package or safely provision every required runtime component, satisfy Android packaging and licensing requirements, and pass the same physical-device gate before release.
+The future distribution target is a self-contained APK with no separate Nix-on-Droid installation or terminal setup. The APK must start and supervise the local control plane through an Android foreground-service platform adapter, open an embedded or system web interface for first-run configuration, preserve the existing Next.js/TypeScript control plane and Nix flake deployment contract, and surface lifecycle failures honestly. It must package or safely provision every required runtime component, satisfy Android packaging and licensing requirements, and pass the same physical-device gate before release. APK source, native wrapper code, signing, binaries and store distribution are out of scope for this repository and will live in a separate Android distribution repository.
 
 Both tracks retain the same network contract: authenticated local access over LAN, with optional authenticated Cloudflare exposure. An APK must not weaken NixHost roles, sessions, origin validation, GitHub permissions or Cloudflare Access guidance.
 

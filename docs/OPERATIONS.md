@@ -44,7 +44,7 @@ Completed deployment logs are removed after `NIXHOST_LOG_RETENTION_DAYS` and old
 
 ## Nix store pressure
 
-NixHost checks free filesystem space before builds but does not automatically garbage-collect the Nix store. Run garbage collection deliberately after confirming no required generations or roots will be removed. A future UI action should show the exact closure impact before cleanup.
+NixHost checks free filesystem space before builds but does not automatically garbage-collect the Nix store. Run garbage collection deliberately after confirming no required generations or roots will be removed. Automated or dashboard-triggered garbage collection is outside the current product contract because it cannot yet show and preserve the exact required closure safely.
 
 ## Updating
 

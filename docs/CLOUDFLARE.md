@@ -27,6 +27,15 @@ NixHost creates proxied CNAME records pointing to `<tunnel-id>.cfargotunnel.com`
 
 Multiple Cloudflare zones can share the node tunnel when the token can access them. Application hostnames outside those zones are skipped—not modified or treated as an error—so another DNS/TLS provider can proxy those domains to the application's stable LAN port.
 
+Each application's Domains tab and the Cloudflare integration page show every project hostname, its stable local origin, last synchronization time and one of these route states:
+
+- `Cloudflare managed`: DNS and remote tunnel ingress were synchronized;
+- `External DNS/TLS`: no accessible Cloudflare zone was found and NixHost left DNS untouched;
+- `Awaiting sync` or `Cloudflare not connected`: no synchronization result exists yet;
+- `Sync failed`: Cloudflare returned an error, which remains visible with the route.
+
+Saving project domains triggers synchronization when Cloudflare is configured. When a previously managed hostname is removed, NixHost deletes its DNS record only when both the record's target is this node's tunnel and its ownership comment is `Managed by NixHost`; unrelated records are not removed.
+
 ## Management protection
 
 Use Cloudflare Access in addition to NixHost login for the console hostname. Application hostnames may remain public or be independently protected.

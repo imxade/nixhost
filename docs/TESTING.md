@@ -8,14 +8,21 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm test:e2e
+pnpm test:deployment
 pnpm test:examples
 pnpm db:doctor
 pnpm security:check
+pnpm audit --prod --audit-level high
+pnpm licenses list --prod
 nix flake check
 nix build
 ```
 
-Required CI matrix after lock generation:
+The current push/pull-request CI runs the application, browser, database,
+security, audit, license, direct-example, real-deployment and Nix package gates
+on x86_64 Linux.
+
+Release CI expansion still required:
 
 - x86_64 Linux, Node 24;
 - aarch64 Linux through native runner or QEMU for compile-only checks;
@@ -69,6 +76,22 @@ For the current Nix-on-Droid distribution:
 Maestro results complement rather than replace command logs, process checks and a second-device network test. Record the Maestro and Nix-on-Droid versions, flow files, timestamps, screenshots and any device-specific exclusions. Never convert an unsupported kernel or architecture case into a passing fixture.
 
 The future standalone APK repeats the same suite with no Nix-on-Droid or terminal precondition. Its Maestro flows must begin at fresh APK installation, cover guided configuration and verify that starting the app starts or reconnects to the foreground control-plane service and opens the web interface. Upgrade, permission denial, notification/foreground-service disclosure, backup/restore and uninstall/reinstall behavior are additional APK release gates.
+
+The checked-in Android harness consists of:
+
+```text
+scripts/android/run-nix-on-droid.sh verify
+scripts/android/run-nix-on-droid.sh serve-ci
+scripts/android/run-maestro.sh ci-login
+scripts/android/run-maestro.sh first-run-setup
+.github/workflows/android-device.yml
+```
+
+The manually dispatched workflow deliberately requires labeled self-hosted physical-device runners and uploads `artifacts/android/` even when a gate fails. The scripts reject non-ARM64 Nix-on-Droid hosts and Android emulators so an emulator cannot be mistaken for release evidence.
+
+The current development host preflight on 2026-07-24 found only an Android 15 x86_64 emulator, no Nix-on-Droid installation on that device, and no Maestro CLI. The runner correctly rejected it. This validates the guard, not Android compatibility; no physical-device pass is recorded.
+
+APK implementation and distribution remain outside this repository. The future Android distribution repository must consume these acceptance requirements and provide its own fresh-install Maestro flows, native unit/instrumentation tests, signing/reproducibility evidence and release artifacts.
 
 ## Quality-tooling rule
 

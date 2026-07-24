@@ -175,7 +175,7 @@ Update docs if current Cloudflare APIs differ.
 
 ### 10. Complete the Nix package
 
-The delivered `flake.nix` contains an intentionally invalid placeholder dependency hash because no dependency lock could be generated in the creation environment.
+The checked-in flake and production `nixhost.nix` now contain a resolved fixed-output dependency hash. Treat that hash as verified release metadata and change it only through a real mismatch-and-rebuild cycle.
 
 Run:
 
@@ -183,7 +183,7 @@ Run:
 nix build
 ```
 
-Copy the real hash from the fixed-output mismatch into `flake.nix`, then run:
+If a dependency update causes a fixed-output mismatch, copy the reported hash into `nixhost.nix`, then run:
 
 ```bash
 nix build
