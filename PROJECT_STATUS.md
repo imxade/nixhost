@@ -8,7 +8,7 @@ Last updated: 2026-07-24.
 - One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.
 - Fixed one-hour password-failure limits: six per source/username and 30 per source, with `Retry-After` on throttled responses.
 - SQLite WAL state with forward-only, empty-database-tested migrations and encrypted stored secrets.
-- Locked GitHub App manifest flow, paginated installation/repository discovery, short-lived installation tokens, signed/deduplicated webhooks and LAN reconciliation.
+- Locked GitHub App manifest flow, LAN-inactive/public-active webhook configuration, paginated installation/repository discovery, short-lived installation tokens, signed/deduplicated webhooks and LAN reconciliation.
 - Omitted production branches resolve from the repository's symbolic remote `HEAD`, with a validated `main` fallback when no symbolic branch is advertised.
 - Durable deployment queue with superseding/cancellation state, exact-commit Git worktrees and mandatory locked Nix flakes.
 - Detached application process groups, Linux start-time/cmdline/command-hash identity checks, conservative non-Linux recovery and guarded group signalling.
@@ -29,7 +29,7 @@ The following passed on 2026-07-24:
 ```text
 pnpm biome:ci
 pnpm typecheck
-pnpm test                         # 10 files, 36 tests
+pnpm test                         # 11 files, 38 tests
 pnpm build
 pnpm test:e2e                    # two isolated servers, Chromium, 2 scenarios
 pnpm test:examples               # both checked-in examples, exact commits
@@ -53,6 +53,8 @@ The real-Nix deployment integration verified healthy activation, a failing candi
 Backup tests perform a real SQLite/application-data CLI round trip and reject a checksum-tampered archive before mutating current state. Browser tests verify first-run owner creation, setup-token invalidation, theme initialization before body rendering, persisted theme choice, responsive form alignment, session cookies, hostile-origin rejection, user creation, viewer login, viewer write denial, the separate CI admin and hourly throttle timing.
 
 The Cloudflare unit integration verifies managed and external per-project states, remote ingress construction, removal of stale NixHost-owned DNS, and preservation of records whose target or ownership comment does not match. It uses a deterministic mocked Cloudflare API; it is not a live-account result.
+
+GitHub manifest tests verify that LAN-only registration keeps its unreachable webhook inactive and that a configured `NIXHOST_PUBLIC_URL` supplies and activates the public webhook origin.
 
 The dependency audit originally identified high-severity `sharp`/libvips and PostCSS advisories in Next.js transitive dependencies. Exact pnpm overrides now resolve `sharp 0.35.0` and `postcss 8.5.18`; the repeated production audit reports no known vulnerabilities.
 
