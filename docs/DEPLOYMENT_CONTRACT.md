@@ -9,6 +9,11 @@ flake.lock
 
 NixHost refuses an unlocked production deployment. The lock file is the reproducibility boundary for external flake inputs.
 
+The flake is the locked, standard Nix entry point rather than a development-only
+file. To keep concerns separate, a repository may put its production package in
+`nixhost.nix` and import it from `flake.nix`. NixHost evaluates only the flake
+output; it never executes a loose Nix file or dashboard-provided command.
+
 ## Required output
 
 Preferred:

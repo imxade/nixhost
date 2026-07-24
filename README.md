@@ -52,7 +52,8 @@ docs/                    Product, architecture and operations documentation
 examples/hello-nixhost/  Minimal deployable flake example
 server.ts                 Custom persistent Next.js server
 instrumentation.ts        Runtime boot hook for standard Next.js paths
-flake.nix                 Development and package definition
+flake.nix                 Locked Nix entry point and development shell
+nixhost.nix               Production package definition
 ```
 
 ## Development start
@@ -89,6 +90,10 @@ The repository includes the resolved `pnpm-lock.yaml`, `flake.lock`, and Nix fix
 ## Application flake contract
 
 A web application must remain in the foreground and listen on `HOST` and `PORT`. Mutable state belongs under `DATA_DIR`.
+
+`flake.nix` is the locked discovery entry point NixHost evaluates. Projects may
+keep the actual deployment package in a separate `nixhost.nix` and expose it
+from the flake, as both checked-in examples do.
 
 ```nix
 apps.${system}.default = {

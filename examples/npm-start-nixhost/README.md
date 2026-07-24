@@ -20,13 +20,11 @@ curl http://127.0.0.1:3000/health
 
 ## Deploy it with NixHost
 
-Push this directory to a Git repository, or use it as the repository root, then
-create a web deployment with:
+Push this directory as the root of a Git repository, then create a web
+deployment with:
 
 - Flake output: `default`
 - Health path: `/health`
-- Repository subdirectory: `examples/npm-start-nixhost` when deploying from the
-  main NixHost repository
 
 NixHost evaluates the flake, starts its default app, and injects runtime
 variables such as `HOST`, `PORT`, `DATA_DIR`, and `DEPLOYMENT_ID`.
