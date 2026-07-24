@@ -23,10 +23,8 @@ describe("GitHub App manifest", () => {
     delete process.env.NIXHOST_PUBLIC_URL;
     const { manifest } = createManifest("http://127.0.0.1:3000");
 
-    expect(manifest.hook_attributes).toEqual({
-      url: "http://127.0.0.1:3000/api/github/webhook",
-      active: false,
-    });
+    expect(manifest).not.toHaveProperty("hook_attributes");
+    expect(manifest.default_events).toEqual(["push"]);
   });
 
   it("activates the webhook only for the configured public origin", () => {

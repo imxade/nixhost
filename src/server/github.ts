@@ -47,8 +47,7 @@ export function createManifest(baseUrl: string): {
   const state = randomToken(24);
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   setSetting("github_manifest_state", JSON.stringify({ hash: sha256(state), expiresAt }));
-  const publicBase =
-    process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "") || baseUrl.replace(/\/$/, "");
+  const publicBase = process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "");
   return {
     state,
     manifest: {
@@ -64,11 +63,15 @@ export function createManifest(baseUrl: string): {
         contents: "read",
         metadata: "read",
       },
-      default_events: ["push", "installation", "installation_repositories"],
-      hook_attributes: {
-        url: `${publicBase}/api/github/webhook`,
-        active: Boolean(process.env.NIXHOST_PUBLIC_URL),
-      },
+      default_events: ["push"],
+      ...(publicBase
+        ? {
+            hook_attributes: {
+              url: `${publicBase}/api/github/webhook`,
+              active: true,
+            },
+          }
+        : {}),
     },
   };
 }
