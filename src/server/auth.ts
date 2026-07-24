@@ -15,8 +15,20 @@ import { paths } from "./paths.ts";
 import type { Role, SessionRow, UserRow } from "./types.ts";
 
 const SESSION_DAYS = 14;
-const MAX_FAILURES = 6;
-const BLOCK_MINUTES = 15;
+const LOGIN_WINDOW_MS = 60 * 60_000;
+const CREDENTIAL_FAILURE_LIMIT = 6;
+const SOURCE_FAILURE_LIMIT = 30;
+
+interface LoginRateBucket {
+  key: string;
+  limit: number;
+}
+
+interface LoginAttemptRow {
+  failures: number;
+  blocked_until: string | null;
+  window_started_at: string | null;
+}
 
 export interface AuthenticatedUser {
   id: string;
@@ -95,19 +107,30 @@ export async function login(input: {
   if (!isSetupComplete())
     throw new HttpError(409, "Complete first-run setup before signing in", "setup_required");
   const username = normalizeUsername(input.username);
-  const key = sha256(`${input.ip ?? "unknown"}\n${username}`);
-  enforceLoginRateLimit(key);
+  const source = input.ip ?? "unknown";
+  const credentialBucket = {
+    key: `credential:${sha256(`${source}\n${username}`)}`,
+    limit: CREDENTIAL_FAILURE_LIMIT,
+  };
+  const buckets = [
+    credentialBucket,
+    {
+      key: `source:${sha256(source)}`,
+      limit: SOURCE_FAILURE_LIMIT,
+    },
+  ];
+  enforceLoginRateLimits(buckets);
   const user = getDb()
     .prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE")
     .get(username) as UserRow | undefined;
   const valid =
     user && !user.disabled ? await verifyPassword(input.password, user.password_hash) : false;
   if (!valid || !user) {
-    recordLoginFailure(key);
+    recordLoginFailures(buckets);
     audit({ action: "auth.login_failed", ip: input.ip, details: { username } });
     throw new HttpError(401, "Invalid username or password", "invalid_credentials");
   }
-  clearLoginFailures(key);
+  clearLoginFailures(credentialBucket.key);
   const session = createSession(user.id, input.ip, input.userAgent);
   audit({
     userId: user.id,
@@ -217,38 +240,67 @@ function validatePassword(password: string): void {
   }
 }
 
-function enforceLoginRateLimit(key: string): void {
-  const row = getDb()
-    .prepare("SELECT blocked_until, updated_at FROM login_attempts WHERE key = ?")
-    .get(key) as { blocked_until: string | null; updated_at: string } | undefined;
-  if (!row) return;
-  if (row.blocked_until && Date.parse(row.blocked_until) > Date.now()) {
-    throw new HttpError(
-      429,
-      "Too many failed sign-in attempts. Try again later",
-      "login_rate_limited",
-    );
-  }
-  if (Date.now() - Date.parse(row.updated_at) >= BLOCK_MINUTES * 60_000) {
-    getDb().prepare("DELETE FROM login_attempts WHERE key = ?").run(key);
+function enforceLoginRateLimits(buckets: LoginRateBucket[]): void {
+  const db = getDb();
+  for (const bucket of buckets) {
+    const row = db
+      .prepare(
+        "SELECT failures, blocked_until, window_started_at FROM login_attempts WHERE key = ?",
+      )
+      .get(bucket.key) as LoginAttemptRow | undefined;
+    if (!row) continue;
+    const windowStarted = Date.parse(row.window_started_at ?? "");
+    const windowEnds = windowStarted + LOGIN_WINDOW_MS;
+    if (!Number.isFinite(windowStarted) || windowEnds <= Date.now()) {
+      db.prepare("DELETE FROM login_attempts WHERE key = ?").run(bucket.key);
+      continue;
+    }
+    if (
+      row.failures >= bucket.limit ||
+      (row.blocked_until && Date.parse(row.blocked_until) > Date.now())
+    ) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((windowEnds - Date.now()) / 1000));
+      throw new HttpError(
+        429,
+        "Too many failed sign-in attempts. Try again later",
+        "login_rate_limited",
+        retryAfterSeconds,
+      );
+    }
   }
 }
 
-function recordLoginFailure(key: string): void {
+function recordLoginFailures(buckets: LoginRateBucket[]): void {
   const now = nowIso();
   const db = getDb();
-  const current = db
-    .prepare("SELECT failures, updated_at FROM login_attempts WHERE key = ?")
-    .get(key) as { failures: number; updated_at: string } | undefined;
-  const withinWindow =
-    current && Date.now() - Date.parse(current.updated_at) < BLOCK_MINUTES * 60_000;
-  const failures = (withinWindow ? current.failures : 0) + 1;
-  const blockedUntil =
-    failures >= MAX_FAILURES ? new Date(Date.now() + BLOCK_MINUTES * 60_000).toISOString() : null;
-  db.prepare(
-    `INSERT INTO login_attempts(key, failures, blocked_until, updated_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET failures = excluded.failures, blocked_until = excluded.blocked_until, updated_at = excluded.updated_at`,
-  ).run(key, failures, blockedUntil, now);
+  db.transaction(() => {
+    for (const bucket of buckets) {
+      const current = db
+        .prepare(
+          "SELECT failures, blocked_until, window_started_at FROM login_attempts WHERE key = ?",
+        )
+        .get(bucket.key) as LoginAttemptRow | undefined;
+      const currentWindow = Date.parse(current?.window_started_at ?? "");
+      const withinWindow =
+        Number.isFinite(currentWindow) && currentWindow + LOGIN_WINDOW_MS > Date.now();
+      const windowStartedAt = withinWindow ? (current?.window_started_at ?? now) : now;
+      const failures = (withinWindow ? (current?.failures ?? 0) : 0) + 1;
+      const blockedUntil =
+        failures >= bucket.limit
+          ? new Date(Date.parse(windowStartedAt) + LOGIN_WINDOW_MS).toISOString()
+          : null;
+      db.prepare(
+        `INSERT INTO login_attempts(
+          key, failures, blocked_until, updated_at, window_started_at
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          failures = excluded.failures,
+          blocked_until = excluded.blocked_until,
+          updated_at = excluded.updated_at,
+          window_started_at = excluded.window_started_at`,
+      ).run(bucket.key, failures, blockedUntil, now, windowStartedAt);
+    }
+  })();
 }
 
 function clearLoginFailures(key: string): void {

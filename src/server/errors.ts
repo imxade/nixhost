@@ -3,6 +3,7 @@ export class HttpError extends Error {
     public readonly status: number,
     message: string,
     public readonly code = "request_failed",
+    public readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "HttpError";

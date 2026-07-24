@@ -11,7 +11,9 @@ NixHost protects the management interface and stored credentials from unauthenti
 - Passwords hashed with scrypt and per-password random salt.
 - Random opaque session cookies; only token hashes are stored.
 - HttpOnly, SameSite=Lax cookies; Secure when accessed over HTTPS.
-- Login throttling keyed by source IP and username.
+- Failed logins are limited in fixed one-hour windows: six per source/username
+  pair and 30 across usernames from one source. Throttled responses include
+  `Retry-After`.
 - Owner/admin/operator/viewer authorization checks on every write API.
 
 ## Request protection

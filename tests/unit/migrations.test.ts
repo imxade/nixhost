@@ -18,6 +18,7 @@ describe("database migrations", () => {
     apply(db, migration("001_initial.sql"));
     apply(db, migration("002_process_identity.sql"));
     apply(db, migration("003_application_domains.sql"));
+    apply(db, migration("004_hourly_login_limits.sql"));
 
     expect(
       db
@@ -26,6 +27,9 @@ describe("database migrations", () => {
         )
         .get(),
     ).toEqual({ name: "application_domains" });
+    expect(db.prepare("SELECT window_started_at FROM login_attempts").columns()[0]?.name).toBe(
+      "window_started_at",
+    );
     expect(db.pragma("foreign_key_check")).toEqual([]);
     db.close();
   });
@@ -48,6 +52,7 @@ describe("database migrations", () => {
 
     apply(db, migration("002_process_identity.sql"));
     apply(db, migration("003_application_domains.sql"));
+    apply(db, migration("004_hourly_login_limits.sql"));
 
     expect(db.prepare("SELECT hostname, app_id FROM application_domains").all()).toEqual([
       { hostname: "app.example.com", app_id: "app-1" },

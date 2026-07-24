@@ -33,7 +33,11 @@ export async function api<T>(
         path: request.nextUrl.pathname,
       });
     }
-    return NextResponse.json({ ok: false, error: { code, message } }, { status });
+    const headers =
+      error instanceof HttpError && error.retryAfterSeconds
+        ? { "retry-after": String(error.retryAfterSeconds) }
+        : undefined;
+    return NextResponse.json({ ok: false, error: { code, message } }, { status, headers });
   }
 }
 
