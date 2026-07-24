@@ -9,7 +9,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
-const putSchema = z.object({ variables: z.record(z.string(), z.string()), secret: z.boolean().default(true) });
+const putSchema = z.object({
+  variables: z.record(z.string(), z.string()),
+  secret: z.boolean().default(true),
+});
 const deleteSchema = z.object({ key: z.string().min(1) });
 
 export async function GET(request: NextRequest, context: Context) {

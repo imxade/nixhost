@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
+import { domainToASCII } from "node:url";
 import { z } from "zod";
-import { audit } from "./audit.js";
-import { encryptSecret } from "./crypto.js";
-import { getDb, nowIso, setSetting, setting } from "./db.js";
-import { HttpError } from "./errors.js";
-import { allocatePublicPort } from "./ports.js";
-import type { AppRow, DeploymentRow } from "./types.js";
+import { audit } from "./audit.ts";
+import { encryptSecret } from "./crypto.ts";
+import { getDb, nowIso } from "./db.ts";
+import { HttpError } from "./errors.ts";
+import { allocatePublicPort } from "./ports.ts";
+import type { AppRow, DeploymentRow } from "./types.ts";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -13,9 +14,16 @@ const createSchema = z.object({
     .string()
     .trim()
     .url()
-    .refine(isSupportedGitHubRepositoryUrl, "Use an HTTPS GitHub repository URL such as https://github.com/owner/repository.git"),
+    .refine(
+      isSupportedGitHubRepositoryUrl,
+      "Use an HTTPS GitHub repository URL such as https://github.com/owner/repository.git",
+    ),
   branch: z.string().trim().min(1).max(200).default("main"),
-  flakeOutput: z.string().trim().regex(/^[A-Za-z0-9._+-]+$/).default("default"),
+  flakeOutput: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._+-]+$/)
+    .default("default"),
   kind: z.enum(["web", "worker"]).default("web"),
   githubRepositoryId: z.number().int().positive().nullable().optional(),
   githubInstallationId: z.number().int().positive().nullable().optional(),
@@ -26,14 +34,22 @@ const createSchema = z.object({
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   branch: z.string().trim().min(1).max(200).optional(),
-  flakeOutput: z.string().trim().regex(/^[A-Za-z0-9._+-]+$/).optional(),
+  flakeOutput: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._+-]+$/)
+    .optional(),
   autoDeploy: z.boolean().optional(),
   healthPath: z.string().trim().startsWith("/").max(500).optional(),
   restartPolicy: z.enum(["never", "on-failure", "always", "unless-stopped"]).optional(),
+  domains: z.array(z.string().trim().min(1).max(253)).max(20).optional(),
   domain: z.string().trim().max(253).optional().nullable(),
 });
 
-export async function createApplication(raw: unknown, actor?: { id: string; ip?: string | null }): Promise<AppRow> {
+export async function createApplication(
+  raw: unknown,
+  actor?: { id: string; ip?: string | null },
+): Promise<AppRow> {
   const input = createSchema.parse(raw);
   input.repositoryUrl = normalizeGitHubRepositoryUrl(input.repositoryUrl);
   const id = crypto.randomUUID();
@@ -79,17 +95,17 @@ export function listApplications(): AppRow[] {
 }
 
 export function getApplication(id: string): AppRow {
-  const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(id) as AppRow | undefined;
+  const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(id) as
+    | AppRow
+    | undefined;
   if (!app) throw new HttpError(404, "Application not found", "application_not_found");
   return app;
 }
 
-export function getApplicationByRepositoryId(repositoryId: number): AppRow | null {
-  return (
-    (getDb().prepare("SELECT * FROM applications WHERE github_repository_id = ?").get(repositoryId) as
-      | AppRow
-      | undefined) ?? null
-  );
+export function getApplicationsByRepositoryId(repositoryId: number): AppRow[] {
+  return getDb()
+    .prepare("SELECT * FROM applications WHERE github_repository_id = ? ORDER BY created_at")
+    .all(repositoryId) as AppRow[];
 }
 
 export function updateApplication(
@@ -113,13 +129,14 @@ export function updateApplication(
   if (input.restartPolicy !== undefined) add("restart_policy", input.restartPolicy);
   if (columns.length) {
     add("updated_at", nowIso());
-    getDb().prepare(`UPDATE applications SET ${columns.join(", ")} WHERE id = ?`).run(...values, id);
+    getDb()
+      .prepare(`UPDATE applications SET ${columns.join(", ")} WHERE id = ?`)
+      .run(...values, id);
   }
   if (input.domain !== undefined) {
-    const domain = input.domain?.toLowerCase() || "";
-    if (domain && !isHostname(domain)) throw new HttpError(400, "Domain is not a valid hostname", "invalid_domain");
-    if (domain) setSetting(`domain:${id}`, domain);
-    else getDb().prepare("DELETE FROM settings WHERE key = ?").run(`domain:${id}`);
+    replaceApplicationDomains(id, input.domain ? [input.domain] : []);
+  } else if (input.domains !== undefined) {
+    replaceApplicationDomains(id, input.domains);
   }
   audit({
     userId: actor?.id,
@@ -133,7 +150,50 @@ export function updateApplication(
 }
 
 export function applicationDomain(id: string): string | null {
-  return setting(`domain:${id}`) ?? null;
+  return applicationDomains(id)[0] ?? null;
+}
+
+export function applicationDomains(id: string): string[] {
+  return (
+    getDb()
+      .prepare(
+        "SELECT hostname FROM application_domains WHERE app_id = ? ORDER BY created_at, hostname",
+      )
+      .all(id) as Array<{ hostname: string }>
+  ).map((row) => row.hostname);
+}
+
+export function replaceApplicationDomains(appId: string, values: string[]): string[] {
+  const app = getApplication(appId);
+  if (app.kind !== "web" && values.length > 0) {
+    throw new HttpError(
+      400,
+      "Worker applications cannot have custom domains",
+      "domain_requires_web_app",
+    );
+  }
+  const domains = [...new Set(values.map(normalizeDomain))];
+  const now = nowIso();
+  const db = getDb();
+  try {
+    db.transaction(() => {
+      db.prepare("DELETE FROM application_domains WHERE app_id = ?").run(appId);
+      const insert = db.prepare(
+        "INSERT INTO application_domains(hostname, app_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
+      );
+      for (const hostname of domains) insert.run(hostname, appId, now, now);
+    })();
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE constraint failed/i.test(error.message)) {
+      throw new HttpError(
+        409,
+        "A custom domain can only be assigned to one application",
+        "domain_already_assigned",
+      );
+    }
+    throw error;
+  }
+  return applicationDomains(appId);
 }
 
 export function setEnvironment(
@@ -145,11 +205,16 @@ export function setEnvironment(
   getApplication(appId);
   const entries = Object.entries(variables);
   for (const [key, value] of entries) {
-    if (!/^[A-Z_][A-Z0-9_]*$/i.test(key)) throw new HttpError(400, `Invalid environment variable name: ${key}`, "invalid_env_key");
-    if (key.startsWith("NIXHOST_") || ["PORT", "HOST", "DATA_DIR", "CACHE_DIR", "LOG_DIR"].includes(key)) {
+    if (!/^[A-Z_][A-Z0-9_]*$/i.test(key))
+      throw new HttpError(400, `Invalid environment variable name: ${key}`, "invalid_env_key");
+    if (
+      key.startsWith("NIXHOST_") ||
+      ["PORT", "HOST", "DATA_DIR", "CACHE_DIR", "LOG_DIR"].includes(key)
+    ) {
       throw new HttpError(400, `${key} is reserved by NixHost`, "reserved_env_key");
     }
-    if (Buffer.byteLength(value) > 64 * 1024) throw new HttpError(400, `${key} exceeds 64 KiB`, "env_value_too_large");
+    if (Buffer.byteLength(value) > 64 * 1024)
+      throw new HttpError(400, `${key} exceeds 64 KiB`, "env_value_too_large");
   }
   const now = nowIso();
   const statement = getDb().prepare(
@@ -159,7 +224,15 @@ export function setEnvironment(
   );
   getDb().transaction(() => {
     for (const [key, value] of entries) {
-      statement.run(crypto.randomUUID(), appId, key, encryptSecret(value), secret ? 1 : 0, now, now);
+      statement.run(
+        crypto.randomUUID(),
+        appId,
+        key,
+        encryptSecret(value),
+        secret ? 1 : 0,
+        now,
+        now,
+      );
     }
   })();
   audit({
@@ -172,7 +245,9 @@ export function setEnvironment(
   });
 }
 
-export function environmentKeys(appId: string): Array<{ key: string; secret: boolean; updatedAt: string }> {
+export function environmentKeys(
+  appId: string,
+): Array<{ key: string; secret: boolean; updatedAt: string }> {
   return (
     getDb()
       .prepare("SELECT key, secret, updated_at FROM app_environment WHERE app_id = ? ORDER BY key")
@@ -190,21 +265,26 @@ export function queueDeployment(
 ): DeploymentRow {
   const app = getApplication(appId);
   const db = getDb();
-  db.prepare(
-    `UPDATE deployments SET state = 'superseded', finished_at = ?
-     WHERE app_id = ? AND state = 'queued'`,
-  ).run(nowIso(), appId);
   const id = crypto.randomUUID();
-  db.prepare(
-    `INSERT INTO deployments(id, app_id, commit_sha, requested_ref, trigger, state, resource_confidence,
-      queued_at, cancel_requested)
-     VALUES (?, ?, ?, ?, ?, 'queued', 'none', ?, 0)`,
-  ).run(id, appId, input.commitSha ?? null, input.requestedRef ?? app.branch, input.trigger, nowIso());
+  const now = nowIso();
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE deployments SET state = 'superseded', finished_at = ?
+       WHERE app_id = ? AND state = 'queued'`,
+    ).run(now, appId);
+    db.prepare(
+      `INSERT INTO deployments(id, app_id, commit_sha, requested_ref, trigger, state, resource_confidence,
+        queued_at, cancel_requested)
+       VALUES (?, ?, ?, ?, ?, 'queued', 'none', ?, 0)`,
+    ).run(id, appId, input.commitSha ?? null, input.requestedRef ?? app.branch, input.trigger, now);
+  })();
   return getDeployment(id);
 }
 
 export function getDeployment(id: string): DeploymentRow {
-  const row = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(id) as DeploymentRow | undefined;
+  const row = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(id) as
+    | DeploymentRow
+    | undefined;
   if (!row) throw new HttpError(404, "Deployment not found", "deployment_not_found");
   return row;
 }
@@ -215,7 +295,9 @@ export function listDeployments(appId?: string, limit = 50): DeploymentRow[] {
       .prepare("SELECT * FROM deployments WHERE app_id = ? ORDER BY queued_at DESC LIMIT ?")
       .all(appId, limit) as DeploymentRow[];
   }
-  return getDb().prepare("SELECT * FROM deployments ORDER BY queued_at DESC LIMIT ?").all(limit) as DeploymentRow[];
+  return getDb()
+    .prepare("SELECT * FROM deployments ORDER BY queued_at DESC LIMIT ?")
+    .all(limit) as DeploymentRow[];
 }
 
 export function requestDeploymentCancellation(id: string): void {
@@ -227,7 +309,6 @@ export function requestDeploymentCancellation(id: string): void {
 export function deleteApplication(id: string): void {
   getApplication(id);
   getDb().prepare("DELETE FROM applications WHERE id = ?").run(id);
-  getDb().prepare("DELETE FROM settings WHERE key = ?").run(`domain:${id}`);
 }
 
 function uniqueSlug(name: string): string {
@@ -246,8 +327,20 @@ function uniqueSlug(name: string): string {
   return `${base}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
-function isHostname(value: string): boolean {
-  return value.length <= 253 && value.split(".").every((part) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(part));
+export function normalizeDomain(value: string): string {
+  const trimmed = value.trim().replace(/\.$/, "");
+  const ascii = domainToASCII(trimmed).toLowerCase();
+  if (
+    !ascii ||
+    ascii.length > 253 ||
+    ascii.includes(":") ||
+    ascii.includes("/") ||
+    !ascii.includes(".") ||
+    ascii.split(".").some((part) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(part))
+  ) {
+    throw new HttpError(400, "Domain is not a valid DNS hostname", "invalid_domain");
+  }
+  return ascii;
 }
 
 function isSupportedGitHubRepositoryUrl(value: string): boolean {
@@ -256,7 +349,10 @@ function isSupportedGitHubRepositoryUrl(value: string): boolean {
     if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "github.com") return false;
     if (url.username || url.password || url.port || url.search || url.hash) return false;
     const segments = url.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-    return segments.length === 2 && segments.every((segment) => /^[A-Za-z0-9_.-]+(?:\.git)?$/.test(segment));
+    return (
+      segments.length === 2 &&
+      segments.every((segment) => /^[A-Za-z0-9_.-]+(?:\.git)?$/.test(segment))
+    );
   } catch {
     return false;
   }

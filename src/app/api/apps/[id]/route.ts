@@ -1,10 +1,17 @@
 import type { NextRequest } from "next/server";
-import { applicationDomain, deleteApplication, environmentKeys, getApplication, listDeployments, updateApplication } from "@/server/app-service";
-import { api, readJson } from "@/server/http";
-import { clientIp, requestUser } from "@/server/next-auth";
+import {
+  applicationDomains,
+  deleteApplication,
+  environmentKeys,
+  getApplication,
+  listDeployments,
+  updateApplication,
+} from "@/server/app-service";
 import { requireRole } from "@/server/auth";
-import { getRuntime } from "@/server/runtime";
+import { api, readJson } from "@/server/http";
 import { latestAppMetric } from "@/server/metrics";
+import { clientIp, requestUser } from "@/server/next-auth";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +24,7 @@ export async function GET(request: NextRequest, context: Context) {
     const { id } = await context.params;
     return {
       app: getApplication(id),
-      domain: applicationDomain(id),
+      domains: applicationDomains(id),
       environment: environmentKeys(id),
       deployments: listDeployments(id, 30),
       metric: latestAppMetric(id),
@@ -30,7 +37,10 @@ export async function PATCH(request: NextRequest, context: Context) {
     const user = requestUser(request);
     requireRole(user, ["owner", "admin", "operator"]);
     const { id } = await context.params;
-    const app = updateApplication(id, await readJson(request), { id: user.id, ip: clientIp(request) });
+    const app = updateApplication(id, await readJson(request), {
+      id: user.id,
+      ip: clientIp(request),
+    });
     const runtimeInstance = await getRuntime();
     await runtimeInstance.proxy.reconcile();
     await runtimeInstance.cloudflare.syncIngress();

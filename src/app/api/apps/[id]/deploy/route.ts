@@ -10,7 +10,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
-const schema = z.object({ commitSha: z.string().regex(/^[0-9a-f]{7,64}$/i).optional().nullable() });
+const schema = z.object({
+  commitSha: z
+    .string()
+    .regex(/^[0-9a-f]{7,64}$/i)
+    .optional()
+    .nullable(),
+});
 
 export async function POST(request: NextRequest, context: Context) {
   return api(request, async () => {
@@ -23,7 +29,10 @@ export async function POST(request: NextRequest, context: Context) {
       requestedRef: input.commitSha ?? undefined,
       trigger: "manual",
     });
-    events.publish("deployment.queued", `app:${id}`, { deploymentId: deployment.id, trigger: "manual" });
+    events.publish("deployment.queued", `app:${id}`, {
+      deploymentId: deployment.id,
+      trigger: "manual",
+    });
     return deployment;
   });
 }

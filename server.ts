@@ -1,24 +1,26 @@
 import http from "node:http";
 import next from "next";
-import { config } from "./src/server/config.js";
-import { bootRuntime } from "./src/server/runtime.js";
-import { logger } from "./src/server/logger.js";
+import { config } from "./src/server/config.ts";
+import { logger } from "./src/server/logger.ts";
+import { bootRuntime } from "./src/server/runtime.ts";
 
 const development = process.env.NODE_ENV !== "production";
 const app = next({ dev: development, hostname: config.HOSTNAME, port: config.PORT });
 const handle = app.getRequestHandler();
 
-await bootRuntime();
+const platformRuntime = await bootRuntime();
 await app.prepare();
 
 const server = http.createServer((request, response) => {
   sanitizeForwardedHeaders(request);
+  if (platformRuntime.proxy.proxyDomainRequest(request, response)) return;
   void handle(request, response).catch((error: unknown) => {
     logger.error("Unhandled Next.js request error", {
       error: error instanceof Error ? error.message : String(error),
       url: request.url,
     });
-    if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    if (!response.headersSent)
+      response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
     response.end("Internal server error\n");
   });
 });
@@ -74,7 +76,7 @@ async function shutdown(signal: string, exitCode = 0): Promise<void> {
   } catch (error) {
     exitCode = 1;
     logger.error("Runtime shutdown failed", {
-      error: error instanceof Error ? error.stack ?? error.message : String(error),
+      error: error instanceof Error ? (error.stack ?? error.message) : String(error),
     });
   } finally {
     server.closeAllConnections();
@@ -91,6 +93,8 @@ process.on("uncaughtException", (error) => {
   void shutdown("uncaughtException", 1);
 });
 process.on("unhandledRejection", (reason) => {
-  logger.error("Unhandled rejection", { reason: reason instanceof Error ? reason.stack : String(reason) });
+  logger.error("Unhandled rejection", {
+    reason: reason instanceof Error ? reason.stack : String(reason),
+  });
   void shutdown("unhandledRejection", 1);
 });

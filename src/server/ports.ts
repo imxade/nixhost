@@ -1,5 +1,5 @@
 import net from "node:net";
-import { getDb } from "./db.js";
+import { getDb } from "./db.ts";
 
 async function canListen(port: number, host = "127.0.0.1"): Promise<boolean> {
   return new Promise((resolve) => {
@@ -19,9 +19,13 @@ export async function allocateInternalPort(): Promise<number> {
 
 export async function allocatePublicPort(): Promise<number> {
   const used = new Set(
-    (getDb().prepare("SELECT public_port FROM applications WHERE public_port IS NOT NULL").all() as Array<{
-      public_port: number;
-    }>).map((row) => row.public_port),
+    (
+      getDb()
+        .prepare("SELECT public_port FROM applications WHERE public_port IS NOT NULL")
+        .all() as Array<{
+        public_port: number;
+      }>
+    ).map((row) => row.public_port),
   );
   for (let port = 10000; port <= 19999; port++) {
     if (!used.has(port) && (await canListen(port, "0.0.0.0"))) return port;

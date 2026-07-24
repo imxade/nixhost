@@ -1,9 +1,16 @@
-import http, { type IncomingHttpHeaders, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
-import net from "node:net";
+import http, {
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type OutgoingHttpHeaders,
+  type ServerResponse,
+} from "node:http";
 import type { Socket } from "node:net";
-import { getDb } from "./db.js";
-import { logger } from "./logger.js";
-import type { AppRow } from "./types.js";
+import net from "node:net";
+import type { Duplex } from "node:stream";
+import { domainToASCII } from "node:url";
+import { getDb } from "./db.ts";
+import { logger } from "./logger.ts";
+import type { AppRow } from "./types.ts";
 
 interface Listener {
   port: number;
@@ -13,6 +20,17 @@ interface Listener {
 
 export class ProxyManager {
   private readonly listeners = new Map<string, Listener>();
+
+  proxyDomainRequest(request: IncomingMessage, response: ServerResponse): boolean {
+    const hostname = requestHostname(request.headers.host);
+    if (!hostname) return false;
+    const row = getDb()
+      .prepare("SELECT app_id FROM application_domains WHERE hostname = ?")
+      .get(hostname) as { app_id: string } | undefined;
+    if (!row) return false;
+    this.proxyHttp(row.app_id, request, response);
+    return true;
+  }
 
   async reconcile(): Promise<void> {
     const apps = getDb()
@@ -83,12 +101,16 @@ export class ProxyManager {
     }
 
     const headers = stripHopByHopHeaders(request.headers);
-    const remoteAddress = request.socket.remoteAddress ?? "";
-    const existingForwardedFor = firstHeader(request.headers["x-forwarded-for"]);
+    const clientIp = forwardedClientIp(request);
+    delete headers["cf-connecting-ip"];
+    delete headers["x-forwarded-for"];
+    delete headers["x-forwarded-host"];
+    delete headers["x-forwarded-proto"];
     headers.host = request.headers.host;
-    headers["x-forwarded-for"] = existingForwardedFor ? `${existingForwardedFor}, ${remoteAddress}` : remoteAddress;
+    headers["x-forwarded-for"] = clientIp;
     headers["x-forwarded-host"] = firstHeader(request.headers.host) ?? "";
     headers["x-forwarded-proto"] = isEncryptedSocket(request.socket) ? "https" : "http";
+    if (isLoopback(request.socket.remoteAddress)) headers["cf-connecting-ip"] = clientIp;
 
     const upstream = http.request(
       {
@@ -99,12 +121,16 @@ export class ProxyManager {
         headers,
       },
       (upstreamResponse) => {
-        response.writeHead(upstreamResponse.statusCode ?? 502, stripHopByHopHeaders(upstreamResponse.headers));
+        response.writeHead(
+          upstreamResponse.statusCode ?? 502,
+          stripHopByHopHeaders(upstreamResponse.headers),
+        );
         upstreamResponse.pipe(response);
       },
     );
     upstream.on("error", () => {
-      if (!response.headersSent) response.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
+      if (!response.headersSent)
+        response.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
       response.end("Upstream application connection failed\n");
     });
     request.on("aborted", () => upstream.destroy());
@@ -114,18 +140,26 @@ export class ProxyManager {
     request.pipe(upstream);
   }
 
-  private proxyUpgrade(appId: string, request: IncomingMessage, socket: Socket, head: Buffer): void {
+  private proxyUpgrade(
+    appId: string,
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ): void {
     const port = this.targetPort(appId);
     if (!port) {
       socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
       return;
     }
     const upstream = net.connect(port, "127.0.0.1", () => {
-      const headerLines = [`${request.method ?? "GET"} ${request.url ?? "/"} HTTP/${request.httpVersion}`];
+      const headerLines = [
+        `${request.method ?? "GET"} ${request.url ?? "/"} HTTP/${request.httpVersion}`,
+      ];
       const denied = new Set([
         "proxy-authorization",
         "proxy-authenticate",
         "proxy-connection",
+        "cf-connecting-ip",
         "x-forwarded-for",
         "x-forwarded-host",
         "x-forwarded-proto",
@@ -136,11 +170,15 @@ export class ProxyManager {
         if (!name || denied.has(name.toLowerCase())) continue;
         headerLines.push(`${name}: ${value}`);
       }
-      headerLines.push(`X-Forwarded-For: ${request.socket.remoteAddress ?? ""}`);
+      const clientIp = forwardedClientIp(request);
+      headerLines.push(`X-Forwarded-For: ${clientIp}`);
       headerLines.push(`X-Forwarded-Host: ${request.headers.host ?? ""}`);
       headerLines.push(
         `X-Forwarded-Proto: ${isEncryptedSocket(request.socket) ? "https" : "http"}`,
       );
+      if (isLoopback(request.socket.remoteAddress)) {
+        headerLines.push(`CF-Connecting-IP: ${clientIp}`);
+      }
       upstream.write(`${headerLines.join("\r\n")}\r\n\r\n`);
       if (head.length) upstream.write(head);
       socket.pipe(upstream).pipe(socket);
@@ -184,6 +222,29 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function isEncryptedSocket(socket: Socket): boolean {
-  return Boolean((socket as Socket & { encrypted?: boolean }).encrypted);
+function isEncryptedSocket(socket: Duplex): boolean {
+  return Boolean((socket as Duplex & { encrypted?: boolean }).encrypted);
+}
+
+function forwardedClientIp(request: IncomingMessage): string {
+  const remoteAddress = request.socket.remoteAddress ?? "";
+  if (!isLoopback(remoteAddress)) return remoteAddress;
+  return (
+    firstHeader(request.headers["cf-connecting-ip"]) ??
+    firstHeader(request.headers["x-forwarded-for"])?.split(",")[0]?.trim() ??
+    remoteAddress
+  );
+}
+
+function isLoopback(address: string | undefined): boolean {
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+export function requestHostname(host: string | undefined): string | null {
+  if (!host) return null;
+  const withoutPort = host.startsWith("[")
+    ? host.slice(1, host.indexOf("]"))
+    : host.replace(/:\d+$/, "");
+  const ascii = domainToASCII(withoutPort.replace(/\.$/, "")).toLowerCase();
+  return ascii.length > 0 && ascii.includes(".") && net.isIP(ascii) === 0 ? ascii : null;
 }
