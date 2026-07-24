@@ -1,11 +1,11 @@
 import os from "node:os";
 import type { NextRequest } from "next/server";
-import { api } from "@/server/http";
-import { requestUser } from "@/server/next-auth";
-import { latestHostMetric } from "@/server/metrics";
-import { getRuntime } from "@/server/runtime";
 import { currentNixSystem } from "@/server/flake";
 import { getGitHubApp } from "@/server/github";
+import { api } from "@/server/http";
+import { latestHostMetric } from "@/server/metrics";
+import { requestUser } from "@/server/next-auth";
+import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { HttpError, errorMessage } from "./errors.js";
-import { logger } from "./logger.js";
-import { requestOriginAllowed } from "./next-auth.js";
+import { errorMessage, HttpError } from "./errors.ts";
+import { logger } from "./logger.ts";
+import { requestOriginAllowed } from "./next-auth.ts";
 
 export async function api<T>(
   request: NextRequest,

@@ -1,12 +1,18 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { audit } from "./audit.js";
-import { getDb, nowIso, setting, setSetting } from "./db.js";
-import { HttpError } from "./errors.js";
-import { hashPassword, randomToken, sha256, timingSafeEqualText, verifyPassword } from "./crypto.js";
-import { paths } from "./paths.js";
-import { logger } from "./logger.js";
-import type { Role, SessionRow, UserRow } from "./types.js";
+import { audit } from "./audit.ts";
+import {
+  hashPassword,
+  randomToken,
+  sha256,
+  timingSafeEqualText,
+  verifyPassword,
+} from "./crypto.ts";
+import { getDb, nowIso, setSetting, setting } from "./db.ts";
+import { HttpError } from "./errors.ts";
+import { logger } from "./logger.ts";
+import { paths } from "./paths.ts";
+import type { Role, SessionRow, UserRow } from "./types.ts";
 
 const SESSION_DAYS = 14;
 const MAX_FAILURES = 6;
@@ -46,7 +52,8 @@ export async function completeSetup(input: {
   password: string;
   ip?: string | null;
 }): Promise<AuthenticatedUser> {
-  if (isSetupComplete()) throw new HttpError(409, "Setup has already been completed", "setup_complete");
+  if (isSetupComplete())
+    throw new HttpError(409, "Setup has already been completed", "setup_complete");
   const expected = setting("setup_token_hash");
   if (!expected || !timingSafeEqualText(sha256(input.token), expected)) {
     throw new HttpError(401, "The setup token is invalid", "invalid_setup_token");
@@ -69,7 +76,13 @@ export async function completeSetup(input: {
     db.prepare("DELETE FROM settings WHERE key = 'setup_token_hash'").run();
   })();
   fs.rmSync(paths.setupTokenFile, { force: true });
-  audit({ userId: user.id, action: "setup.completed", entityType: "user", entityId: user.id, ip: input.ip });
+  audit({
+    userId: user.id,
+    action: "setup.completed",
+    entityType: "user",
+    entityId: user.id,
+    ip: input.ip,
+  });
   return user;
 }
 
@@ -79,14 +92,16 @@ export async function login(input: {
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<{ token: string; user: AuthenticatedUser; expiresAt: string }> {
-  if (!isSetupComplete()) throw new HttpError(409, "Complete first-run setup before signing in", "setup_required");
+  if (!isSetupComplete())
+    throw new HttpError(409, "Complete first-run setup before signing in", "setup_required");
   const username = normalizeUsername(input.username);
   const key = sha256(`${input.ip ?? "unknown"}\n${username}`);
   enforceLoginRateLimit(key);
-  const user = getDb().prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE").get(username) as
-    | UserRow
-    | undefined;
-  const valid = user && !user.disabled ? await verifyPassword(input.password, user.password_hash) : false;
+  const user = getDb()
+    .prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE")
+    .get(username) as UserRow | undefined;
+  const valid =
+    user && !user.disabled ? await verifyPassword(input.password, user.password_hash) : false;
   if (!valid || !user) {
     recordLoginFailure(key);
     audit({ action: "auth.login_failed", ip: input.ip, details: { username } });
@@ -94,7 +109,13 @@ export async function login(input: {
   }
   clearLoginFailures(key);
   const session = createSession(user.id, input.ip, input.userAgent);
-  audit({ userId: user.id, action: "auth.login", entityType: "session", entityId: session.id, ip: input.ip });
+  audit({
+    userId: user.id,
+    action: "auth.login",
+    entityType: "session",
+    entityId: session.id,
+    ip: input.ip,
+  });
   return {
     token: session.token,
     expiresAt: session.expiresAt,
@@ -116,7 +137,16 @@ export function createSession(
       `INSERT INTO sessions(id, user_id, token_hash, expires_at, created_at, last_seen_at, ip, user_agent)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, userId, sha256(token), expiresAt, now.toISOString(), now.toISOString(), ip ?? null, userAgent ?? null);
+    .run(
+      id,
+      userId,
+      sha256(token),
+      expiresAt,
+      now.toISOString(),
+      now.toISOString(),
+      ip ?? null,
+      userAgent ?? null,
+    );
   return { id, token, expiresAt };
 }
 
@@ -141,12 +171,18 @@ export function authenticateSession(token: string | undefined): AuthenticatedUse
 
 export function logout(token: string | undefined, ip?: string | null): void {
   if (!token) return;
-  const row = getDb().prepare("SELECT id, user_id FROM sessions WHERE token_hash = ?").get(sha256(token)) as
-    | { id: string; user_id: string }
-    | undefined;
+  const row = getDb()
+    .prepare("SELECT id, user_id FROM sessions WHERE token_hash = ?")
+    .get(sha256(token)) as { id: string; user_id: string } | undefined;
   if (!row) return;
   getDb().prepare("DELETE FROM sessions WHERE id = ?").run(row.id);
-  audit({ userId: row.user_id, action: "auth.logout", entityType: "session", entityId: row.id, ip });
+  audit({
+    userId: row.user_id,
+    action: "auth.logout",
+    entityType: "session",
+    entityId: row.id,
+    ip,
+  });
 }
 
 export function requireRole(user: AuthenticatedUser, allowed: Role[]): void {
@@ -173,7 +209,11 @@ function normalizeUsername(value: string): string {
 
 function validatePassword(password: string): void {
   if (password.length < 12 || password.length > 256) {
-    throw new HttpError(400, "Password must contain between 12 and 256 characters", "invalid_password");
+    throw new HttpError(
+      400,
+      "Password must contain between 12 and 256 characters",
+      "invalid_password",
+    );
   }
 }
 
@@ -183,7 +223,11 @@ function enforceLoginRateLimit(key: string): void {
     .get(key) as { blocked_until: string | null; updated_at: string } | undefined;
   if (!row) return;
   if (row.blocked_until && Date.parse(row.blocked_until) > Date.now()) {
-    throw new HttpError(429, "Too many failed sign-in attempts. Try again later", "login_rate_limited");
+    throw new HttpError(
+      429,
+      "Too many failed sign-in attempts. Try again later",
+      "login_rate_limited",
+    );
   }
   if (Date.now() - Date.parse(row.updated_at) >= BLOCK_MINUTES * 60_000) {
     getDb().prepare("DELETE FROM login_attempts WHERE key = ?").run(key);

@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { login } from "@/server/auth";
 import { api, readJson } from "@/server/http";
@@ -25,7 +25,9 @@ export async function POST(request: NextRequest) {
     response.cookies.set(SESSION_COOKIE, state.session.token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
+      secure:
+        request.nextUrl.protocol === "https:" ||
+        request.headers.get("x-forwarded-proto") === "https",
       path: "/",
       expires: new Date(state.session.expiresAt),
     });

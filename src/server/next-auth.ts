@@ -1,8 +1,8 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
-import { authenticateSession, type AuthenticatedUser } from "./auth.js";
-import { HttpError } from "./errors.js";
+import { type AuthenticatedUser, authenticateSession } from "./auth.ts";
+import { HttpError } from "./errors.ts";
 
 export const SESSION_COOKIE = "nixhost_session";
 
@@ -25,9 +25,7 @@ export function requestUser(request: NextRequest): AuthenticatedUser {
 
 export function clientIp(request: NextRequest): string | null {
   return (
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-nixhost-client-ip") ??
-    null
+    request.headers.get("cf-connecting-ip") ?? request.headers.get("x-nixhost-client-ip") ?? null
   );
 }
 

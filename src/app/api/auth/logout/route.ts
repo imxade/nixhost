@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { logout } from "@/server/auth";
 import { api } from "@/server/http";
 import { clientIp, SESSION_COOKIE } from "@/server/next-auth";

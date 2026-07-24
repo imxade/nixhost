@@ -9,7 +9,8 @@ export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   const response = await fetch(url, { ...init, headers, credentials: "same-origin" });
   const payload = (await response.json()) as ApiEnvelope<T>;
-  if (!response.ok || !payload.ok) throw new Error(payload.error?.message || `Request failed (${response.status})`);
+  if (!response.ok || !payload.ok)
+    throw new Error(payload.error?.message || `Request failed (${response.status})`);
   return payload.data as T;
 }
 
@@ -18,7 +19,10 @@ export function formatBytes(value: number | null | undefined): string {
   const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let amount = Math.max(0, value);
   let unit = 0;
-  while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++; }
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit++;
+  }
   return `${amount >= 10 || unit === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[unit]}`;
 }
 

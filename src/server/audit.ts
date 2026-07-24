@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { getDb, nowIso } from "./db.js";
+import { getDb, nowIso } from "./db.ts";
 
 export function audit(input: {
   userId?: string | null;
