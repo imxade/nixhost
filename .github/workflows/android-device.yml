@@ -24,7 +24,7 @@ jobs:
     runs-on: [self-hosted, linux, arm64, nix-on-droid]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: nix develop --command scripts/android/run-nix-on-droid.sh verify
       - if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -40,7 +40,7 @@ jobs:
     env:
       ANDROID_SERIAL: ${{ inputs.android_serial }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: nix develop .#android --command scripts/android/run-maestro.sh ci-login
       - if: ${{ always() }}
         uses: actions/upload-artifact@v4
