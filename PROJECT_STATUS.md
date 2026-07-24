@@ -1,57 +1,59 @@
 # Implementation Status
 
-## Implemented in source
+Last updated: 2026-07-24.
 
-- Next.js App Router dashboard and custom persistent server.
-- First-run local token, owner account, login throttling and revocable sessions.
-- Owner/admin/operator/viewer authorization and user management.
-- SQLite WAL database and initial migration.
-- AES-GCM encrypted application and integration secrets.
-- Application CRUD, environment variables and desired state.
-- Durable deployment queue with superseding and cancellation markers.
-- Git mirror/worktree release preparation.
-- Mandatory `flake.nix`/`flake.lock` validation and flake output inspection.
-- Detached Nix application process groups and file-backed logs.
-- Health checks, atomic route switching and previous-release preservation.
-- Stable LAN HTTP/WebSocket proxy ports.
-- SSE event and log streaming.
-- Host and Linux process-group metrics.
-- GitHub App manifest, installations, repository listing, signed webhooks and branch polling.
-- Cloudflare tunnel creation, DNS/ingress synchronization and process lifecycle.
-- Control-plane restart recovery.
-- Responsive daisyUI dashboard.
-- Biome-only formatting, linting, and import organization with no ESLint dependency or configuration.
-- Nix development/package definition, diagnostics, tests and documentation.
+## Implemented
 
-## Validation completed here
+- Next.js App Router dashboard, strict TypeScript APIs and one persistent custom server/runtime.
+- One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.
+- SQLite WAL state with forward-only, empty-database-tested migrations and encrypted stored secrets.
+- Locked GitHub App manifest flow, paginated installation/repository discovery, short-lived installation tokens, signed/deduplicated webhooks and LAN reconciliation.
+- Durable deployment queue with superseding/cancellation state, exact-commit Git worktrees and mandatory locked Nix flakes.
+- Detached application process groups, Linux start-time/cmdline/command-hash identity checks, conservative non-Linux recovery and guarded group signalling.
+- Candidate health checks, atomic route activation, current healthy release preservation and control-plane restart recovery.
+- Stable per-application LAN ports plus multiple normalized custom domains, host-based HTTP routing and provider-neutral DNS/TLS support.
+- Optional multi-zone Cloudflare DNS/Tunnel synchronization.
+- File-backed live logs with bounded active/inactive retention.
+- Verified, checksummed SQLite/application-data backup and rollback-safe restore commands.
+- Locked pnpm and Nix inputs, reproducible Nix dependency hash, CI security/audit/license gates and packaged operational commands.
 
-- Repository/file generation and JSON syntax validation.
-- TypeScript syntax transpilation completed for all 99 TypeScript/TSX entry and source files with zero syntax errors.
-- Shell syntax validation completed for launch and host-verification scripts.
-- Confirmed no ESLint dependency, script, workflow step, or configuration exists.
-- Static manual review of security boundaries and state transitions.
-- TypeScript parser run with the globally available compiler; full type resolution was impossible because dependencies are not installed.
+## Validation completed on x86_64 Linux
 
-## Not executable in this environment
+The following passed on 2026-07-24:
 
-This environment has no working npm registry access and no Nix installation. Therefore the following claims are deliberately **not** made:
+```text
+pnpm biome:ci
+pnpm typecheck
+pnpm test                         # 7 files, 19 tests
+pnpm build
+pnpm test:e2e                    # production server, Chromium, 1 scenario
+pnpm db:doctor                   # integrity ok, WAL, no FK violations, migrations exact
+pnpm security:check              # private modes and tracked-secret scan
+pnpm audit --prod --audit-level high
+pnpm licenses list --prod
+pnpm test:deployment
+nix flake check --print-build-logs
+nix build --print-build-logs
+nix flake check ./examples/hello-nixhost
+nix build ./examples/hello-nixhost
+```
 
-- `pnpm install` completed;
-- exact dependency graph or lock file is valid;
-- full TypeScript typecheck passed;
-- Next.js production build passed;
-- native SQLite addon compiled;
-- Nix package built;
-- GitHub/Cloudflare live integrations passed;
-- Nix-on-Droid lifecycle passed.
+The real-Nix deployment integration verified healthy activation, a failing candidate preserving the active release, rapid-queue superseding, recovery of the same detached process after control-plane restart, child process-group shutdown and stable-port unavailability after stop. The built `result/bin/nixhost` artifact was also started with an empty isolated data directory; all migrations ran, `/api/health`, `/setup` and a traced Next.js CSS asset were served before a clean SIGINT shutdown.
 
-## Required before release
+Backup tests perform a real SQLite/application-data CLI round trip and reject a checksum-tampered archive before mutating current state. Browser tests verify first-run owner creation, setup-token invalidation, session cookies, hostile-origin rejection, user creation, viewer login and viewer write denial.
 
-1. Run the local-agent prompt.
-2. Commit generated lock files and real Nix dependency hash.
-3. Resolve every type/build/test warning without bypassing checks.
-4. Validate log retention and backup/restore under crash and storage-pressure tests.
-5. Verify PID start-time identity before recovery signals.
-6. Complete two-device Android feasibility matrix.
-7. Perform dependency/security audit and external review.
-8. Confirm license compatibility and copyright notices for all distributed dependencies.
+The dependency audit originally identified high-severity `sharp`/libvips and PostCSS advisories in Next.js transitive dependencies. Exact pnpm overrides now resolve `sharp 0.35.0` and `postcss 8.5.12`; the repeated production audit reports no known vulnerabilities.
+
+## External and platform evidence still required
+
+- GitHub live-account authorization, selected-repository install, private clone, LAN reconciliation and public webhook delivery are pending the owner’s test-account action.
+- Cloudflare live zone/tunnel, Access policy, reconnect and token-handling tests have not been run against an account.
+- No native `aarch64-linux`, Darwin or physical Android build was executed. Cross-platform packages in the dependency store are not evidence that those targets work.
+- The required two-OEM physical Android matrix, Nix-on-Droid lifecycle checks and Maestro browser flows remain unexecuted.
+- The plug-and-play standalone APK is a roadmap requirement; no APK or Android foreground-service adapter exists yet.
+- Deployment fixtures still needed for never-bind, immediate-exit worker, sustained high-volume logs, missing lock, wrong-system output, build-time restart, explicit cancellation and forced-termination SQLite consistency.
+- Backup/log validation still needs injected disk-full/interrupted-write tests and a documented cross-node restore exercise.
+
+## Release assessment
+
+The x86_64 Linux source and Nix package are a validated local candidate, but the project is **not yet generally release-ready**. Live GitHub/Cloudflare account checks, the remaining failure fixtures and physical ARM64 Android/Maestro gates above are mandatory before making that claim. Android cannot be called production-ready until the recorded device matrix passes.

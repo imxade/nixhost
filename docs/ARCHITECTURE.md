@@ -84,9 +84,7 @@ Workers are required to stay alive for a startup stability window rather than ex
 
 ## Process recovery
 
-Application output goes directly to files instead of Node pipes. Detached process groups can continue after a control-plane failure. On restart, NixHost checks recorded PIDs, clears disappeared releases and queues restart deployments according to policy.
-
-PID reuse is a risk. A production hardening follow-up should persist process start time from `/proc/<pid>/stat` and verify it before signalling a recovered process. This is explicitly included in the local-agent validation prompt.
+Application output goes directly to files instead of Node pipes. Detached process groups can continue after a control-plane failure. Linux recovery records and verifies PID, process-group ID, `/proc/<pid>/stat` start ticks, and a SHA-256 digest of the command identity before treating a recovered process as owned or signalling its process group. A mismatched or incomplete identity is treated as disappeared.
 
 ## LAN routing
 
@@ -96,6 +94,8 @@ Each web app receives:
 - stable public LAN proxy port, retained for the application lifetime.
 
 The built-in Node HTTP proxy supports ordinary HTTP and WebSocket upgrades. It returns 503 while the application has no healthy active release.
+
+Web applications can also own multiple normalized DNS hostnames. Ordinary HTTP requests on the dashboard listener are dispatched by `Host`; each app's stable port remains the provider-neutral origin for WebSockets and external DNS/TLS proxies.
 
 ## Scaling boundary
 

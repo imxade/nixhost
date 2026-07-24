@@ -22,11 +22,13 @@ Events:
 - installation;
 - installation_repositories.
 
+NixHost uses GitHub's current `2026-03-10` REST API version, 30-second API request deadlines, paginated installation/repository discovery, encrypted App credentials, and short-lived installation tokens.
+
 ## LAN-only mode
 
 GitHub cannot deliver to a private RFC1918 address. When `NIXHOST_PUBLIC_URL` is absent, the generated webhook is inactive. The Git reconciler polls each connected production branch and compares its head with the active or newest deployment.
 
-This provides eventual auto-deployment without making the dashboard public, but changes appear after the configured polling interval and use GitHub API calls.
+This provides eventual auto-deployment without making the dashboard public, but changes appear after the configured polling interval and use GitHub API calls. A repository may back multiple NixHost applications; every matching auto-deploy application is queued.
 
 ## Public webhook mode
 
@@ -36,7 +38,7 @@ After assigning a stable public dashboard URL, set:
 NIXHOST_PUBLIC_URL=https://console.example.com
 ```
 
-Create/reconnect the GitHub App so its webhook URL points to that origin. Webhooks are HMAC verified, delivery-deduplicated, branch-filtered and converted into durable queue records. The exact `after` commit is deployed.
+Create/reconnect the GitHub App so its webhook URL points to that origin. Webhooks are size-limited, structurally validated, HMAC verified, atomically delivery-deduplicated, branch-filtered and converted into durable queue records. The exact nonzero `after` commit is deployed. Rapid queued updates supersede older queued work for the same application.
 
 ## Offline behavior
 

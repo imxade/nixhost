@@ -4,14 +4,15 @@ Cloudflare is optional and disabled by default. LAN hosting has no Cloudflare de
 
 ## Required token scope
 
-Create a least-privilege token limited to the selected account and zone, sufficient to:
+Create a least-privilege token limited to the selected account and every zone NixHost should manage, sufficient to:
 
 - create/read/update the Cloudflare Tunnel;
 - obtain its run token;
 - update tunnel ingress configuration;
-- create/update DNS records in the selected zone.
+- create/update DNS records in each managed zone;
+- read zone metadata so hostnames can be mapped to their zones.
 
-Verify the exact permissions in Cloudflare's current dashboard before production use.
+Current Cloudflare guidance maps these operations to an account-level Cloudflare Tunnel/Connector write permission plus DNS edit and Zone read for the managed zones.
 
 ## Route model
 
@@ -23,6 +24,8 @@ app.example.com     -> http://127.0.0.1:<stable LAN app port>
 ```
 
 NixHost creates proxied CNAME records pointing to `<tunnel-id>.cfargotunnel.com` and writes remotely managed ingress rules.
+
+Multiple Cloudflare zones can share the node tunnel when the token can access them. Application hostnames outside those zones are skipped—not modified or treated as an error—so another DNS/TLS provider can proxy those domains to the application's stable LAN port.
 
 ## Management protection
 

@@ -55,3 +55,11 @@
 **Decision:** Document wake-lock, battery-management, reboot, and Force-stop limitations. Do not claim VPS uptime.
 
 **Reason:** Android and OEM lifecycle policy remains outside the Next.js process’s control. A future native foreground-service wrapper is a platform adapter, not a replacement control plane.
+
+## ADR-010 — Standalone APK is the Android distribution target
+
+**Decision:** Keep Nix-on-Droid as the current engineering and validation track, while targeting a future self-contained APK that starts a native foreground-service adapter and opens the existing web interface without separate terminal setup.
+
+**Reason:** The intended Android experience is install, open, configure and host. The Next.js control plane, Nix flake application contract, authenticated LAN access and optional Cloudflare path remain consistent across distributions.
+
+**Consequence:** APK readiness requires an explicit Android packaging design, compliant delivery of the Nix/runtime dependencies, Maestro UI automation and physical multi-OEM lifecycle tests. Documentation must not imply that this APK exists until those gates pass.

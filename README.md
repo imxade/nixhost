@@ -1,8 +1,12 @@
 # NixHost
 
-NixHost is a LAN-first, self-hosted deployment control plane built entirely with Next.js and TypeScript. It imports trusted GitHub repositories containing Nix flakes, runs their `apps.<system>` outputs, supervises the resulting processes, streams logs, assigns stable LAN ports, and optionally exposes selected services through Cloudflare Tunnel.
+NixHost is a LAN-first, self-hosted, VPS-like application host and deployment control plane built entirely with Next.js and TypeScript. It imports trusted GitHub repositories containing Nix flakes, runs their `apps.<system>` outputs, supervises the resulting processes, streams logs, assigns stable LAN ports and custom domains, and optionally exposes selected services through Cloudflare Tunnel.
 
-> NixHost does **not** turn Android into a virtual machine or a real VPS. On Android it is a personal application host running inside Nix-on-Droid and remains subject to Android, architecture, kernel, memory, battery, and background-process restrictions.
+This is not merely “Vercel for Android.” A `flake.nix` can package far more than a web frontend: APIs, workers, bots, schedulers, language runtimes, databases intended for a trusted single-user host, and other long-running foreground services can all use the same GitHub auto-deployment pipeline.
+
+> “VPS-like” describes the general-purpose application-hosting experience, not an isolation claim. NixHost does **not** turn Android into a virtual machine or a real VPS. Flakes provide reproducible software and commands, but cannot add missing kernel capabilities or bypass Android architecture, memory, battery, force-stop, and background-process restrictions. All deployed repositories run as the NixHost account and must be trusted.
+
+Today, Android development and physical-device validation use Nix-on-Droid. The distribution roadmap is a plug-and-play APK: install it, open it, and configure NixHost through the automatically started web interface without separate terminal setup. That APK is not shipped yet; it must first pass the Maestro, multi-device, foreground-service, packaging and licensing gates in [`docs/TESTING.md`](docs/TESTING.md). LAN access and optional Cloudflare exposure will keep the same NixHost authentication model.
 
 ## Current product contract
 
@@ -15,6 +19,9 @@ NixHost is a LAN-first, self-hosted deployment control plane built entirely with
 - Repositories must contain `flake.nix` and `flake.lock`.
 - Preferred runnable output: `apps.<system>.default`.
 - Stable per-application LAN ports with health-checked release switching.
+- Up to 20 normalized custom domains per web application, unique across the node.
+- Host-based HTTP routing on the dashboard listener and stable per-app ports for any DNS/TLS provider.
+- Multi-zone Cloudflare DNS and Tunnel synchronization for domains managed by the configured token.
 - Persistent SQLite state, encrypted secrets, deployment history, live logs, resource sampling, process restart and recovery.
 - Optional Cloudflare Tunnel configured later from the dashboard.
 
@@ -77,7 +84,7 @@ pnpm build
 HOSTNAME=0.0.0.0 PORT=3000 pnpm start
 ```
 
-The delivered source intentionally does not include a fabricated `pnpm-lock.yaml`, `flake.lock`, or Nix fixed-output dependency hash. Generate and validate these locally using the exact dependency resolver and Nix revision, then commit them. See [`LOCAL_AGENT_PROMPT.md`](LOCAL_AGENT_PROMPT.md).
+The repository includes the resolved `pnpm-lock.yaml`, `flake.lock`, and Nix fixed-output dependency hash. Do not regenerate them casually; dependency updates must repeat the full validation gate in [`LOCAL_AGENT_PROMPT.md`](LOCAL_AGENT_PROMPT.md).
 
 ## Application flake contract
 
@@ -97,6 +104,15 @@ nix run --no-write-lock-file .#default
 ```
 
 See [`docs/DEPLOYMENT_CONTRACT.md`](docs/DEPLOYMENT_CONTRACT.md) and the example project.
+
+## Custom domains
+
+Each web application can have multiple hostnames such as `api.example.com` and `www.example.net`.
+
+- Cloudflare-managed zones available to the configured API token are synchronized automatically.
+- Hostnames managed elsewhere are left untouched. Point them through your chosen DNS/TLS reverse proxy to the app's stable LAN port.
+- Plain HTTP requests reaching the NixHost dashboard listener are also routed by `Host`.
+- TLS termination remains the responsibility of Cloudflare or the external reverse proxy.
 
 ## Security warning
 

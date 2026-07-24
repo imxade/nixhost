@@ -19,14 +19,16 @@ NIXHOST_MIN_FREE_MEMORY_MB=256
 
 ## Backup
 
-Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixhost-backup`). It uses SQLite's online backup API and archives application data. Preserve:
+Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixhost-backup`). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
 
 - SQLite database;
 - secrets key or external master key;
 - application persistent data;
 - optionally logs and Git mirrors.
 
-The Nix store and releases can be reconstructed from repositories and lock files.
+The Nix store and releases can be reconstructed from repositories and lock files. When `NIXHOST_MASTER_KEY` is externally managed, it is deliberately not copied into the backup and must be supplied during verification/restore.
+
+Restore with `pnpm restore -- /path/to/backup` while NixHost is stopped. Restore verifies the manifest, every checksum, archive paths, the master-key mode, SQLite integrity, and foreign keys before replacing current state. A failed replacement rolls the previous database, key, and application directory back into place.
 
 ## Recovery
 
@@ -38,7 +40,7 @@ The Nix store and releases can be reconstructed from repositories and lock files
 
 ## Log retention
 
-Completed deployment logs are removed after `NIXHOST_LOG_RETENTION_DAYS` and oldest inactive logs are removed when total log usage exceeds `NIXHOST_LOG_MAX_MB`. Active deployment logs are excluded. Metric samples are pruned after seven days.
+Completed deployment logs are removed after `NIXHOST_LOG_RETENTION_DAYS` and oldest inactive logs are removed when total log usage exceeds `NIXHOST_LOG_MAX_MB`. If active append targets alone exceed the hard cap, they are truncated in place so the running process keeps its file descriptor while disk use remains bounded. Metric samples are pruned after seven days.
 
 ## Nix store pressure
 

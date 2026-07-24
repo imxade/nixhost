@@ -24,6 +24,15 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 12. Host and per-application resource data are shown without claiming exact OOM causality when evidence is insufficient.
 13. Cloudflare Tunnel remains optional and can expose selected applications or the dashboard later.
 14. Restart recovery must preserve running application processes where the host permits it.
+15. Web applications may have multiple normalized custom domains. DNS and TLS may be managed by Cloudflare or by another provider targeting the application's stable LAN port.
+
+## Android distribution tracks
+
+The current Android track runs NixHost through Nix-on-Droid. It is not release-validated until the complete host and dashboard flow passes on physical ARM64 Android devices. Device acceptance combines command-level Nix-on-Droid checks with Maestro automation of the Android browser UI, including setup, authentication, GitHub connection, application creation, deployment status, LAN access and session expiry.
+
+The future distribution target is a self-contained APK with no separate Nix-on-Droid installation or terminal setup. The APK must start and supervise the local control plane through an Android foreground-service platform adapter, open an embedded or system web interface for first-run configuration, preserve the existing Next.js/TypeScript control plane and Nix flake deployment contract, and surface lifecycle failures honestly. It must package or safely provision every required runtime component, satisfy Android packaging and licensing requirements, and pass the same physical-device gate before release.
+
+Both tracks retain the same network contract: authenticated local access over LAN, with optional authenticated Cloudflare exposure. An APK must not weaken NixHost roles, sessions, origin validation, GitHub permissions or Cloudflare Access guidance.
 
 ## Application runtime contract
 
