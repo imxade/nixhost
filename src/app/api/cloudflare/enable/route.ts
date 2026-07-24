@@ -1,6 +1,6 @@
-import { requireRole } from "@/server/auth";
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { audit } from "@/server/audit";
+import { requireRole } from "@/server/auth";
 import { api } from "@/server/http";
 import { clientIp, requestUser } from "@/server/next-auth";
 import { getRuntime } from "@/server/runtime";

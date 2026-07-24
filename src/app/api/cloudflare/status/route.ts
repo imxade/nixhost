@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { api } from "@/server/http";
 import { requestUser } from "@/server/next-auth";
 import { getRuntime } from "@/server/runtime";

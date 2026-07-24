@@ -1,5 +1,5 @@
+import type { NextRequest } from "next/server";
 import { requireRole } from "@/server/auth";
-import { type NextRequest } from "next/server";
 import { createManifest } from "@/server/github";
 import { api } from "@/server/http";
 import { requestUser } from "@/server/next-auth";
@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   return api(request, () => {
     const user = requestUser(request);
     requireRole(user, ["owner", "admin"]);
-    const protocol = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+    const protocol =
+      request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
     const baseUrl = `${protocol}://${request.headers.get("x-forwarded-host") ?? request.headers.get("host")}`;
     const result = createManifest(baseUrl);
     return {

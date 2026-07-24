@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { convertManifest, installUrl, verifyManifestState } from "@/server/github";
 import { logger } from "@/server/logger";
 
@@ -14,9 +14,14 @@ export async function GET(request: NextRequest) {
     await convertManifest(code);
     return NextResponse.redirect(installUrl());
   } catch (error) {
-    logger.error("GitHub App manifest callback failed", { error: error instanceof Error ? error.message : String(error) });
+    logger.error("GitHub App manifest callback failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     const url = new URL("/github/complete", request.url);
-    url.searchParams.set("error", error instanceof Error ? error.message : "GitHub connection failed");
+    url.searchParams.set(
+      "error",
+      error instanceof Error ? error.message : "GitHub connection failed",
+    );
     return NextResponse.redirect(url);
   }
 }

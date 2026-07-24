@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { listRepositories, syncInstallations } from "@/server/github";
 import { api } from "@/server/http";
 import { requestUser } from "@/server/next-auth";

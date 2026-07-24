@@ -1,13 +1,17 @@
-import { spawnLogged } from "./command.js";
-import { decryptSecret, encryptSecret } from "./crypto.js";
-import { getDb, nowIso, setting, setSetting } from "./db.js";
-import { HttpError } from "./errors.js";
-import { logger } from "./logger.js";
-import { updateAppWebhook } from "./github.js";
-import { paths } from "./paths.js";
-import { captureProcessIdentity, matchesProcessIdentity, type ProcessIdentity } from "./process-identity.js";
 import type { ChildProcess } from "node:child_process";
-import type { AppRow } from "./types.js";
+import { normalizeDomain } from "./app-service.ts";
+import { spawnLogged } from "./command.ts";
+import { decryptSecret, encryptSecret } from "./crypto.ts";
+import { getDb, nowIso, setSetting, setting } from "./db.ts";
+import { HttpError } from "./errors.ts";
+import { updateAppWebhook } from "./github.ts";
+import { logger } from "./logger.ts";
+import { paths } from "./paths.ts";
+import {
+  captureProcessIdentity,
+  matchesProcessIdentity,
+  type ProcessIdentity,
+} from "./process-identity.ts";
 
 interface CloudflareRow {
   account_id: string;
@@ -31,7 +35,13 @@ export class CloudflareController {
   private monitorTimer: NodeJS.Timeout | null = null;
   private processIdentity: ProcessIdentity | null = null;
 
-  status(): { configured: boolean; enabled: boolean; running: boolean; tunnelId: string | null; dashboardHostname: string | null } {
+  status(): {
+    configured: boolean;
+    enabled: boolean;
+    running: boolean;
+    tunnelId: string | null;
+    dashboardHostname: string | null;
+  } {
     const row = getCloudflareConfig();
     return {
       configured: Boolean(row),
@@ -49,8 +59,24 @@ export class CloudflareController {
     tunnelName: string;
     dashboardHostname?: string;
   }): Promise<void> {
+    const dashboardHostname = input.dashboardHostname
+      ? normalizeDomain(input.dashboardHostname)
+      : null;
+    if (
+      dashboardHostname &&
+      getDb().prepare("SELECT 1 FROM application_domains WHERE hostname = ?").get(dashboardHostname)
+    ) {
+      throw new HttpError(
+        409,
+        "The dashboard hostname is already assigned to an application",
+        "domain_already_assigned",
+      );
+    }
     const previous = getCloudflareConfig();
-    const replaceTunnel = Boolean(previous && (previous.account_id !== input.accountId || previous.tunnel_name !== input.tunnelName));
+    const replaceTunnel = Boolean(
+      previous &&
+        (previous.account_id !== input.accountId || previous.tunnel_name !== input.tunnelName),
+    );
     if (replaceTunnel) await this.stopProcess();
     const now = nowIso();
     getDb()
@@ -70,14 +96,14 @@ export class CloudflareController {
         input.zoneId,
         encryptSecret(input.apiToken),
         input.tunnelName,
-        input.dashboardHostname || null,
+        dashboardHostname,
         now,
         now,
       );
     await this.ensureTunnel();
     await this.syncIngress();
-    if (input.dashboardHostname) {
-      await updateAppWebhook(`https://${input.dashboardHostname}`).catch((error) =>
+    if (dashboardHostname) {
+      await updateAppWebhook(`https://${dashboardHostname}`).catch((error) =>
         logger.warn("GitHub webhook URL update failed", { error: String(error) }),
       );
     }
@@ -86,12 +112,16 @@ export class CloudflareController {
   async enable(): Promise<void> {
     await this.ensureTunnel();
     await this.syncIngress();
-    getDb().prepare("UPDATE cloudflare_config SET enabled = 1, updated_at = ? WHERE singleton = 1").run(nowIso());
+    getDb()
+      .prepare("UPDATE cloudflare_config SET enabled = 1, updated_at = ? WHERE singleton = 1")
+      .run(nowIso());
     this.startProcess();
   }
 
   async disable(): Promise<void> {
-    getDb().prepare("UPDATE cloudflare_config SET enabled = 0, updated_at = ? WHERE singleton = 1").run(nowIso());
+    getDb()
+      .prepare("UPDATE cloudflare_config SET enabled = 0, updated_at = ? WHERE singleton = 1")
+      .run(nowIso());
     await this.stopProcess();
   }
 
@@ -115,22 +145,27 @@ export class CloudflareController {
     if (!row?.tunnel_id) return;
     const ingress: Array<{ hostname?: string; service: string }> = [];
     if (row.dashboard_hostname) {
-      ingress.push({ hostname: row.dashboard_hostname, service: `http://127.0.0.1:${process.env.PORT || 3000}` });
-      await ensureDnsRecord(row, row.dashboard_hostname);
+      await ensureDnsRecord(row, row.dashboard_hostname, true);
+      ingress.push({
+        hostname: row.dashboard_hostname,
+        service: `http://127.0.0.1:${process.env.PORT || 3000}`,
+      });
     }
-    const apps = getDb()
-      .prepare("SELECT * FROM applications WHERE kind = 'web' AND public_port IS NOT NULL")
-      .all() as AppRow[];
-    const domainRows = getDb().prepare("SELECT key, value FROM settings WHERE key LIKE 'domain:%'").all() as Array<{
-      key: string;
-      value: string;
-    }>;
-    const domains = new Map(domainRows.map((item) => [item.key.slice("domain:".length), item.value]));
-    for (const app of apps) {
-      const hostname = domains.get(app.id);
-      if (!hostname || !app.public_port) continue;
-      ingress.push({ hostname, service: `http://127.0.0.1:${app.public_port}` });
-      await ensureDnsRecord(row, hostname);
+    const domains = getDb()
+      .prepare(
+        `SELECT d.hostname, a.public_port
+         FROM application_domains d
+         JOIN applications a ON a.id = d.app_id
+         WHERE a.kind = 'web' AND a.public_port IS NOT NULL
+         ORDER BY d.hostname`,
+      )
+      .all() as Array<{ hostname: string; public_port: number }>;
+    for (const domain of domains) {
+      if (!(await ensureDnsRecord(row, domain.hostname, false))) continue;
+      ingress.push({
+        hostname: domain.hostname,
+        service: `http://127.0.0.1:${domain.public_port}`,
+      });
     }
     ingress.push({ service: "http_status:404" });
     await cfRequest(row, `/accounts/${row.account_id}/cfd_tunnel/${row.tunnel_id}/configurations`, {
@@ -147,7 +182,10 @@ export class CloudflareController {
       method: "POST",
       body: JSON.stringify({ name: row.tunnel_name || "nixhost", config_src: "cloudflare" }),
     });
-    const token = await cfRequest<string>(row, `/accounts/${row.account_id}/cfd_tunnel/${created.id}/token`);
+    const token = await cfRequest<string>(
+      row,
+      `/accounts/${row.account_id}/cfd_tunnel/${created.id}/token`,
+    );
     getDb()
       .prepare(
         "UPDATE cloudflare_config SET tunnel_id = ?, tunnel_token_encrypted = ?, updated_at = ? WHERE singleton = 1",
@@ -195,11 +233,16 @@ export class CloudflareController {
   private async stopProcess(): Promise<void> {
     const identity = this.processIdentity ?? storedCloudflaredIdentity();
     const currentChildAlive = Boolean(
-      this.childProcess?.pid && this.childProcess.exitCode === null && identity?.pid === this.childProcess.pid,
+      this.childProcess?.pid &&
+        this.childProcess.exitCode === null &&
+        identity?.pid === this.childProcess.pid,
     );
     if (identity && (currentChildAlive || matchesProcessIdentity(toStoredIdentity(identity)))) {
       try {
-        process.kill(process.platform === "win32" ? identity.pid : -identity.processGroupId, "SIGTERM");
+        process.kill(
+          process.platform === "win32" ? identity.pid : -identity.processGroupId,
+          "SIGTERM",
+        );
       } catch {}
     }
     this.childProcess = null;
@@ -225,7 +268,9 @@ function storedCloudflaredIdentity(): ProcessIdentity | null {
   if (!encoded) return null;
   try {
     const parsed = JSON.parse(encoded) as ProcessIdentity;
-    return Number.isSafeInteger(parsed.pid) && Number.isSafeInteger(parsed.processGroupId) ? parsed : null;
+    return Number.isSafeInteger(parsed.pid) && Number.isSafeInteger(parsed.processGroupId)
+      ? parsed
+      : null;
   } catch {
     return null;
   }
@@ -243,14 +288,16 @@ function toStoredIdentity(identity: ProcessIdentity) {
 
 export function getCloudflareConfig(): CloudflareRow | null {
   return (
-    (getDb().prepare("SELECT * FROM cloudflare_config WHERE singleton = 1").get() as CloudflareRow | undefined) ??
-    null
+    (getDb().prepare("SELECT * FROM cloudflare_config WHERE singleton = 1").get() as
+      | CloudflareRow
+      | undefined) ?? null
   );
 }
 
 async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
       authorization: `Bearer ${decryptSecret(row.api_token_encrypted)}`,
       "content-type": "application/json",
@@ -261,18 +308,39 @@ async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit 
   if (!response.ok || !body.success) {
     throw new HttpError(
       502,
-      body.errors?.map((error) => error.message).filter(Boolean).join(", ") || "Cloudflare API request failed",
+      body.errors
+        ?.map((error) => error.message)
+        .filter(Boolean)
+        .join(", ") || "Cloudflare API request failed",
       "cloudflare_api_failed",
     );
   }
   return body.result;
 }
 
-async function ensureDnsRecord(row: CloudflareRow, hostname: string): Promise<void> {
-  if (!row.tunnel_id) return;
+async function ensureDnsRecord(
+  row: CloudflareRow,
+  hostname: string,
+  required: boolean,
+): Promise<boolean> {
+  if (!row.tunnel_id) return false;
+  const zoneId = await zoneForHostname(row, hostname);
+  if (!zoneId) {
+    if (required) {
+      throw new HttpError(
+        400,
+        `Cloudflare cannot manage DNS for ${hostname}; grant this token access to that zone`,
+        "cloudflare_zone_not_found",
+      );
+    }
+    logger.info("Skipping externally managed application domain during Cloudflare sync", {
+      hostname,
+    });
+    return false;
+  }
   const query = await cfRequest<Array<{ id: string; content: string }>>(
     row,
-    `/zones/${row.zone_id}/dns_records?type=CNAME&name=${encodeURIComponent(hostname)}`,
+    `/zones/${zoneId}/dns_records?type=CNAME&name=${encodeURIComponent(hostname)}`,
   );
   const data = {
     type: "CNAME",
@@ -283,14 +351,33 @@ async function ensureDnsRecord(row: CloudflareRow, hostname: string): Promise<vo
     comment: "Managed by NixHost",
   };
   if (query[0]) {
-    await cfRequest(row, `/zones/${row.zone_id}/dns_records/${query[0].id}`, {
+    await cfRequest(row, `/zones/${zoneId}/dns_records/${query[0].id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   } else {
-    await cfRequest(row, `/zones/${row.zone_id}/dns_records`, {
+    await cfRequest(row, `/zones/${zoneId}/dns_records`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
+  return true;
+}
+
+async function zoneForHostname(row: CloudflareRow, hostname: string): Promise<string | null> {
+  const configured = await cfRequest<{ id: string; name: string }>(row, `/zones/${row.zone_id}`);
+  if (hostname === configured.name || hostname.endsWith(`.${configured.name}`)) {
+    return configured.id;
+  }
+
+  const labels = hostname.split(".");
+  for (let index = 0; index <= labels.length - 2; index++) {
+    const candidate = labels.slice(index).join(".");
+    const zones = await cfRequest<Array<{ id: string; name: string }>>(
+      row,
+      `/zones?account.id=${encodeURIComponent(row.account_id)}&name=${encodeURIComponent(candidate)}&status=active&per_page=1`,
+    );
+    if (zones[0]) return zones[0].id;
+  }
+  return null;
 }

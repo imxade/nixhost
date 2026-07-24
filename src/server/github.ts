@@ -1,4 +1,3 @@
-import { getDb, nowIso, setting, setSetting } from "./db.js";
 import {
   decryptSecret,
   encryptSecret,
@@ -6,9 +5,9 @@ import {
   sha256,
   signJwtRs256,
   timingSafeEqualText,
-} from "./crypto.js";
-import { HttpError } from "./errors.js";
-import { logger } from "./logger.js";
+} from "./crypto.ts";
+import { getDb, nowIso, setSetting, setting } from "./db.ts";
+import { HttpError } from "./errors.ts";
 
 const API_VERSION = "2026-03-10";
 const API_BASE = "https://api.github.com";
@@ -35,20 +34,28 @@ export interface GitHubRepository {
 
 export function getGitHubApp(): GitHubAppRow | null {
   return (
-    (getDb().prepare("SELECT * FROM github_app WHERE singleton = 1").get() as GitHubAppRow | undefined) ??
-    null
+    (getDb().prepare("SELECT * FROM github_app WHERE singleton = 1").get() as
+      | GitHubAppRow
+      | undefined) ?? null
   );
 }
 
-export function createManifest(baseUrl: string): { state: string; manifest: Record<string, unknown> } {
+export function createManifest(baseUrl: string): {
+  state: string;
+  manifest: Record<string, unknown>;
+} {
   const state = randomToken(24);
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   setSetting("github_manifest_state", JSON.stringify({ hash: sha256(state), expiresAt }));
-  const publicBase = process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "") || baseUrl.replace(/\/$/, "");
+  const publicBase =
+    process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "") || baseUrl.replace(/\/$/, "");
   return {
     state,
     manifest: {
-      name: `NixHost-${new URL(baseUrl).hostname.replace(/[^a-z0-9-]/gi, "-")}-${randomToken(3)}`.slice(0, 34),
+      name: `NixHost-${new URL(baseUrl).hostname.replace(/[^a-z0-9-]/gi, "-")}-${randomToken(3)}`.slice(
+        0,
+        34,
+      ),
       url: baseUrl,
       redirect_url: `${baseUrl.replace(/\/$/, "")}/api/github/callback`,
       setup_url: `${baseUrl.replace(/\/$/, "")}/github/complete`,
@@ -68,23 +75,44 @@ export function createManifest(baseUrl: string): { state: string; manifest: Reco
 
 export function verifyManifestState(state: string): void {
   const encoded = setting("github_manifest_state");
-  if (!encoded) throw new HttpError(400, "GitHub connection state is missing", "github_state_missing");
+  if (!encoded)
+    throw new HttpError(400, "GitHub connection state is missing", "github_state_missing");
   const parsed = JSON.parse(encoded) as { hash: string; expiresAt: string };
-  if (!timingSafeEqualText(parsed.hash, sha256(state)) || Date.parse(parsed.expiresAt) < Date.now()) {
-    throw new HttpError(400, "GitHub connection state is invalid or expired", "github_state_invalid");
+  if (
+    !timingSafeEqualText(parsed.hash, sha256(state)) ||
+    Date.parse(parsed.expiresAt) < Date.now()
+  ) {
+    throw new HttpError(
+      400,
+      "GitHub connection state is invalid or expired",
+      "github_state_invalid",
+    );
   }
   getDb().prepare("DELETE FROM settings WHERE key = 'github_manifest_state'").run();
 }
 
 export async function convertManifest(code: string): Promise<GitHubAppRow> {
-  const response = await fetch(`${API_BASE}/app-manifests/${encodeURIComponent(code)}/conversions`, {
-    method: "POST",
-    headers: githubHeaders(),
-  });
+  const response = await githubFetch(
+    `${API_BASE}/app-manifests/${encodeURIComponent(code)}/conversions`,
+    {
+      method: "POST",
+      headers: githubHeaders(),
+    },
+  );
   const body = (await response.json()) as Record<string, unknown>;
-  if (!response.ok) throw new HttpError(502, githubApiError(body), "github_manifest_conversion_failed");
-  const required = ["id", "slug", "client_id", "client_secret", "pem", "webhook_secret", "html_url"] as const;
-  for (const key of required) if (!body[key]) throw new Error(`GitHub manifest response omitted ${key}`);
+  if (!response.ok)
+    throw new HttpError(502, githubApiError(body), "github_manifest_conversion_failed");
+  const required = [
+    "id",
+    "slug",
+    "client_id",
+    "client_secret",
+    "pem",
+    "webhook_secret",
+    "html_url",
+  ] as const;
+  for (const key of required)
+    if (!body[key]) throw new Error(`GitHub manifest response omitted ${key}`);
   const now = nowIso();
   getDb()
     .prepare(
@@ -106,7 +134,9 @@ export async function convertManifest(code: string): Promise<GitHubAppRow> {
       now,
       now,
     );
-  return getGitHubApp()!;
+  const created = getGitHubApp();
+  if (!created) throw new Error("GitHub App credentials were not persisted");
+  return created;
 }
 
 export function appJwt(): string {
@@ -120,12 +150,17 @@ export function appJwt(): string {
 }
 
 export async function syncInstallations(): Promise<number> {
-  const response = await fetch(`${API_BASE}/app/installations?per_page=100`, {
-    headers: githubHeaders(appJwt()),
-  });
-  const body = (await response.json()) as unknown;
-  if (!response.ok || !Array.isArray(body)) {
-    throw new HttpError(502, githubApiError(body), "github_installations_failed");
+  const installations: Array<Record<string, unknown>> = [];
+  for (let page = 1; page <= 10; page++) {
+    const response = await githubFetch(`${API_BASE}/app/installations?per_page=100&page=${page}`, {
+      headers: githubHeaders(appJwt()),
+    });
+    const body = (await response.json()) as unknown;
+    if (!response.ok || !Array.isArray(body)) {
+      throw new HttpError(502, githubApiError(body), "github_installations_failed");
+    }
+    installations.push(...(body as Array<Record<string, unknown>>));
+    if (body.length < 100) break;
   }
   const now = nowIso();
   const statement = getDb().prepare(
@@ -135,7 +170,7 @@ export async function syncInstallations(): Promise<number> {
        repository_selection=excluded.repository_selection, suspended_at=excluded.suspended_at, updated_at=excluded.updated_at`,
   );
   getDb().transaction(() => {
-    for (const item of body as Array<Record<string, unknown>>) {
+    for (const item of installations) {
       const account = item.account as Record<string, unknown>;
       statement.run(
         Number(item.id),
@@ -147,15 +182,34 @@ export async function syncInstallations(): Promise<number> {
         now,
       );
     }
+    if (installations.length === 0) {
+      getDb()
+        .prepare(
+          "UPDATE github_installations SET suspended_at = COALESCE(suspended_at, ?), updated_at = ?",
+        )
+        .run(now, now);
+    } else {
+      const ids = installations.map((item) => Number(item.id));
+      getDb()
+        .prepare(
+          `UPDATE github_installations
+           SET suspended_at = COALESCE(suspended_at, ?), updated_at = ?
+           WHERE id NOT IN (${ids.map(() => "?").join(",")})`,
+        )
+        .run(now, now, ...ids);
+    }
   })();
-  return body.length;
+  return installations.length;
 }
 
 export async function installationToken(installationId: number): Promise<string> {
-  const response = await fetch(`${API_BASE}/app/installations/${installationId}/access_tokens`, {
-    method: "POST",
-    headers: githubHeaders(appJwt()),
-  });
+  const response = await githubFetch(
+    `${API_BASE}/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: githubHeaders(appJwt()),
+    },
+  );
   const body = (await response.json()) as Record<string, unknown>;
   if (!response.ok || !body.token) {
     throw new HttpError(502, githubApiError(body), "github_installation_token_failed");
@@ -165,16 +219,21 @@ export async function installationToken(installationId: number): Promise<string>
 
 export async function listRepositories(): Promise<GitHubRepository[]> {
   const installations = getDb()
-    .prepare("SELECT id FROM github_installations WHERE suspended_at IS NULL ORDER BY account_login")
+    .prepare(
+      "SELECT id FROM github_installations WHERE suspended_at IS NULL ORDER BY account_login",
+    )
     .all() as Array<{ id: number }>;
   const repositories: GitHubRepository[] = [];
   for (const installation of installations) {
     const token = await installationToken(installation.id);
     let page = 1;
     while (page <= 10) {
-      const response = await fetch(`${API_BASE}/installation/repositories?per_page=100&page=${page}`, {
-        headers: githubHeaders(token),
-      });
+      const response = await githubFetch(
+        `${API_BASE}/installation/repositories?per_page=100&page=${page}`,
+        {
+          headers: githubHeaders(token),
+        },
+      );
       const body = (await response.json()) as Record<string, unknown>;
       if (!response.ok || !Array.isArray(body.repositories)) {
         throw new HttpError(502, githubApiError(body), "github_repositories_failed");
@@ -204,13 +263,17 @@ export async function repositoryHead(
 ): Promise<string> {
   const match = repositoryUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/i);
   if (!match) throw new Error("GitHub repository URL is not recognized");
+  const owner = match[1];
+  const repository = match[2];
+  if (!owner || !repository) throw new Error("GitHub repository URL is incomplete");
   const token = await installationToken(installationId);
-  const response = await fetch(
-    `${API_BASE}/repos/${encodeURIComponent(match[1]!)}/${encodeURIComponent(match[2]!)}/commits/${encodeURIComponent(branch)}`,
+  const response = await githubFetch(
+    `${API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits/${encodeURIComponent(branch)}`,
     { headers: githubHeaders(token) },
   );
   const body = (await response.json()) as Record<string, unknown>;
-  if (!response.ok || !body.sha) throw new HttpError(502, githubApiError(body), "github_branch_head_failed");
+  if (!response.ok || !body.sha)
+    throw new HttpError(502, githubApiError(body), "github_branch_head_failed");
   return String(body.sha);
 }
 
@@ -229,7 +292,7 @@ export async function updateAppWebhook(publicBaseUrl: string): Promise<boolean> 
   const app = getGitHubApp();
   if (!app) return false;
   const base = publicBaseUrl.replace(/\/$/, "");
-  const response = await fetch(`${API_BASE}/app/hook/config`, {
+  const response = await githubFetch(`${API_BASE}/app/hook/config`, {
     method: "PATCH",
     headers: githubHeaders(appJwt()),
     body: JSON.stringify({
@@ -269,6 +332,14 @@ function githubHeaders(token?: string): HeadersInit {
 }
 
 function githubApiError(body: unknown): string {
-  if (body && typeof body === "object" && "message" in body) return `GitHub API: ${String(body.message)}`;
+  if (body && typeof body === "object" && "message" in body)
+    return `GitHub API: ${String(body.message)}`;
   return "GitHub API request failed";
+}
+
+function githubFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
+  });
 }

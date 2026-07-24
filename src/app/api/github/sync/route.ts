@@ -1,5 +1,5 @@
+import type { NextRequest } from "next/server";
 import { requireRole } from "@/server/auth";
-import { type NextRequest } from "next/server";
 import { syncInstallations } from "@/server/github";
 import { api } from "@/server/http";
 import { requestUser } from "@/server/next-auth";

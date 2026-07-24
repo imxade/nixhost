@@ -1,2 +1,22 @@
 import { redirect } from "next/navigation";
-export default async function Page({searchParams}:{searchParams:Promise<{error?:string}>}){const {error}=await searchParams;if(!error)redirect("/integrations/github");return <main className="min-h-screen grid place-items-center p-5"><div className="card bg-base-100 shadow-xl max-w-lg"><div className="card-body"><h1 className="card-title">GitHub connection failed</h1><div className="alert alert-error">{error}</div><a href="/integrations/github" className="btn btn-primary">Return to GitHub settings</a></div></div></main>}
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  if (!error) redirect("/integrations/github");
+  return (
+    <main className="min-h-screen grid place-items-center p-5">
+      <div className="card bg-base-100 shadow-xl max-w-lg">
+        <div className="card-body">
+          <h1 className="card-title">GitHub connection failed</h1>
+          <div className="alert alert-error">{error}</div>
+          <a href="/integrations/github" className="btn btn-primary">
+            Return to GitHub settings
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
