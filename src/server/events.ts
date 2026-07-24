@@ -26,7 +26,8 @@ class EventBus {
       data,
     };
     this.history.push(event);
-    if (this.history.length > this.historyLimit) this.history.splice(0, this.history.length - this.historyLimit);
+    if (this.history.length > this.historyLimit)
+      this.history.splice(0, this.history.length - this.historyLimit);
     this.emitter.emit("event", event);
     return event;
   }
@@ -37,7 +38,9 @@ class EventBus {
   }
 
   since(id: number, scope?: string): PlatformEvent[] {
-    return this.history.filter((event) => event.id > id && (!scope || event.scope === scope || event.scope === "system"));
+    return this.history.filter(
+      (event) => event.id > id && (!scope || event.scope === scope || event.scope === "system"),
+    );
   }
 }
 

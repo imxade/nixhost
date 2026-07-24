@@ -1,19 +1,17 @@
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import type { ChildProcess } from "node:child_process";
-import { config } from "./config.js";
-import { getDb, nowIso } from "./db.js";
-import { errorMessage, HttpError } from "./errors.js";
-import { events } from "./events.js";
-import { inspectFlake } from "./flake.js";
-import { prepareRelease, removeReleaseWorktree } from "./git.js";
-import { logger } from "./logger.js";
-import { latestHostMetric } from "./metrics.js";
-import { allocateInternalPort } from "./ports.js";
-import type { ProcessSupervisor } from "./process-supervisor.js";
-import type { ProxyManager } from "./proxy-manager.js";
-import type { AppRow, DeploymentRow, DeploymentState } from "./types.js";
+import os from "node:os";
+import { config } from "./config.ts";
+import { getDb, nowIso } from "./db.ts";
+import { errorMessage, HttpError } from "./errors.ts";
+import { events } from "./events.ts";
+import { inspectFlake } from "./flake.ts";
+import { prepareRelease, removeReleaseWorktree } from "./git.ts";
+import { logger } from "./logger.ts";
+import { latestHostMetric } from "./metrics.ts";
+import { allocateInternalPort } from "./ports.ts";
+import type { ProcessSupervisor } from "./process-supervisor.ts";
+import type { ProxyManager } from "./proxy-manager.ts";
+import type { AppRow, DeploymentRow, DeploymentState } from "./types.ts";
 
 export class DeploymentEngine {
   private timer: NodeJS.Timeout | null = null;
@@ -91,7 +89,9 @@ export class DeploymentEngine {
 
   private async execute(initial: DeploymentRow): Promise<void> {
     let deployment = initial;
-    let app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(deployment.app_id) as AppRow;
+    let app = getDb()
+      .prepare("SELECT * FROM applications WHERE id = ?")
+      .get(deployment.app_id) as AppRow;
     let child: ChildProcess | null = null;
     let releaseDir: string | null = null;
     let internalPort: number | null = null;
@@ -101,7 +101,10 @@ export class DeploymentEngine {
       ensureNotCancelled(deployment.id);
       preflightResources();
       transition(deployment.id, "fetching");
-      events.publish("deployment.state", `app:${app.id}`, { deploymentId: deployment.id, state: "fetching" });
+      events.publish("deployment.state", `app:${app.id}`, {
+        deploymentId: deployment.id,
+        state: "fetching",
+      });
       const release = await prepareRelease(
         app,
         deployment.id,
@@ -115,7 +118,10 @@ export class DeploymentEngine {
       ensureNotCancelled(deployment.id);
 
       transition(deployment.id, "evaluating");
-      events.publish("deployment.state", `app:${app.id}`, { deploymentId: deployment.id, state: "evaluating" });
+      events.publish("deployment.state", `app:${app.id}`, {
+        deploymentId: deployment.id,
+        state: "evaluating",
+      });
       await inspectFlake(releaseDir, app.flake_output, abortController.signal);
       ensureNotCancelled(deployment.id);
 
@@ -148,17 +154,24 @@ export class DeploymentEngine {
       transition(deployment.id, "health-checking");
       if (app.kind === "web") {
         if (!internalPort) throw new Error("Web application was not assigned an internal port");
-        await waitForHealthy(
-          app,
-          deployment.id,
-          internalPort,
-          child,
-          abortController.signal,
-        );
+        await waitForHealthy(app, deployment.id, internalPort, child, abortController.signal);
       } else {
         await waitForStableProcess(deployment.id, child, 5000, abortController.signal);
       }
       ensureNotCancelled(deployment.id);
+      const finalIdentity = this.supervisor.refreshIdentity(deployment.id);
+      getDb()
+        .prepare(
+          `UPDATE deployments SET process_group_id = ?, process_start_ticks = ?,
+            process_command_hash = ?, process_command_summary = ? WHERE id = ?`,
+        )
+        .run(
+          finalIdentity.processGroupId,
+          finalIdentity.startTicks,
+          finalIdentity.commandHash,
+          finalIdentity.commandSummary,
+          deployment.id,
+        );
 
       transition(deployment.id, "activating");
       app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(app.id) as AppRow;
@@ -172,11 +185,15 @@ export class DeploymentEngine {
           )
           .run(internalPort, deployment.id, activatedAt, app.id);
         getDb()
-          .prepare("UPDATE deployments SET state = 'running', activated_at = ?, failure_code = NULL, failure_message = NULL WHERE id = ?")
+          .prepare(
+            "UPDATE deployments SET state = 'running', activated_at = ?, failure_code = NULL, failure_message = NULL WHERE id = ?",
+          )
           .run(activatedAt, deployment.id);
         if (previousDeploymentId && previousDeploymentId !== deployment.id) {
           getDb()
-            .prepare("UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'")
+            .prepare(
+              "UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'",
+            )
             .run(activatedAt, previousDeploymentId);
         }
       })();
@@ -189,10 +206,15 @@ export class DeploymentEngine {
         state: "running",
         commit: release.commit,
       });
-      logger.info("Deployment activated", { appId: app.id, deploymentId: deployment.id, commit: release.commit });
+      logger.info("Deployment activated", {
+        appId: app.id,
+        deploymentId: deployment.id,
+        commit: release.commit,
+      });
     } catch (error) {
       const current = getDeployment(deployment.id);
-      if (child?.pid && current.state !== "running") await this.supervisor.stopDeployment(deployment.id).catch(() => undefined);
+      if (child?.pid && current.state !== "running")
+        await this.supervisor.stopDeployment(deployment.id).catch(() => undefined);
       const cancelled =
         Boolean(current.cancel_requested) ||
         abortController.signal.aborted ||
@@ -217,20 +239,31 @@ export class DeploymentEngine {
         message: cancelled ? "Deployment was cancelled" : errorMessage(error),
         resourceConfidence: resource.confidence,
       });
-      logger.error("Deployment failed", { appId: app.id, deploymentId: deployment.id, error: errorMessage(error) });
+      logger.error("Deployment failed", {
+        appId: app.id,
+        deploymentId: deployment.id,
+        error: errorMessage(error),
+      });
     } finally {
       this.abortControllers.delete(deployment.id);
-      await cleanupReleaseWorktrees(app.id).catch((error) => logger.warn("Release cleanup failed", { appId: app.id, error: errorMessage(error) }));
+      await cleanupReleaseWorktrees(app.id).catch((error) =>
+        logger.warn("Release cleanup failed", { appId: app.id, error: errorMessage(error) }),
+      );
     }
   }
 }
 
 async function cleanupReleaseWorktrees(appId: string): Promise<void> {
-  const stale = getDb().prepare(
-    `SELECT id, release_dir FROM deployments WHERE app_id = ? AND release_dir IS NOT NULL
+  const stale = getDb()
+    .prepare(
+      `SELECT id, release_dir FROM deployments WHERE app_id = ? AND release_dir IS NOT NULL
      AND id != COALESCE((SELECT active_deployment_id FROM applications WHERE id = ?), '')
      ORDER BY queued_at DESC LIMIT -1 OFFSET ?`,
-  ).all(appId, appId, config.NIXHOST_RELEASE_RETENTION) as Array<{ id: string; release_dir: string }>;
+    )
+    .all(appId, appId, config.NIXHOST_RELEASE_RETENTION) as Array<{
+    id: string;
+    release_dir: string;
+  }>;
   for (const deployment of stale) {
     await removeReleaseWorktree(appId, deployment.release_dir);
     getDb().prepare("UPDATE deployments SET release_dir = NULL WHERE id = ?").run(deployment.id);
@@ -252,19 +285,21 @@ function claimDeployment(): DeploymentRow | null {
            )
          ORDER BY d.queued_at ASC LIMIT 1`,
       )
-      .get() as
-      | DeploymentRow
-      | undefined;
+      .get() as DeploymentRow | undefined;
     if (!row) return null;
     const updated = db
-      .prepare("UPDATE deployments SET state = 'preparing', started_at = ? WHERE id = ? AND state = 'queued'")
+      .prepare(
+        "UPDATE deployments SET state = 'preparing', started_at = ? WHERE id = ? AND state = 'queued'",
+      )
       .run(nowIso(), row.id);
     return updated.changes ? getDeployment(row.id) : null;
   })();
 }
 
 function getDeployment(id: string): DeploymentRow {
-  const row = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(id) as DeploymentRow | undefined;
+  const row = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(id) as
+    | DeploymentRow
+    | undefined;
   if (!row) throw new Error(`Deployment disappeared: ${id}`);
   return row;
 }
@@ -275,7 +310,9 @@ function transition(
   extra: { internalPort?: number | null } = {},
 ): void {
   getDb()
-    .prepare("UPDATE deployments SET state = ?, internal_port = COALESCE(?, internal_port) WHERE id = ?")
+    .prepare(
+      "UPDATE deployments SET state = ?, internal_port = COALESCE(?, internal_port) WHERE id = ?",
+    )
     .run(state, extra.internalPort ?? null, id);
 }
 
@@ -283,16 +320,25 @@ function ensureNotCancelled(id: string): void {
   const row = getDb().prepare("SELECT cancel_requested FROM deployments WHERE id = ?").get(id) as
     | { cancel_requested: number }
     | undefined;
-  if (row?.cancel_requested) throw new HttpError(409, "Deployment cancelled", "deployment_cancelled");
+  if (row?.cancel_requested)
+    throw new HttpError(409, "Deployment cancelled", "deployment_cancelled");
 }
 
 function preflightResources(): void {
   const metric = latestHostMetric();
   if (metric.freeDiskBytes < config.NIXHOST_MIN_FREE_DISK_MB * 1024 * 1024) {
-    throw new HttpError(409, "Deployment blocked because free disk space is below the configured reserve", "insufficient_disk");
+    throw new HttpError(
+      409,
+      "Deployment blocked because free disk space is below the configured reserve",
+      "insufficient_disk",
+    );
   }
   if (os.freemem() < config.NIXHOST_MIN_FREE_MEMORY_MB * 1024 * 1024) {
-    throw new HttpError(409, "Deployment blocked because available memory is below the configured reserve", "insufficient_memory");
+    throw new HttpError(
+      409,
+      "Deployment blocked because available memory is below the configured reserve",
+      "insufficient_memory",
+    );
   }
 }
 
@@ -308,7 +354,8 @@ async function waitForHealthy(
   while (Date.now() < deadline) {
     if (signal.aborted) throw new HttpError(409, "Deployment cancelled", "deployment_cancelled");
     ensureNotCancelled(deploymentId);
-    if (child.exitCode !== null) throw new Error(`Application exited before becoming healthy with code ${child.exitCode}`);
+    if (child.exitCode !== null)
+      throw new Error(`Application exited before becoming healthy with code ${child.exitCode}`);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), app.health_timeout_seconds * 1000);
     try {
@@ -325,7 +372,9 @@ async function waitForHealthy(
     }
     await delay(1000);
   }
-  throw new Error(`Application did not become healthy within ${app.startup_timeout_seconds}s: ${lastError}`);
+  throw new Error(
+    `Application did not become healthy within ${app.startup_timeout_seconds}s: ${lastError}`,
+  );
 }
 
 async function waitForStableProcess(
@@ -338,7 +387,8 @@ async function waitForStableProcess(
   while (Date.now() < deadline) {
     if (signal.aborted) throw new HttpError(409, "Deployment cancelled", "deployment_cancelled");
     ensureNotCancelled(deploymentId);
-    if (child.exitCode !== null) throw new Error(`Worker exited during startup with code ${child.exitCode}`);
+    if (child.exitCode !== null)
+      throw new Error(`Worker exited during startup with code ${child.exitCode}`);
     await delay(250);
   }
 }
@@ -349,8 +399,10 @@ function classifyResourceFailure(
 ): { code: string; confidence: "none" | "low" | "medium" | "high" } {
   const message = errorMessage(error).toLowerCase();
   const freeMemory = os.freemem();
-  if (error instanceof HttpError && error.code === "insufficient_memory") return { code: "insufficient_memory", confidence: "high" };
-  if (error instanceof HttpError && error.code === "insufficient_disk") return { code: "insufficient_disk", confidence: "high" };
+  if (error instanceof HttpError && error.code === "insufficient_memory")
+    return { code: "insufficient_memory", confidence: "high" };
+  if (error instanceof HttpError && error.code === "insufficient_disk")
+    return { code: "insufficient_disk", confidence: "high" };
   if (deployment.exit_signal === "SIGKILL" && freeMemory < 128 * 1024 * 1024) {
     return { code: "probable_resource_exhaustion", confidence: "high" };
   }

@@ -60,13 +60,14 @@ export function matchesProcessIdentity(stored: StoredProcessIdentity): boolean {
     return false;
   }
   if (process.platform !== "linux") return false;
-  if (!stored.process_start_ticks) return false;
+  if (!stored.process_start_ticks || !stored.process_command_hash) return false;
 
   const current = captureProcessIdentity(stored.pid);
   return Boolean(
     current &&
       current.processGroupId === stored.process_group_id &&
-      current.startTicks === stored.process_start_ticks,
+      current.startTicks === stored.process_start_ticks &&
+      current.commandHash === stored.process_command_hash,
   );
 }
 
@@ -86,12 +87,20 @@ export function parseLinuxProcessStat(value: string): {
 } {
   const closing = value.lastIndexOf(")");
   if (closing < 0) throw new Error("Invalid /proc process stat record");
-  const fields = value.slice(closing + 2).trim().split(/\s+/);
+  const fields = value
+    .slice(closing + 2)
+    .trim()
+    .split(/\s+/);
   // fields[0] starts at the kernel's field 3 (state). pgrp is field 5 and
   // starttime is field 22, therefore indexes 2 and 19 in this sliced array.
   const processGroupId = Number(fields[2]);
   const startTicks = fields[19];
-  if (!Number.isSafeInteger(processGroupId) || processGroupId <= 1 || !/^\d+$/.test(startTicks ?? "")) {
+  if (
+    !Number.isSafeInteger(processGroupId) ||
+    processGroupId < 1 ||
+    !startTicks ||
+    !/^\d+$/.test(startTicks)
+  ) {
     throw new Error("Incomplete /proc process identity");
   }
   return { processGroupId, startTicks };
@@ -110,13 +119,11 @@ function readCommandBytes(pid: number): Buffer {
 }
 
 function summarizeCommand(value: Buffer): string {
-  return value
-    .toString("utf8")
-    .replaceAll("\0", " ")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 512);
+  const sanitized = Array.from(value.toString("utf8"), (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint < 32 || codePoint === 127 ? " " : character;
+  }).join("");
+  return sanitized.replace(/\s+/g, " ").trim().slice(0, 512);
 }
 
 function sha256(value: Buffer): string {

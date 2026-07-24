@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
-import { getDb, nowIso } from "./db.js";
-import { config } from "./config.js";
-import { events } from "./events.js";
-import { paths } from "./paths.js";
-import { matchesProcessIdentity } from "./process-identity.js";
-import type { AppRow, DeploymentRow, RuntimeMetric } from "./types.js";
+import { config } from "./config.ts";
+import { getDb, nowIso } from "./db.ts";
+import { events } from "./events.ts";
+import { paths } from "./paths.ts";
+import { matchesProcessIdentity } from "./process-identity.ts";
+import type { AppRow, DeploymentRow, RuntimeMetric } from "./types.ts";
 
 interface CpuSample {
   ticks: number;
@@ -48,12 +48,21 @@ export class MetricsCollector {
           free_disk_bytes, total_memory_bytes, available_memory_bytes)
          VALUES (NULL, ?, ?, ?, NULL, ?, ?, ?)`,
       )
-      .run(host.timestamp, host.cpuPercent, host.memoryUsedBytes, host.freeDiskBytes, host.memoryTotalBytes, os.freemem());
-    const apps = getDb().prepare("SELECT * FROM applications WHERE active_deployment_id IS NOT NULL").all() as AppRow[];
+      .run(
+        host.timestamp,
+        host.cpuPercent,
+        host.memoryUsedBytes,
+        host.freeDiskBytes,
+        host.memoryTotalBytes,
+        os.freemem(),
+      );
+    const apps = getDb()
+      .prepare("SELECT * FROM applications WHERE active_deployment_id IS NOT NULL")
+      .all() as AppRow[];
     for (const app of apps) {
-      const deployment = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(app.active_deployment_id) as
-        | DeploymentRow
-        | undefined;
+      const deployment = getDb()
+        .prepare("SELECT * FROM deployments WHERE id = ?")
+        .get(app.active_deployment_id) as DeploymentRow | undefined;
       if (!deployment?.process_group_id || !matchesProcessIdentity(deployment)) continue;
       const processMetric = readProcessGroup(deployment.process_group_id, this.previousCpu);
       getDb()
@@ -62,7 +71,13 @@ export class MetricsCollector {
             free_disk_bytes, total_memory_bytes, available_memory_bytes)
            VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)`,
         )
-        .run(app.id, host.timestamp, processMetric.cpuPercent, processMetric.memoryBytes, processMetric.processCount);
+        .run(
+          app.id,
+          host.timestamp,
+          processMetric.cpuPercent,
+          processMetric.memoryBytes,
+          processMetric.processCount,
+        );
       events.publish("metric", `app:${app.id}`, { ...processMetric, timestamp: host.timestamp });
     }
     events.publish("metric", "system", host);
@@ -88,7 +103,11 @@ export function latestHostMetric(): RuntimeMetric {
   };
 }
 
-export function processGroupMetric(processGroupId: number): { cpuPercent: number; memoryBytes: number; processCount: number } {
+export function processGroupMetric(processGroupId: number): {
+  cpuPercent: number;
+  memoryBytes: number;
+  processCount: number;
+} {
   return readProcessGroup(processGroupId, new Map());
 }
 
@@ -100,12 +119,17 @@ function hostCpuPercent(): number {
   current.forEach((cpu, index) => {
     const previous = previousHostCpu[index] ?? cpu.times;
     const total = Object.values(cpu.times).reduce<number>((sum, value) => sum + Number(value), 0);
-    const previousTotal = Object.values(previous).reduce<number>((sum, value) => sum + Number(value), 0);
+    const previousTotal = Object.values(previous).reduce<number>(
+      (sum, value) => sum + Number(value),
+      0,
+    );
     idleDelta += cpu.times.idle - previous.idle;
     totalDelta += total - previousTotal;
   });
   previousHostCpu = current.map((cpu) => ({ ...cpu.times }));
-  return totalDelta > 0 ? Math.max(0, Math.min(100, ((totalDelta - idleDelta) / totalDelta) * 100)) : 0;
+  return totalDelta > 0
+    ? Math.max(0, Math.min(100, ((totalDelta - idleDelta) / totalDelta) * 100))
+    : 0;
 }
 
 function readProcessGroup(
@@ -134,13 +158,34 @@ function readProcessGroup(
   const now = Date.now();
   const last = previous.get(processGroupId);
   previous.set(processGroupId, { ticks, at: now });
-  const cpuPercent = last && now > last.at ? ((ticks - last.ticks) / ticksPerSecond / ((now - last.at) / 1000)) * 100 : 0;
+  const cpuPercent =
+    last && now > last.at
+      ? ((ticks - last.ticks) / ticksPerSecond / ((now - last.at) / 1000)) * 100
+      : 0;
   return { cpuPercent: Math.max(0, cpuPercent), memoryBytes, processCount };
 }
 
-export function latestAppMetric(appId: string): { capturedAt: string; cpuPercent: number; memoryBytes: number; processCount: number } | null {
-  const row = getDb().prepare(
-    "SELECT captured_at, cpu_percent, memory_bytes, process_count FROM metrics WHERE app_id = ? ORDER BY captured_at DESC LIMIT 1",
-  ).get(appId) as { captured_at: string; cpu_percent: number | null; memory_bytes: number | null; process_count: number | null } | undefined;
-  return row ? { capturedAt: row.captured_at, cpuPercent: row.cpu_percent ?? 0, memoryBytes: row.memory_bytes ?? 0, processCount: row.process_count ?? 0 } : null;
+export function latestAppMetric(
+  appId: string,
+): { capturedAt: string; cpuPercent: number; memoryBytes: number; processCount: number } | null {
+  const row = getDb()
+    .prepare(
+      "SELECT captured_at, cpu_percent, memory_bytes, process_count FROM metrics WHERE app_id = ? ORDER BY captured_at DESC LIMIT 1",
+    )
+    .get(appId) as
+    | {
+        captured_at: string;
+        cpu_percent: number | null;
+        memory_bytes: number | null;
+        process_count: number | null;
+      }
+    | undefined;
+  return row
+    ? {
+        capturedAt: row.captured_at,
+        cpuPercent: row.cpu_percent ?? 0,
+        memoryBytes: row.memory_bytes ?? 0,
+        processCount: row.process_count ?? 0,
+      }
+    : null;
 }

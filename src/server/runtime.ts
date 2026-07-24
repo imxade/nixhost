@@ -1,19 +1,19 @@
 import fs from "node:fs";
-import { ensureSetupToken, purgeExpiredSessions } from "./auth.js";
-import { CloudflareController } from "./cloudflare.js";
-import { getDb, nowIso } from "./db.js";
-import { DeploymentEngine } from "./deployment-engine.js";
-import { events } from "./events.js";
-import { GitReconciler } from "./git-reconciler.js";
-import { logger } from "./logger.js";
-import { LogRetentionController } from "./log-retention.js";
-import { MetricsCollector } from "./metrics.js";
-import { ensureDataDirectories, paths } from "./paths.js";
-import { ProcessSupervisor } from "./process-supervisor.js";
-import { captureProcessIdentity, matchesProcessIdentity } from "./process-identity.js";
-import { ProxyManager } from "./proxy-manager.js";
-import { queueDeployment } from "./app-service.js";
-import type { AppRow, DeploymentRow } from "./types.js";
+import { queueDeployment } from "./app-service.ts";
+import { ensureSetupToken, purgeExpiredSessions } from "./auth.ts";
+import { CloudflareController } from "./cloudflare.ts";
+import { getDb, nowIso } from "./db.ts";
+import { DeploymentEngine } from "./deployment-engine.ts";
+import { events } from "./events.ts";
+import { GitReconciler } from "./git-reconciler.ts";
+import { LogRetentionController } from "./log-retention.ts";
+import { logger } from "./logger.ts";
+import { MetricsCollector } from "./metrics.ts";
+import { ensureDataDirectories, paths } from "./paths.ts";
+import { captureProcessIdentity, matchesProcessIdentity } from "./process-identity.ts";
+import { ProcessSupervisor } from "./process-supervisor.ts";
+import { ProxyManager } from "./proxy-manager.ts";
+import type { AppRow, DeploymentRow } from "./types.ts";
 
 export class PlatformRuntime {
   readonly proxy = new ProxyManager();
@@ -60,25 +60,41 @@ export class PlatformRuntime {
   }
 
   async stopApplication(appId: string): Promise<void> {
-    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as AppRow | undefined;
+    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as
+      | AppRow
+      | undefined;
     if (!app) throw new Error("Application not found");
     const stoppedAt = nowIso();
-    getDb().prepare("UPDATE applications SET desired_state = 'stopped', active_internal_port = NULL, active_deployment_id = NULL, updated_at = ? WHERE id = ?").run(stoppedAt, appId);
+    getDb()
+      .prepare(
+        "UPDATE applications SET desired_state = 'stopped', active_internal_port = NULL, active_deployment_id = NULL, updated_at = ? WHERE id = ?",
+      )
+      .run(stoppedAt, appId);
     if (app.active_deployment_id) {
       await this.supervisor.stopDeployment(app.active_deployment_id);
-      getDb().prepare("UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'").run(stoppedAt, app.active_deployment_id);
+      getDb()
+        .prepare(
+          "UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'",
+        )
+        .run(stoppedAt, app.active_deployment_id);
     }
     await this.proxy.reconcile();
     events.publish("application.stopped", `app:${appId}`, {});
   }
 
   async startApplication(appId: string): Promise<DeploymentRow> {
-    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as AppRow | undefined;
+    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as
+      | AppRow
+      | undefined;
     if (!app) throw new Error("Application not found");
-    getDb().prepare("UPDATE applications SET desired_state = 'running', updated_at = ? WHERE id = ?").run(nowIso(), appId);
-    const latest = getDb().prepare(
-      "SELECT * FROM deployments WHERE app_id = ? AND commit_sha IS NOT NULL ORDER BY COALESCE(activated_at, queued_at) DESC LIMIT 1",
-    ).get(appId) as DeploymentRow | undefined;
+    getDb()
+      .prepare("UPDATE applications SET desired_state = 'running', updated_at = ? WHERE id = ?")
+      .run(nowIso(), appId);
+    const latest = getDb()
+      .prepare(
+        "SELECT * FROM deployments WHERE app_id = ? AND commit_sha IS NOT NULL ORDER BY COALESCE(activated_at, queued_at) DESC LIMIT 1",
+      )
+      .get(appId) as DeploymentRow | undefined;
     return queueDeployment(appId, {
       trigger: "restart",
       commitSha: latest?.commit_sha ?? null,
@@ -105,10 +121,13 @@ declare global {
 export function bootRuntime(): Promise<PlatformRuntime> {
   if (!globalThis.__nixhostRuntimePromise) {
     const runtime = new PlatformRuntime();
-    globalThis.__nixhostRuntimePromise = runtime.boot().then(() => runtime).catch((error) => {
-      globalThis.__nixhostRuntimePromise = undefined;
-      throw error;
-    });
+    globalThis.__nixhostRuntimePromise = runtime
+      .boot()
+      .then(() => runtime)
+      .catch((error) => {
+        globalThis.__nixhostRuntimePromise = undefined;
+        throw error;
+      });
   }
   return globalThis.__nixhostRuntimePromise;
 }
@@ -118,12 +137,14 @@ export async function getRuntime(): Promise<PlatformRuntime> {
 }
 
 function recoverDesiredState(supervisor: ProcessSupervisor): void {
-  const apps = getDb().prepare("SELECT * FROM applications WHERE desired_state = 'running'").all() as AppRow[];
+  const apps = getDb()
+    .prepare("SELECT * FROM applications WHERE desired_state = 'running'")
+    .all() as AppRow[];
   for (const app of apps) {
     if (app.active_deployment_id) {
-      const active = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(app.active_deployment_id) as
-        | DeploymentRow
-        | undefined;
+      const active = getDb()
+        .prepare("SELECT * FROM deployments WHERE id = ?")
+        .get(app.active_deployment_id) as DeploymentRow | undefined;
       if (active && supervisor.isAlive(active)) continue;
     }
     const pending = getDb()
@@ -144,6 +165,8 @@ function acquireRuntimeLock(): void {
         pid?: number;
         processGroupId?: number;
         startTicks?: string | null;
+        commandHash?: string | null;
+        commandSummary?: string | null;
       };
       if (
         lock.pid &&
@@ -152,6 +175,8 @@ function acquireRuntimeLock(): void {
           pid: lock.pid,
           process_group_id: lock.processGroupId ?? lock.pid,
           process_start_ticks: lock.startTicks ?? null,
+          process_command_hash: lock.commandHash ?? null,
+          process_command_summary: lock.commandSummary ?? null,
         })
       ) {
         throw new Error(`Another NixHost control plane is already running with PID ${lock.pid}`);
@@ -169,6 +194,8 @@ function acquireRuntimeLock(): void {
       pid: process.pid,
       processGroupId: identity?.processGroupId ?? process.pid,
       startTicks: identity?.startTicks ?? null,
+      commandHash: identity?.commandHash ?? null,
+      commandSummary: identity?.commandSummary ?? null,
       startedAt: nowIso(),
     }),
     { mode: 0o600, flag: "wx" },

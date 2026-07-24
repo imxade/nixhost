@@ -1,20 +1,20 @@
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { queueDeployment } from "./app-service.js";
-import { spawnLogged } from "./command.js";
-import { decryptSecret } from "./crypto.js";
-import { getDb, nowIso } from "./db.js";
-import { events } from "./events.js";
-import { logger } from "./logger.js";
-import { appPaths } from "./paths.js";
+import { queueDeployment } from "./app-service.ts";
+import { spawnLogged } from "./command.ts";
+import { decryptSecret } from "./crypto.ts";
+import { getDb, nowIso } from "./db.ts";
+import { events } from "./events.ts";
+import { logger } from "./logger.ts";
+import { appPaths } from "./paths.ts";
 import {
   captureProcessIdentity,
   isPidReachable,
   matchesProcessIdentity,
   type ProcessIdentity,
-} from "./process-identity.js";
-import type { AppRow, DeploymentRow } from "./types.js";
+} from "./process-identity.ts";
+import type { AppRow, DeploymentRow } from "./types.ts";
 
 interface ManagedProcess {
   deploymentId: string;
@@ -58,9 +58,7 @@ export class ProcessSupervisor {
       .all(app.id) as Array<{ key: string; value_encrypted: string }>;
     const env: NodeJS.ProcessEnv = {
       ...process.env,
-      ...Object.fromEntries(
-        envRows.map((row) => [row.key, decryptSecret(row.value_encrypted)]),
-      ),
+      ...Object.fromEntries(envRows.map((row) => [row.key, decryptSecret(row.value_encrypted)])),
       NIXHOST: "1",
       APP_ID: app.id,
       APP_NAME: app.name,
@@ -72,17 +70,13 @@ export class ProcessSupervisor {
       HOST: "127.0.0.1",
       ...(internalPort ? { PORT: String(internalPort) } : {}),
     };
-    const child = spawnLogged(
-      "nix",
-      ["run", "--no-write-lock-file", `.#${app.flake_output}`],
-      {
-        cwd: releaseDir,
-        env,
-        stdoutPath,
-        stderrPath,
-        detached: true,
-      },
-    );
+    const child = spawnLogged("nix", ["run", "--no-write-lock-file", `.#${app.flake_output}`], {
+      cwd: releaseDir,
+      env,
+      stdoutPath,
+      stderrPath,
+      detached: true,
+    });
     if (!child.pid) throw new Error("Nix did not return a process ID");
     const identity = captureProcessIdentity(child.pid);
     if (!identity) {
@@ -103,9 +97,9 @@ export class ProcessSupervisor {
   }
 
   async stopDeployment(deploymentId: string, graceMs = 10_000): Promise<void> {
-    const deployment = getDb().prepare("SELECT * FROM deployments WHERE id = ?").get(deploymentId) as
-      | DeploymentRow
-      | undefined;
+    const deployment = getDb()
+      .prepare("SELECT * FROM deployments WHERE id = ?")
+      .get(deploymentId) as DeploymentRow | undefined;
     if (!deployment?.process_group_id) return;
 
     const managed = this.managed.get(deploymentId);
@@ -124,6 +118,22 @@ export class ProcessSupervisor {
       terminateProcessGroup(deployment.process_group_id, "SIGKILL");
     }
     this.managed.delete(deploymentId);
+  }
+
+  refreshIdentity(deploymentId: string): ProcessIdentity {
+    const managed = this.managed.get(deploymentId);
+    if (!managed?.child.pid || managed.child.exitCode !== null) {
+      throw new Error("Application process is no longer running");
+    }
+    const identity = captureProcessIdentity(managed.child.pid);
+    if (!identity?.startTicks || !identity.commandHash) {
+      throw new Error("Unable to verify the final application process identity");
+    }
+    if (identity.startTicks !== managed.identity.startTicks) {
+      throw new Error("Application process identity changed unexpectedly during startup");
+    }
+    managed.identity = identity;
+    return identity;
   }
 
   isAlive(deployment: DeploymentRow): boolean {

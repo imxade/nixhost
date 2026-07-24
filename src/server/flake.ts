@@ -1,16 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runCommand } from "./command.js";
-import { HttpError } from "./errors.js";
+import { runCommand } from "./command.ts";
+import { HttpError } from "./errors.ts";
 
 let cachedSystem: string | undefined;
 
 export async function currentNixSystem(): Promise<string> {
   if (cachedSystem) return cachedSystem;
-  const result = await runCommand("nix", ["eval", "--impure", "--raw", "--expr", "builtins.currentSystem"], {
-    timeoutMs: 30_000,
-  });
-  if (result.code !== 0) throw new Error(`Unable to determine Nix system: ${result.stderr || result.stdout}`);
+  const result = await runCommand(
+    "nix",
+    ["eval", "--impure", "--raw", "--expr", "builtins.currentSystem"],
+    {
+      timeoutMs: 30_000,
+    },
+  );
+  if (result.code !== 0)
+    throw new Error(`Unable to determine Nix system: ${result.stderr || result.stdout}`);
   cachedSystem = result.stdout.trim();
   return cachedSystem;
 }
@@ -30,13 +35,21 @@ export async function inspectFlake(
     throw new HttpError(400, "Repository does not contain flake.lock", "flake_lock_missing");
   }
   const system = await currentNixSystem();
-  const show = await runCommand("nix", ["flake", "show", "--json", "--no-write-lock-file", releaseDir], {
-    timeoutMs: 10 * 60_000,
-    maxOutputBytes: 16 * 1024 * 1024,
-    signal,
-  });
+  const show = await runCommand(
+    "nix",
+    ["flake", "show", "--json", "--no-write-lock-file", releaseDir],
+    {
+      timeoutMs: 10 * 60_000,
+      maxOutputBytes: 16 * 1024 * 1024,
+      signal,
+    },
+  );
   if (show.code !== 0) {
-    throw new HttpError(400, `Flake evaluation failed: ${tail(show.stderr || show.stdout)}`, "flake_evaluation_failed");
+    throw new HttpError(
+      400,
+      `Flake evaluation failed: ${tail(show.stderr || show.stdout)}`,
+      "flake_evaluation_failed",
+    );
   }
   let parsed: Record<string, unknown>;
   try {
@@ -44,8 +57,12 @@ export async function inspectFlake(
   } catch {
     throw new Error("nix flake show returned invalid JSON");
   }
-  const apps = ((parsed.apps as Record<string, unknown> | undefined)?.[system] ?? {}) as Record<string, unknown>;
-  const packages = ((parsed.packages as Record<string, unknown> | undefined)?.[system] ?? {}) as Record<string, unknown>;
+  const apps = ((parsed.apps as Record<string, unknown> | undefined)?.[system] ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const packages = ((parsed.packages as Record<string, unknown> | undefined)?.[system] ??
+    {}) as Record<string, unknown>;
   const outputs = [...new Set([...Object.keys(apps), ...Object.keys(packages)])].sort();
   if (!(output in apps) && !(output in packages)) {
     throw new HttpError(

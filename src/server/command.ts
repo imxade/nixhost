@@ -1,6 +1,6 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
-import { errorMessage } from "./errors.js";
+import { errorMessage } from "./errors.ts";
 
 export interface CommandResult {
   code: number;
@@ -22,8 +22,8 @@ export async function runCommand(
 ): Promise<CommandResult> {
   const maxOutputBytes = options.maxOutputBytes ?? 4 * 1024 * 1024;
   return new Promise((resolve, reject) => {
-    let stdout = Buffer.alloc(0);
-    let stderr = Buffer.alloc(0);
+    let stdout: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+    let stderr: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let settled = false;
     let timedOut = false;
     let aborted = false;
@@ -75,11 +75,12 @@ export async function runCommand(
       options.signal?.removeEventListener("abort", abortHandler);
     };
 
-    const append = (current: Buffer, chunk: Buffer): Buffer => {
+    const append = (
+      current: Buffer<ArrayBufferLike>,
+      chunk: Buffer<ArrayBufferLike>,
+    ): Buffer<ArrayBufferLike> => {
       const next = Buffer.concat([current, chunk]);
-      return next.length > maxOutputBytes
-        ? next.subarray(next.length - maxOutputBytes)
-        : next;
+      return next.length > maxOutputBytes ? next.subarray(next.length - maxOutputBytes) : next;
     };
     child.stdout?.on("data", (chunk: Buffer) => {
       stdout = append(stdout, chunk);
