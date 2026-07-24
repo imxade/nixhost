@@ -32,7 +32,7 @@ export function DashboardShell({
   return (
     <div className="drawer lg:drawer-open min-h-screen">
       <input id="nixhost-drawer" type="checkbox" className="drawer-toggle" />
-      <div className="drawer-content flex min-h-screen flex-col">
+      <div className="drawer-content flex min-h-screen min-w-0 flex-col">
         <header className="navbar sticky top-0 z-20 gap-2 border-b border-base-300 bg-base-100/95 px-3 backdrop-blur lg:hidden">
           <label
             htmlFor="nixhost-drawer"
@@ -44,7 +44,9 @@ export function DashboardShell({
           <span className="flex-1 text-xl font-bold tracking-tight">NixHost</span>
           <ThemeToggle compact />
         </header>
-        <main className="mx-auto w-full max-w-[100rem] flex-1 p-4 md:p-7 xl:p-10">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-[100rem] flex-1 p-4 md:p-7 xl:p-10">
+          {children}
+        </main>
       </div>
       <aside className="drawer-side z-30">
         <label htmlFor="nixhost-drawer" aria-label="Close navigation" className="drawer-overlay" />

@@ -58,6 +58,47 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeVisible();
   expect(fs.existsSync(tokenPath)).toBe(false);
 
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const route of [
+      "/apps",
+      "/deployments",
+      "/integrations/github",
+      "/integrations/cloudflare",
+      "/system",
+      "/users",
+    ]) {
+      await page.goto(route);
+      await expect(page.locator("main")).toBeVisible();
+      await expect(page.locator('button[aria-label="Toggle color theme"]:visible')).toHaveCount(1);
+      const overflow = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        elements: Array.from(document.querySelectorAll<HTMLElement>("body *"))
+          .filter((element) => {
+            const bounds = element.getBoundingClientRect();
+            return bounds.right > document.documentElement.clientWidth + 1 || bounds.left < -1;
+          })
+          .slice(0, 8)
+          .map((element) => ({
+            tag: element.tagName,
+            className: element.className,
+            left: element.getBoundingClientRect().left,
+            right: element.getBoundingClientRect().right,
+          })),
+      }));
+      expect(
+        overflow.scrollWidth,
+        `${route} overflowed at ${viewport.width}x${viewport.height}: ${JSON.stringify(overflow.elements)}`,
+      ).toBeLessThanOrEqual(overflow.clientWidth + 1);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   const rejectedOrigin = await page.request.post("/api/users", {
     headers: { origin: "https://attacker.invalid" },
     data: { username: "blocked", password: "blocked-password", role: "viewer" },
