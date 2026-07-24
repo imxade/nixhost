@@ -8,6 +8,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm test:e2e
+pnpm test:examples
 pnpm db:doctor
 pnpm security:check
 nix flake check
@@ -23,6 +24,11 @@ Required CI matrix after lock generation:
 - dependency audit and secret scan.
 
 The production browser suite starts with an isolated data directory and covers one-time owner setup, session authentication, cross-origin mutation rejection, user creation, and viewer role enforcement.
+
+`pnpm test:examples` bypasses the dashboard and deploys each tracked example
+through the real deployment engine. The harness copies each example into the
+root of an isolated Git repository, deploys its exact commit, waits for its real
+health endpoint, verifies the stable proxy response, and stops its process group.
 
 ## Deployment fixtures
 

@@ -47,6 +47,7 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: nix develop --command pnpm install --frozen-lockfile
+      - run: nix develop --command pnpm test:examples
       - run: nix develop --command pnpm test:deployment
       - run: nix flake check --print-build-logs
       - run: nix build --print-build-logs

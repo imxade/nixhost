@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
     "test:deployment": "tsx tests/integration/deployment.ts",
+    "test:examples": "tsx tests/integration/examples.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "pnpm biome:ci && pnpm typecheck && pnpm test && pnpm build",
