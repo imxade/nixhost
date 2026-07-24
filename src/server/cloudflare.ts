@@ -72,6 +72,7 @@ export class CloudflareController {
     tunnelName: string;
     dashboardHostname?: string;
   }): Promise<void> {
+    await validateCloudflareAccess(input.accountId, input.zoneId, input.apiToken);
     const dashboardHostname = input.dashboardHostname
       ? normalizeDomain(input.dashboardHostname)
       : null;
@@ -346,11 +347,19 @@ export function cloudflareDomainRoutes(configured = Boolean(getCloudflareConfig(
 }
 
 async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit = {}): Promise<T> {
+  return cfRequestWithToken(decryptSecret(row.api_token_encrypted), path, init);
+}
+
+async function cfRequestWithToken<T>(
+  apiToken: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     ...init,
     signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
-      authorization: `Bearer ${decryptSecret(row.api_token_encrypted)}`,
+      authorization: `Bearer ${apiToken}`,
       "content-type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -367,6 +376,39 @@ async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit 
     );
   }
   return body.result;
+}
+
+async function validateCloudflareAccess(
+  accountId: string,
+  zoneId: string,
+  apiToken: string,
+): Promise<void> {
+  const token = await cfRequestWithToken<{ status: "active" | "disabled" | "expired" }>(
+    apiToken,
+    "/user/tokens/verify",
+  );
+  if (token.status !== "active") {
+    throw new HttpError(
+      400,
+      `Cloudflare API token is ${token.status}`,
+      "cloudflare_token_inactive",
+    );
+  }
+  const zone = await cfRequestWithToken<{ id: string; account?: { id?: string } }>(
+    apiToken,
+    `/zones/${encodeURIComponent(zoneId)}`,
+  );
+  if (zone.id !== zoneId || zone.account?.id !== accountId) {
+    throw new HttpError(
+      400,
+      "The Cloudflare zone does not belong to the configured account",
+      "cloudflare_zone_account_mismatch",
+    );
+  }
+  await cfRequestWithToken(
+    apiToken,
+    `/accounts/${encodeURIComponent(accountId)}/cfd_tunnel?per_page=1&is_deleted=false`,
+  );
 }
 
 async function ensureDnsRecord(

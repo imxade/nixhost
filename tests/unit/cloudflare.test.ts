@@ -19,8 +19,12 @@ const cloudflareFetch = vi.fn(async (input: string | URL | Request, init?: Reque
   apiCalls.push({ url, init });
   const parsed = new URL(url);
   let result: unknown = {};
-  if (parsed.pathname === "/client/v4/zones/zone-primary") {
-    result = { id: "zone-primary", name: "example.com" };
+  if (parsed.pathname === "/client/v4/user/tokens/verify") {
+    result = { id: "token-id", status: "active" };
+  } else if (parsed.pathname === "/client/v4/zones/zone-primary") {
+    result = { id: "zone-primary", name: "example.com", account: { id: "account" } };
+  } else if (parsed.pathname === "/client/v4/accounts/account/cfd_tunnel" && parsed.search) {
+    result = [];
   } else if (parsed.pathname.endsWith("/dns_records") && parsed.search) {
     const hostname = parsed.searchParams.get("name");
     if (hostname === "foreign.example.com") {
@@ -79,6 +83,42 @@ afterAll(() => {
 });
 
 describe("Cloudflare application routes", () => {
+  it("verifies token, zone ownership, and tunnel access before saving", async () => {
+    const controller = new CloudflareController();
+    await controller.configure({
+      accountId: "account",
+      zoneId: "zone-primary",
+      apiToken: "replacement-test-token",
+      tunnelName: "nixhost",
+    });
+
+    expect(apiCalls.some((call) => call.url.endsWith("/user/tokens/verify"))).toBe(true);
+    expect(
+      apiCalls.some((call) =>
+        call.url.endsWith("/accounts/account/cfd_tunnel?per_page=1&is_deleted=false"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a zone from another account before replacing stored configuration", async () => {
+    const controller = new CloudflareController();
+
+    await expect(
+      controller.configure({
+        accountId: "other-account",
+        zoneId: "zone-primary",
+        apiToken: "replacement-test-token",
+        tunnelName: "nixhost",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: "cloudflare_zone_account_mismatch",
+    });
+    expect(
+      db.prepare("SELECT account_id FROM cloudflare_config WHERE singleton = 1").get(),
+    ).toEqual({ account_id: "account" });
+  });
+
   it("reports managed and external domains and removes stale managed DNS", async () => {
     const controller = new CloudflareController();
     await controller.syncIngress();

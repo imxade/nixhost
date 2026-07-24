@@ -10,8 +10,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  accountId: z.string().trim().min(1).max(100),
-  zoneId: z.string().trim().min(1).max(100),
+  accountId: z
+    .string()
+    .trim()
+    .regex(/^[0-9a-f]{32}$/i, "Enter a valid Cloudflare account ID"),
+  zoneId: z
+    .string()
+    .trim()
+    .regex(/^[0-9a-f]{32}$/i, "Enter a valid Cloudflare zone ID"),
   apiToken: z.string().trim().min(10).max(1000),
   tunnelName: z
     .string()
