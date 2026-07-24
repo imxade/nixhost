@@ -2,6 +2,7 @@
 set -euo pipefail
 
 flow="${1:-ci-login}"
+device_mode="${2:-physical}"
 case "$flow" in
   ci-login)
     flow_file=".maestro/flows/ci-login.yaml"
@@ -16,7 +17,14 @@ case "$flow" in
     done
     ;;
   *)
-    echo "Usage: scripts/android/run-maestro.sh [ci-login|first-run-setup]" >&2
+    echo "Usage: scripts/android/run-maestro.sh [ci-login|first-run-setup] [physical|development-emulator]" >&2
+    exit 2
+    ;;
+esac
+case "$device_mode" in
+  physical | development-emulator) ;;
+  *)
+    echo "Device mode must be physical or development-emulator." >&2
     exit 2
     ;;
 esac
@@ -38,7 +46,7 @@ if [[ -z "$serial" ]]; then
   serial="${connected_devices[0]}"
 fi
 
-if [[ "$serial" == emulator-* ]]; then
+if [[ "$device_mode" == "physical" && "$serial" == emulator-* ]]; then
   echo "Android release evidence requires a physical device, not $serial." >&2
   exit 1
 fi
@@ -49,7 +57,7 @@ fi
 
 abi="$(adb -s "$serial" shell getprop ro.product.cpu.abi | tr -d '\r')"
 emulated="$(adb -s "$serial" shell getprop ro.kernel.qemu | tr -d '\r')"
-if [[ "$abi" != "arm64-v8a" || "$emulated" == "1" ]]; then
+if [[ "$device_mode" == "physical" && ( "$abi" != "arm64-v8a" || "$emulated" == "1" ) ]]; then
   echo "Physical ARM64 is required; serial=$serial abi=$abi qemu=$emulated." >&2
   exit 1
 fi
@@ -62,11 +70,28 @@ fi
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 safe_serial="${serial//[^A-Za-z0-9._-]/_}"
-evidence_directory="${NIXHOST_ANDROID_EVIDENCE_DIR:-$PWD/artifacts/android}/maestro-$safe_serial-$timestamp"
+evidence_directory="${NIXHOST_ANDROID_EVIDENCE_DIR:-$PWD/artifacts/android}/maestro-$device_mode-$safe_serial-$timestamp"
 mkdir -p "$evidence_directory"
 
-adb -s "$serial" forward tcp:3001 tcp:3001
-trap 'adb -s "$serial" forward --remove tcp:3001 >/dev/null 2>&1 || true' EXIT
+origin_mode="${NIXHOST_MAESTRO_ORIGIN:-device}"
+case "$origin_mode" in
+  device)
+    adb -s "$serial" forward tcp:3001 tcp:3001
+    trap 'adb -s "$serial" forward --remove tcp:3001 >/dev/null 2>&1 || true' EXIT
+    ;;
+  host)
+    if [[ "$device_mode" != "development-emulator" ]]; then
+      echo "A host origin is development-only and cannot produce physical release evidence." >&2
+      exit 2
+    fi
+    adb -s "$serial" reverse tcp:3001 tcp:3001
+    trap 'adb -s "$serial" reverse --remove tcp:3001 >/dev/null 2>&1 || true' EXIT
+    ;;
+  *)
+    echo "NIXHOST_MAESTRO_ORIGIN must be device or host." >&2
+    exit 2
+    ;;
+esac
 curl --fail --silent --show-error http://127.0.0.1:3001/api/health >/dev/null
 
 {
@@ -79,11 +104,19 @@ curl --fail --silent --show-error http://127.0.0.1:3001/api/health >/dev/null
   echo "maestro=$(maestro --version)"
   echo "browser_app_id=$browser_app_id"
   echo "flow=$flow"
+  echo "device_mode=$device_mode"
+  echo "origin_mode=$origin_mode"
+  echo "release_evidence=$([[ "$device_mode" == "physical" ]] && echo true || echo false)"
 } | tee "$evidence_directory/device.txt"
 
 maestro_arguments=(
   --device "$serial"
   test
+  --debug-output "$evidence_directory/debug"
+  --flatten-debug-output
+  --format JUNIT
+  --output "$evidence_directory/report.xml"
+  --test-output-dir "$evidence_directory/screenshots"
   -e "BROWSER_APP_ID=$browser_app_id"
   -e "NIXHOST_URL=http://127.0.0.1:3001"
 )

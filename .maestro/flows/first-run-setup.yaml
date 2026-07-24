@@ -13,6 +13,7 @@ tags:
 - inputText: ${OWNER_USERNAME}
 - tapOn: "Password"
 - inputText: ${OWNER_PASSWORD}
+- hideKeyboard
 - tapOn: "Create owner account"
 - assertVisible: "Applications"
 - assertVisible: "New application"

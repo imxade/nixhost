@@ -11,6 +11,7 @@ tags:
 - inputText: "qwerty123456"
 - tapOn: "Password"
 - inputText: "qwerty123456"
+- hideKeyboard
 - tapOn: "Sign in"
 - assertVisible: "Applications"
 - assertVisible: "New application"
