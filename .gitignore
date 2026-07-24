@@ -9,6 +9,8 @@ playwright-report/
 .env.*.local
 !.env.example
 .nixhost/
+.e2e-data/
+.local-data/
 result
 result-*
 *.sqlite

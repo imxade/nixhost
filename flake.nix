@@ -14,7 +14,7 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               nodejs_24
-              pnpm
+              pnpm_10
               git
               cloudflared
               python3
@@ -37,8 +37,8 @@
             pname = "nixhost";
             version = "0.1.0";
             src = self;
-            # LOCAL_AGENT_REQUIRED: replace with the hash reported by `nix build` after pnpm-lock.yaml exists.
-            hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            pnpm = pkgs.pnpm_10;
+            hash = "sha256-MVXQlOfi4WIb/UrcwwO4Von+RSx0rmZHGtUb11hOrxE=";
             fetcherVersion = 3;
           };
         in {
@@ -46,7 +46,7 @@
             pname = "nixhost";
             version = "0.1.0";
             src = self;
-            nativeBuildInputs = [ pkgs.nodejs_24 pkgs.pnpm pkgs.pnpmConfigHook pkgs.python3 pkgs.pkg-config ];
+            nativeBuildInputs = [ pkgs.nodejs_24 pkgs.pnpm_10 pkgs.pnpmConfigHook pkgs.python3 pkgs.pkg-config ];
             inherit pnpmDeps;
             buildPhase = ''
               runHook preBuild
