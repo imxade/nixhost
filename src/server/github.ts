@@ -67,7 +67,7 @@ export function createManifest(baseUrl: string): {
       default_events: ["push", "installation", "installation_repositories"],
       hook_attributes: {
         url: `${publicBase}/api/github/webhook`,
-        active: true,
+        active: Boolean(process.env.NIXHOST_PUBLIC_URL),
       },
     },
   };
