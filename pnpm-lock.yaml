@@ -50,8 +50,8 @@ importers:
         specifier: 19.2.0
         version: 19.2.0(@types/react@19.2.0)
       daisyui:
-        specifier: 5.6.15
-        version: 5.6.15
+        specifier: 5.7.0
+        version: 5.7.0
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
@@ -823,8 +823,8 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
-  daisyui@5.6.15:
-    resolution: {integrity: sha512-VBB3my7tKKYTKLesFHKv3JueJyt2f2ta2U4wS1f60n6uNNHROdsMAmiJhLAH0rf30bTZUCjdgQOKV0cUekC3HQ==}
+  daisyui@5.7.0:
+    resolution: {integrity: sha512-2/kYbxaKtv349lPrTyxMKC9SHsyA7fBULMSabJljDE82D079cjqz+UyAzsogWgy4sTs5NDvD000acfcFqbO1XA==}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -1790,7 +1790,7 @@ snapshots:
 
   csstype@3.2.3: {}
 
-  daisyui@5.6.15: {}
+  daisyui@5.7.0: {}
 
   detect-libc@2.1.2: {}
 
