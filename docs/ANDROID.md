@@ -30,8 +30,18 @@ On a supported 64-bit ARM Android device, Nix-on-Droid can provide Nix, Node.js,
 4. Run `scripts/android/run-nix-on-droid.sh verify` to validate the package and capture evidence.
 5. Start NixHost with a wake lock. The test-only `serve-ci` mode is loopback-only and exists solely for Maestro acceptance.
 6. Open the displayed LAN address from another device.
-7. From an attached Android controller, run `scripts/android/run-maestro.sh first-run-setup` with the required environment values.
-8. Test screen-off, network switching, control-plane restart and reboot and retain the generated `artifacts/android/` evidence.
+7. From the controller, enter `nix develop .#android`; this locked shell supplies
+   Maestro, ADB, Java, curl, and yq.
+8. Run `scripts/android/run-maestro.sh first-run-setup physical` with the required
+   environment values.
+9. Test screen-off, network switching, control-plane restart and reboot and
+   retain the generated `artifacts/android/` evidence.
+
+For UI development only, `scripts/android/run-maestro.sh ci-login
+development-emulator` may target an emulator and a controller-hosted NixHost
+origin. Its evidence is marked `release_evidence=false`. The default `physical`
+mode requires an attached physical ARM64 device and remains the only mode that
+can contribute to Android release evidence.
 
 ## Production Android direction
 

@@ -15,4 +15,6 @@
 - Host-based custom-domain routing on the dashboard listener handles ordinary HTTP; use the stable per-app port or Cloudflare route for WebSocket origins.
 - Cloudflare integration has not been exercised against a live account in this environment.
 - The current Android delivery path requires Nix-on-Droid and terminal setup. The plug-and-play APK, native wrapper and Android release artifacts are a roadmap target for a separate repository, not outputs of this repository.
-- No physical ARM64 Android or Maestro result has been recorded in this repository yet; Android release readiness remains blocked on that evidence.
+- The Maestro CI login flow has passed on an Android 15 x86_64 development
+  emulator, but no physical ARM64 Nix-on-Droid/Maestro result has been recorded;
+  Android release readiness remains blocked on that evidence.

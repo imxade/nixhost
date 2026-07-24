@@ -59,13 +59,26 @@ nixhost.nix               Production package definition
 
 ## Development start
 
-Prerequisites: a working Nix installation, Node.js 24, pnpm, Git, and an ARM64 or x86-64 Linux/macOS host supported by the dependencies.
+Prerequisites: a working Nix installation and one of the flake's declared
+systems: `x86_64-linux`, `aarch64-linux`, or `aarch64-darwin`. The default
+development shell supplies Node.js 24, pnpm, Git, and the remaining host tools.
+Only `x86_64-linux` has completed the full release matrix recorded in this
+repository.
 
 ```bash
 nix develop
 pnpm install
 pnpm dev
 ```
+
+Android-device automation uses the separate reproducible tool shell:
+
+```bash
+nix develop .#android
+```
+
+It supplies Maestro, ADB, Java, curl, and yq without adding those tools to the
+production closure.
 
 Open `http://127.0.0.1:3000`. The first-run token is printed by the process and written to:
 
@@ -122,6 +135,25 @@ nix run --no-write-lock-file .#default
 ```
 
 See [`docs/DEPLOYMENT_CONTRACT.md`](docs/DEPLOYMENT_CONTRACT.md) and the example project.
+
+## Public push-redeployment acceptance
+
+The opt-in acceptance test clones a dedicated public GitHub repository, resolves
+its default branch, deploys the exact initial revision, pushes a marker commit,
+runs the same reconciliation path used by the server, and verifies that the new
+exact revision replaces the healthy release:
+
+```bash
+gh auth setup-git
+NIXHOST_PUBLIC_TEST_REPOSITORY_URL=https://github.com/imxade/nixhost-deployment-test.git \
+NIXHOST_PUBLIC_TEST_PUSH=1 \
+nix develop --command pnpm test:github-public
+```
+
+The test intentionally mutates the named remote and therefore requires both the
+URL and explicit push acknowledgement. The fixture's default branch is `trunk`;
+this also proves that an omitted production branch follows remote `HEAD` instead
+of assuming `main`.
 
 ## Custom domains
 

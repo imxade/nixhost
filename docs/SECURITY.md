@@ -49,6 +49,5 @@ For the integrated Android app, replace the local key-file fallback with Android
 
 - Add re-authentication for owner password/user/Cloudflare changes.
 - Add optional local TLS and passkeys.
-- Verify Cloudflare API token permissions before storing.
 - Add interrupted-write and disk-full fault injection to backup/restore tests.
 - Obtain independent security review before exposing the dashboard to the internet.

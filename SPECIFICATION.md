@@ -12,7 +12,10 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 
 1. A one-time terminal token claims a new node and creates the owner account.
 2. Every dashboard/API operation requires an authenticated role after setup.
-3. GitHub is connected from the dashboard through a per-node GitHub App manifest flow.
+3. GitHub is connected from the dashboard through a per-node GitHub App
+   manifest flow. LAN manifests omit unreachable webhook attributes, subscribe
+   only to `push`, and synchronize installation repository selections on the
+   setup return.
 4. The user selects an accessible repository and flake app output. An omitted branch resolves from the remote symbolic `HEAD`, with `main` used only when no symbolic default is advertised.
 5. Push webhooks deploy the exact production-branch commit when the node is public.
 6. Periodic branch reconciliation catches pushes missed while the node was LAN-only or offline.
@@ -27,6 +30,10 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 15. Web applications may have multiple normalized custom domains. DNS and TLS may be managed by Cloudflare or by another provider targeting the application's stable LAN port.
 16. Failed password checks are bounded in one-hour windows by source and username, and throttled responses provide retry timing.
 17. Every project hostname exposes a persisted Cloudflare route result: managed, external, pending/not configured, or failed.
+18. Cloudflare credentials are stored only after token activity,
+    account/zone ownership and tunnel-list access are verified.
+19. Authenticated application, user, integration and settings flows remain
+    operable without horizontal overflow on phone, tablet and desktop screens.
 
 ## Android distribution tracks
 

@@ -19,14 +19,26 @@ Requested repository permissions:
 Events:
 
 - push;
-- installation;
-- installation_repositories.
 
-NixHost uses GitHub's current `2026-03-10` REST API version, 30-second API request deadlines, paginated installation/repository discovery, encrypted App credentials, and short-lived installation tokens.
+GitHub sends the `installation` and `installation_repositories` lifecycle events
+to GitHub Apps automatically; GitHub does not permit them in a manifest's
+`default_events`. NixHost therefore requests only `push`. The manifest also sets
+`setup_on_update`, so returning from GitHub after an installation or repository
+selection change refreshes the complete installation list from GitHub rather
+than trusting a callback query parameter.
+
+NixHost uses GitHub's current `2026-03-10` REST API version, 30-second API
+request deadlines, paginated installation/repository discovery, encrypted App
+credentials, and short-lived installation tokens.
 
 ## LAN-only mode
 
-GitHub cannot deliver to a private RFC1918 address. When `NIXHOST_PUBLIC_URL` is absent, the generated webhook is inactive. The Git reconciler polls each connected production branch and compares its head with the active or newest deployment.
+GitHub cannot deliver to a private RFC1918 address. When
+`NIXHOST_PUBLIC_URL` is absent, the generated manifest omits
+`hook_attributes` completely. This is required because GitHub validates a hook
+URL's public reachability even when `active` is false. The Git reconciler polls
+each connected production branch and compares its head with the active or
+newest deployment.
 
 This provides eventual auto-deployment without making the dashboard public, but changes appear after the configured polling interval and use GitHub API calls. A repository may back multiple NixHost applications; every matching auto-deploy application is queued.
 
@@ -49,3 +61,17 @@ resolves the repository's symbolic remote `HEAD`. It stores that concrete branch
 name for deterministic webhook filtering and reconciliation. If the remote does
 not advertise a symbolic `HEAD`, the fallback is `main`. Branch names are
 validated before they enter Git refspecs.
+
+## Public push-redeployment test
+
+`pnpm test:github-public` is an explicitly destructive external acceptance
+test. With `NIXHOST_PUBLIC_TEST_PUSH=1`, it clones the named public test
+repository, deploys its exact remote-HEAD revision, pushes a marker commit, runs
+the production reconciliation code, and requires the pushed revision to become
+healthy on the stable proxy while the previous release becomes superseded.
+
+The maintained fixture is
+`https://github.com/imxade/nixhost-deployment-test.git`, whose default branch is
+`trunk`. This verifies both push-triggered redeployment and default-branch
+resolution. It does not replace the live GitHub App authorization, signed
+webhook, selected private repository, or missed-webhook recovery gates.

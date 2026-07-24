@@ -14,6 +14,12 @@ Create a least-privilege token limited to the selected account and every zone Ni
 
 Current Cloudflare guidance maps these operations to an account-level Cloudflare Tunnel/Connector write permission plus DNS edit and Zone read for the managed zones.
 
+Before storing a credential, NixHost verifies that the token is active, that
+the configured zone belongs to the configured account, and that the token can
+list that account's tunnels. Invalid, cross-account, or under-privileged
+credentials do not replace a previously working configuration. Secret token
+values are never returned to the browser.
+
 ## Route model
 
 One named tunnel is used per NixHost node.

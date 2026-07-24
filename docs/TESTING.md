@@ -10,6 +10,7 @@ pnpm build
 pnpm test:e2e
 pnpm test:deployment
 pnpm test:examples
+pnpm test:github-public             # opt-in external push test
 pnpm db:doctor
 pnpm security:check
 pnpm audit --prod --audit-level high
@@ -37,10 +38,21 @@ mutation rejection, user creation, and viewer role enforcement. The separate
 `qwerty123456` / `qwerty123456`; its browser scenario verifies admin login and
 the hourly authentication limit including `Retry-After`.
 
+Authenticated dashboard routes are also exercised at `320x568`, `768x1024`,
+and `1440x900`. The suite checks the applications, users, GitHub, Cloudflare,
+settings, and new-application screens for horizontal overflow and requires
+exactly one visible theme control at each size.
+
 `pnpm test:examples` bypasses the dashboard and deploys each tracked example
 through the real deployment engine. The harness copies each example into the
 root of an isolated Git repository, deploys its exact commit, waits for its real
 health endpoint, verifies the stable proxy response, and stops its process group.
+
+`pnpm test:github-public` is a separate opt-in external test. It requires a
+dedicated repository URL and `NIXHOST_PUBLIC_TEST_PUSH=1`, pushes a marker
+commit, then proves that production reconciliation deploys that exact commit,
+keeps the stable proxy healthy, and supersedes the old release. It must never be
+pointed at a repository whose history should remain untouched.
 
 ## Deployment fixtures
 
@@ -85,11 +97,22 @@ scripts/android/run-nix-on-droid.sh serve-ci
 scripts/android/run-maestro.sh ci-login
 scripts/android/run-maestro.sh first-run-setup
 .github/workflows/android-device.yml
+nix develop .#android
 ```
 
-The manually dispatched workflow deliberately requires labeled self-hosted physical-device runners and uploads `artifacts/android/` even when a gate fails. The scripts reject non-ARM64 Nix-on-Droid hosts and Android emulators so an emulator cannot be mistaken for release evidence.
+The manually dispatched workflow deliberately requires labeled self-hosted
+physical-device runners, obtains its host tools from `nix develop .#android`,
+and uploads `artifacts/android/` even when a gate fails. Physical mode rejects
+non-ARM64 Nix-on-Droid hosts and Android emulators. A separately named
+development-emulator mode is available for browser-flow iteration and always
+marks its result as non-release evidence.
 
-The current development host preflight on 2026-07-24 found only an Android 15 x86_64 emulator, no Nix-on-Droid installation on that device, and no Maestro CLI. The runner correctly rejected it. This validates the guard, not Android compatibility; no physical-device pass is recorded.
+On 2026-07-24, the locked Android shell supplied Maestro 2.6.1, ADB 36.0.1,
+OpenJDK 21.0.12, curl 8.21.0, and yq 4.53.3. The CI login flow passed in Chrome
+on an Android 15 x86_64 development emulator against the loopback-only host
+server. The Nix-on-Droid verifier correctly rejected that x86_64 emulator.
+This is useful UI-development evidence, not Android compatibility or release
+evidence; no physical-device pass is recorded.
 
 APK implementation and distribution remain outside this repository. The future Android distribution repository must consume these acceptance requirements and provide its own fresh-install Maestro flows, native unit/instrumentation tests, signing/reproducibility evidence and release artifacts.
 
