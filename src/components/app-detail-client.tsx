@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, formatBytes, formatDate } from "@/lib/client-api";
+import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
 import { StatusBadge } from "./status-badge";
 
@@ -38,6 +39,12 @@ type Env = { key: string; secret: boolean; updatedAt: string };
 type Payload = {
   app: App;
   domains: string[];
+  cloudflare: {
+    configured: boolean;
+    enabled: boolean;
+    running: boolean;
+    routes: DomainRoute[];
+  };
   environment: Env[];
   deployments: Deployment[];
   metric: null | {
@@ -127,10 +134,6 @@ export function AppDetailClient({ appId }: { appId: string }) {
     event.preventDefault();
     setBusy("settings");
     const form = new FormData(event.currentTarget);
-    const domains = String(form.get("domains") ?? "")
-      .split(/[,\n]/)
-      .map((value) => value.trim())
-      .filter(Boolean);
     try {
       await apiFetch(`/api/apps/${appId}`, {
         method: "PATCH",
@@ -141,12 +144,32 @@ export function AppDetailClient({ appId }: { appId: string }) {
           healthPath: form.get("healthPath"),
           restartPolicy: form.get("restartPolicy"),
           autoDeploy: form.get("autoDeploy") === "on",
-          domains,
         }),
       });
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Save failed");
+    } finally {
+      setBusy("");
+    }
+  }
+  async function saveDomains(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy("domains");
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const domains = String(form.get("domains") ?? "")
+      .split(/[,\n]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    try {
+      await apiFetch(`/api/apps/${appId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ domains }),
+      });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Domain synchronization failed");
     } finally {
       setBusy("");
     }
@@ -304,6 +327,17 @@ export function AppDetailClient({ appId }: { appId: string }) {
           <div className="stat-desc">Auto deploy {app.auto_deploy ? "enabled" : "disabled"}</div>
         </div>
         <div className="stat rounded-box border border-base-300 bg-base-100">
+          <div className="stat-title">Custom domains</div>
+          <div className="stat-value text-xl">{data.domains.length}</div>
+          <div className="stat-desc">
+            {data.cloudflare.enabled
+              ? `${data.cloudflare.routes.filter((route) => route.status === "managed").length} on Cloudflare`
+              : data.cloudflare.configured
+                ? "Tunnel disabled"
+                : "Cloudflare optional"}
+          </div>
+        </div>
+        <div className="stat rounded-box border border-base-300 bg-base-100">
           <div className="stat-title">Resource usage</div>
           <div className="stat-value text-lg">
             {data.metric ? `${data.metric.cpuPercent.toFixed(1)}% CPU` : "—"}
@@ -316,7 +350,7 @@ export function AppDetailClient({ appId }: { appId: string }) {
         </div>
       </div>
 
-      <div role="tablist" className="tabs tabs-lifted">
+      <div role="tablist" className="tabs tabs-lifted overflow-x-auto">
         <input
           type="radio"
           name="app-tabs"
@@ -469,6 +503,91 @@ export function AppDetailClient({ appId }: { appId: string }) {
             )}
           </div>
         </div>
+        <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Domains" />
+        <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+            <div>
+              <h2 className="text-lg font-bold">Application domains</h2>
+              <p className="mt-1 text-sm text-base-content/65">
+                Cloudflare zones are routed through the node tunnel. Domains managed elsewhere keep
+                using this application&apos;s stable LAN port as their origin.
+              </p>
+              <form onSubmit={saveDomains} className="mt-4 grid gap-3">
+                <textarea
+                  name="domains"
+                  defaultValue={data.domains.join("\n")}
+                  className="textarea textarea-bordered min-h-32 font-mono"
+                  aria-label="Custom domains"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs text-base-content/55">
+                    One hostname per line or comma-separated. Maximum 20.
+                  </span>
+                  <button type="submit" disabled={busy === "domains"} className="btn btn-primary">
+                    {busy === "domains" ? (
+                      <span className="loading loading-spinner" />
+                    ) : (
+                      "Save and sync domains"
+                    )}
+                  </button>
+                </div>
+              </form>
+              <div className="mt-5 divide-y divide-base-300 rounded-box border border-base-300">
+                {data.cloudflare.routes.map((route) => (
+                  <div
+                    key={route.hostname}
+                    className="flex flex-wrap items-center justify-between gap-3 p-3"
+                  >
+                    <div>
+                      <div className="font-mono font-medium">{route.hostname}</div>
+                      <div className="mt-1 text-xs text-base-content/55">
+                        Stable origin port {route.publicPort}
+                        {route.lastSyncedAt ? ` · synced ${formatDate(route.lastSyncedAt)}` : ""}
+                      </div>
+                      {route.lastError && (
+                        <div className="mt-1 text-xs text-error">{route.lastError}</div>
+                      )}
+                    </div>
+                    <DomainRouteStatusBadge status={route.status} />
+                  </div>
+                ))}
+                {data.domains.length === 0 && (
+                  <div className="p-4 text-sm text-base-content/60">
+                    No custom domains configured. Add one above to expose a memorable hostname.
+                  </div>
+                )}
+              </div>
+            </div>
+            <aside className="rounded-box border border-base-300 bg-base-200/40 p-4">
+              <h3 className="font-bold">Cloudflare connection</h3>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt>Configured</dt>
+                  <dd>{data.cloudflare.configured ? "Yes" : "No"}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>Tunnel</dt>
+                  <dd>
+                    {data.cloudflare.enabled
+                      ? data.cloudflare.running
+                        ? "Running"
+                        : "Starting"
+                      : "Disabled"}
+                  </dd>
+                </div>
+              </dl>
+              <Link href="/integrations/cloudflare" className="btn btn-sm mt-4 w-full">
+                Manage Cloudflare
+              </Link>
+              {!data.cloudflare.enabled && data.domains.length > 0 && (
+                <div className="alert alert-warning mt-4 text-xs">
+                  Cloudflare-managed hostnames will not be reachable through the tunnel until it is
+                  enabled.
+                </div>
+              )}
+            </aside>
+          </div>
+        </div>
         <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Settings" />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <form onSubmit={saveSettings} className="grid max-w-3xl gap-4">
@@ -517,20 +636,6 @@ export function AppDetailClient({ appId }: { appId: string }) {
                 </select>
               </label>
             </div>
-            <label className="form-control">
-              <span className="label-text mb-1">Custom domains</span>
-              <textarea
-                name="domains"
-                defaultValue={data.domains.join("\n")}
-                className="textarea textarea-bordered font-mono"
-                placeholder={"app.example.com\\nwww.example.net"}
-              />
-              <span className="mt-1 text-xs text-base-content/55">
-                One per line or comma-separated. Cloudflare-managed zones are synchronized
-                automatically; other DNS/TLS providers can proxy each hostname to this app&apos;s
-                stable LAN port.
-              </span>
-            </label>
             <label className="label max-w-sm cursor-pointer">
               <span className="label-text">Automatically deploy production branch</span>
               <input

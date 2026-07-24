@@ -30,6 +30,17 @@ interface CloudflareResponse<T> {
   errors?: Array<{ message?: string }>;
 }
 
+export interface CloudflareDomainRoute {
+  appId: string;
+  appName: string;
+  hostname: string;
+  publicPort: number;
+  status: "not-configured" | "pending" | "managed" | "external" | "error";
+  zoneId: string | null;
+  lastError: string | null;
+  lastSyncedAt: string | null;
+}
+
 export class CloudflareController {
   private childProcess: ChildProcess | null = null;
   private monitorTimer: NodeJS.Timeout | null = null;
@@ -41,6 +52,7 @@ export class CloudflareController {
     running: boolean;
     tunnelId: string | null;
     dashboardHostname: string | null;
+    routes: CloudflareDomainRoute[];
   } {
     const row = getCloudflareConfig();
     return {
@@ -49,6 +61,7 @@ export class CloudflareController {
       running: this.isRunning(),
       tunnelId: row?.tunnel_id ?? null,
       dashboardHostname: row?.dashboard_hostname ?? null,
+      routes: cloudflareDomainRoutes(Boolean(row)),
     };
   }
 
@@ -153,19 +166,22 @@ export class CloudflareController {
     }
     const domains = getDb()
       .prepare(
-        `SELECT d.hostname, a.public_port
+        `SELECT d.hostname, d.app_id, a.public_port
          FROM application_domains d
          JOIN applications a ON a.id = d.app_id
          WHERE a.kind = 'web' AND a.public_port IS NOT NULL
          ORDER BY d.hostname`,
       )
-      .all() as Array<{ hostname: string; public_port: number }>;
+      .all() as Array<{ hostname: string; app_id: string; public_port: number }>;
+    await cleanupRemovedDomainRoutes(row, new Set(domains.map((domain) => domain.hostname)));
     for (const domain of domains) {
-      if (!(await ensureDnsRecord(row, domain.hostname, false))) continue;
-      ingress.push({
-        hostname: domain.hostname,
-        service: `http://127.0.0.1:${domain.public_port}`,
-      });
+      const zoneId = await syncDomainRoute(row, domain);
+      if (zoneId) {
+        ingress.push({
+          hostname: domain.hostname,
+          service: `http://127.0.0.1:${domain.public_port}`,
+        });
+      }
     }
     ingress.push({ service: "http_status:404" });
     await cfRequest(row, `/accounts/${row.account_id}/cfd_tunnel/${row.tunnel_id}/configurations`, {
@@ -294,6 +310,41 @@ export function getCloudflareConfig(): CloudflareRow | null {
   );
 }
 
+export function cloudflareDomainRoutes(configured = Boolean(getCloudflareConfig())) {
+  const rows = getDb()
+    .prepare(
+      `SELECT d.hostname, d.app_id, a.name AS app_name, a.public_port,
+        s.status, s.zone_id, s.last_error, s.last_synced_at
+       FROM application_domains d
+       JOIN applications a ON a.id = d.app_id
+       LEFT JOIN cloudflare_domain_status s ON s.hostname = d.hostname
+       WHERE a.kind = 'web' AND a.public_port IS NOT NULL
+       ORDER BY a.name COLLATE NOCASE, d.hostname`,
+    )
+    .all() as Array<{
+    hostname: string;
+    app_id: string;
+    app_name: string;
+    public_port: number;
+    status: "managed" | "external" | "error" | null;
+    zone_id: string | null;
+    last_error: string | null;
+    last_synced_at: string | null;
+  }>;
+  return rows.map(
+    (row): CloudflareDomainRoute => ({
+      appId: row.app_id,
+      appName: row.app_name,
+      hostname: row.hostname,
+      publicPort: row.public_port,
+      status: configured ? (row.status ?? "pending") : "not-configured",
+      zoneId: row.zone_id,
+      lastError: row.last_error,
+      lastSyncedAt: row.last_synced_at,
+    }),
+  );
+}
+
 async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     ...init,
@@ -322,8 +373,8 @@ async function ensureDnsRecord(
   row: CloudflareRow,
   hostname: string,
   required: boolean,
-): Promise<boolean> {
-  if (!row.tunnel_id) return false;
+): Promise<string | null> {
+  if (!row.tunnel_id) return null;
   const zoneId = await zoneForHostname(row, hostname);
   if (!zoneId) {
     if (required) {
@@ -336,7 +387,7 @@ async function ensureDnsRecord(
     logger.info("Skipping externally managed application domain during Cloudflare sync", {
       hostname,
     });
-    return false;
+    return null;
   }
   const query = await cfRequest<Array<{ id: string; content: string }>>(
     row,
@@ -361,7 +412,78 @@ async function ensureDnsRecord(
       body: JSON.stringify(data),
     });
   }
-  return true;
+  return zoneId;
+}
+
+async function syncDomainRoute(
+  row: CloudflareRow,
+  domain: { hostname: string; app_id: string },
+): Promise<string | null> {
+  try {
+    const zoneId = await ensureDnsRecord(row, domain.hostname, false);
+    recordDomainStatus(domain.hostname, domain.app_id, zoneId ? "managed" : "external", zoneId);
+    return zoneId;
+  } catch (error) {
+    recordDomainStatus(
+      domain.hostname,
+      domain.app_id,
+      "error",
+      null,
+      error instanceof Error ? error.message : String(error),
+    );
+    throw error;
+  }
+}
+
+function recordDomainStatus(
+  hostname: string,
+  appId: string,
+  status: "managed" | "external" | "error",
+  zoneId: string | null,
+  lastError: string | null = null,
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO cloudflare_domain_status(
+        hostname, app_id, status, zone_id, last_error, last_synced_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(hostname) DO UPDATE SET
+        app_id = excluded.app_id,
+        status = excluded.status,
+        zone_id = excluded.zone_id,
+        last_error = excluded.last_error,
+        last_synced_at = excluded.last_synced_at`,
+    )
+    .run(hostname, appId, status, zoneId, lastError, nowIso());
+}
+
+async function cleanupRemovedDomainRoutes(
+  row: CloudflareRow,
+  activeHostnames: Set<string>,
+): Promise<void> {
+  const stale = getDb()
+    .prepare("SELECT hostname, status FROM cloudflare_domain_status ORDER BY hostname")
+    .all() as Array<{ hostname: string; status: "managed" | "external" | "error" }>;
+  for (const route of stale) {
+    if (activeHostnames.has(route.hostname)) continue;
+    if (route.status === "managed") await deleteManagedDnsRecord(row, route.hostname);
+    getDb().prepare("DELETE FROM cloudflare_domain_status WHERE hostname = ?").run(route.hostname);
+  }
+}
+
+async function deleteManagedDnsRecord(row: CloudflareRow, hostname: string): Promise<void> {
+  if (!row.tunnel_id) return;
+  const zoneId = await zoneForHostname(row, hostname);
+  if (!zoneId) return;
+  const records = await cfRequest<Array<{ id: string; content: string; comment?: string | null }>>(
+    row,
+    `/zones/${zoneId}/dns_records?type=CNAME&name=${encodeURIComponent(hostname)}`,
+  );
+  const expectedContent = `${row.tunnel_id}.cfargotunnel.com`;
+  for (const record of records) {
+    if (record.content !== expectedContent && record.comment !== "Managed by NixHost") continue;
+    await cfRequest(row, `/zones/${zoneId}/dns_records/${record.id}`, { method: "DELETE" });
+  }
 }
 
 async function zoneForHostname(row: CloudflareRow, hostname: string): Promise<string | null> {

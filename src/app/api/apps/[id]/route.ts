@@ -22,9 +22,17 @@ export async function GET(request: NextRequest, context: Context) {
   return api(request, async () => {
     requestUser(request);
     const { id } = await context.params;
+    const runtimeInstance = await getRuntime();
+    const cloudflare = runtimeInstance.cloudflare.status();
     return {
       app: getApplication(id),
       domains: applicationDomains(id),
+      cloudflare: {
+        configured: cloudflare.configured,
+        enabled: cloudflare.enabled,
+        running: cloudflare.running,
+        routes: cloudflare.routes.filter((route) => route.appId === id),
+      },
       environment: environmentKeys(id),
       deployments: listDeployments(id, 30),
       metric: latestAppMetric(id),

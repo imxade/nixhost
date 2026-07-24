@@ -1,6 +1,8 @@
 "use client";
+import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, formatDate } from "@/lib/client-api";
+import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
 
 type Status = {
@@ -9,6 +11,7 @@ type Status = {
   running: boolean;
   tunnelId: string | null;
   dashboardHostname: string | null;
+  routes: DomainRoute[];
 };
 export function CloudflareClient() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -189,6 +192,61 @@ export function CloudflareClient() {
           </div>
         </div>
       </div>
+      <section className="card mt-5 border border-base-300 bg-base-100">
+        <div className="card-body">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="card-title">Application domain routes</h2>
+              <p className="mt-1 text-sm text-base-content/65">
+                Every project hostname is listed here, including domains intentionally managed by
+                another DNS/TLS provider.
+              </p>
+            </div>
+            <Link href="/apps" className="btn btn-sm">
+              Manage applications
+            </Link>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Hostname</th>
+                  <th>Route state</th>
+                  <th>Stable origin</th>
+                  <th>Last sync</th>
+                </tr>
+              </thead>
+              <tbody>
+                {status?.routes.map((route) => (
+                  <tr key={route.hostname}>
+                    <td>
+                      <Link href={`/apps/${route.appId}`} className="link font-medium">
+                        {route.appName}
+                      </Link>
+                    </td>
+                    <td className="font-mono">{route.hostname}</td>
+                    <td>
+                      <DomainRouteStatusBadge status={route.status} />
+                      {route.lastError && (
+                        <div className="mt-1 max-w-md text-xs text-error">{route.lastError}</div>
+                      )}
+                    </td>
+                    <td className="font-mono">127.0.0.1:{route.publicPort}</td>
+                    <td>{route.lastSyncedAt ? formatDate(route.lastSyncedAt) : "Not synced"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {status && status.routes.length === 0 && (
+            <div className="rounded-box border border-dashed border-base-300 p-5 text-sm text-base-content/65">
+              No application domains are configured. Open an application, select Domains, add its
+              hostnames, and save; NixHost will synchronize eligible Cloudflare zones automatically.
+            </div>
+          )}
+        </div>
+      </section>
     </>
   );
 }
