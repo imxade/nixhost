@@ -58,6 +58,7 @@ export function createManifest(baseUrl: string): {
       url: baseUrl,
       redirect_url: `${baseUrl.replace(/\/$/, "")}/api/github/callback`,
       setup_url: `${baseUrl.replace(/\/$/, "")}/github/complete`,
+      setup_on_update: true,
       public: false,
       default_permissions: {
         contents: "read",

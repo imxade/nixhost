@@ -25,6 +25,7 @@ describe("GitHub App manifest", () => {
 
     expect(manifest).not.toHaveProperty("hook_attributes");
     expect(manifest.default_events).toEqual(["push"]);
+    expect(manifest.setup_on_update).toBe(true);
   });
 
   it("activates the webhook only for the configured public origin", () => {
