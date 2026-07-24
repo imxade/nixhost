@@ -218,7 +218,7 @@ Do not claim guaranteed reboot or background persistence when Android/OEM behavi
 
 ### 12. Security and release review
 
-Run dependency audit, secret scan, and license review. Verify the included canonical AGPL-3.0 license text and review:
+Run dependency audit, secret scan, and license review. Verify the included canonical Apache-2.0 license text and the Rituraj Basak ownership notice, then review:
 
 - CSRF/origin behavior behind Cloudflare forwarded hosts;
 - session fixation/rotation and owner-sensitive action reauthentication;

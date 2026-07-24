@@ -73,7 +73,7 @@ pkgs.stdenv.mkDerivation {
   '';
   meta = {
     description = "LAN-first Next.js control plane for trusted Nix flake deployments";
-    license = pkgs.lib.licenses.agpl3Only;
+    license = pkgs.lib.licenses.asl20;
     platforms = systems;
     mainProgram = "nixhost";
   };

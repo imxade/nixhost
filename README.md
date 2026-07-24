@@ -151,4 +151,4 @@ Every imported repository can execute arbitrary code with the same host account 
 
 ## License
 
-AGPL-3.0-only. The complete GNU Affero General Public License v3 text is included in `LICENSE`.
+Apache-2.0. Copyright 2026 Rituraj Basak. See `LICENSE` and `NOTICE`.
