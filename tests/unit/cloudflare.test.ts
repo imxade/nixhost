@@ -22,15 +22,24 @@ const cloudflareFetch = vi.fn(async (input: string | URL | Request, init?: Reque
   if (parsed.pathname === "/client/v4/zones/zone-primary") {
     result = { id: "zone-primary", name: "example.com" };
   } else if (parsed.pathname.endsWith("/dns_records") && parsed.search) {
-    result = parsed.searchParams.get("name")?.endsWith(".example.com")
-      ? [
-          {
-            id: "dns-record",
-            content: "tunnel-id.cfargotunnel.com",
-            comment: "Managed by NixHost",
-          },
-        ]
-      : [];
+    const hostname = parsed.searchParams.get("name");
+    if (hostname === "foreign.example.com") {
+      result = [{ id: "foreign-record", content: "tunnel-id.cfargotunnel.com", comment: null }];
+    } else if (hostname === "changed.example.com") {
+      result = [
+        { id: "changed-record", content: "other.example.net", comment: "Managed by NixHost" },
+      ];
+    } else if (hostname?.endsWith(".example.com")) {
+      result = [
+        {
+          id: "dns-record",
+          content: "tunnel-id.cfargotunnel.com",
+          comment: "Managed by NixHost",
+        },
+      ];
+    } else {
+      result = [];
+    }
   } else if (parsed.pathname === "/client/v4/zones") {
     result = [];
   }
@@ -105,6 +114,13 @@ describe("Cloudflare application routes", () => {
     ]);
 
     db.prepare("DELETE FROM application_domains").run();
+    const insertStatus = db.prepare(
+      `INSERT INTO cloudflare_domain_status(
+        hostname, app_id, status, zone_id, last_synced_at
+      ) VALUES (?, 'app-1', 'managed', 'zone-primary', ?)`,
+    );
+    insertStatus.run("foreign.example.com", now);
+    insertStatus.run("changed.example.com", now);
     await controller.syncIngress();
 
     expect(controller.status().routes).toEqual([]);
@@ -116,5 +132,13 @@ describe("Cloudflare application routes", () => {
           call.url.endsWith("/zones/zone-primary/dns_records/dns-record"),
       ),
     ).toBe(true);
+    expect(
+      apiCalls.some(
+        (call) =>
+          call.init?.method === "DELETE" &&
+          (call.url.endsWith("/dns_records/foreign-record") ||
+            call.url.endsWith("/dns_records/changed-record")),
+      ),
+    ).toBe(false);
   });
 });

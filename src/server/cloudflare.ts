@@ -481,7 +481,7 @@ async function deleteManagedDnsRecord(row: CloudflareRow, hostname: string): Pro
   );
   const expectedContent = `${row.tunnel_id}.cfargotunnel.com`;
   for (const record of records) {
-    if (record.content !== expectedContent && record.comment !== "Managed by NixHost") continue;
+    if (record.content !== expectedContent || record.comment !== "Managed by NixHost") continue;
     await cfRequest(row, `/zones/${zoneId}/dns_records/${record.id}`, { method: "DELETE" });
   }
 }

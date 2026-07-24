@@ -244,7 +244,7 @@ export function AppsClient() {
                 <input
                   name="branch"
                   className="input input-bordered"
-                  placeholder="main (repository default when GitHub connected)"
+                  placeholder="Repository default (main fallback)"
                 />
               </label>
               <label className="form-control">
