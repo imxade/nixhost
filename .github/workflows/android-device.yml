@@ -1,0 +1,50 @@
+name: Android physical acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Acceptance stage to run on the matching self-hosted runner
+        required: true
+        type: choice
+        options:
+          - nix-on-droid
+          - maestro
+      android_serial:
+        description: Optional ADB serial for the physical Maestro device
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  nix-on-droid:
+    if: ${{ inputs.stage == 'nix-on-droid' }}
+    runs-on: [self-hosted, linux, arm64, nix-on-droid]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/android/run-nix-on-droid.sh verify
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-on-droid-evidence-${{ github.run_id }}
+          path: artifacts/android/
+          if-no-files-found: error
+
+  maestro:
+    if: ${{ inputs.stage == 'maestro' }}
+    runs-on: [self-hosted, linux, android-controller]
+    timeout-minutes: 30
+    env:
+      ANDROID_SERIAL: ${{ inputs.android_serial }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/android/run-maestro.sh ci-login
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-evidence-${{ github.run_id }}
+          path: artifacts/android/
+          if-no-files-found: error
