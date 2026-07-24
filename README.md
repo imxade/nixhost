@@ -87,6 +87,18 @@ HOSTNAME=0.0.0.0 PORT=3000 pnpm start
 
 The repository includes the resolved `pnpm-lock.yaml`, `flake.lock`, and Nix fixed-output dependency hash. Do not regenerate them casually; dependency updates must repeat the full validation gate in [`LOCAL_AGENT_PROMPT.md`](LOCAL_AGENT_PROMPT.md).
 
+CI and local browser automation use a separate loopback-only command:
+
+```bash
+pnpm build
+pnpm start:ci
+```
+
+It recreates only a guarded test-data directory and provisions the documented
+test admin `qwerty123456` / `qwerty123456`. Never use this command for a LAN or
+production node. `pnpm start` has no default credentials and always retains the
+one-time owner-claim flow.
+
 ## Application flake contract
 
 A web application must remain in the foreground and listen on `HOST` and `PORT`. Mutable state belongs under `DATA_DIR`.

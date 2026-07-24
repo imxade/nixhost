@@ -7,7 +7,10 @@ NixHost protects the management interface and stored credentials from unauthenti
 ## Authentication
 
 - One-time setup token generated locally and stored with mode 0600.
-- No default username or password.
+- The production command has no default username or password.
+- The separate `pnpm start:ci` command binds only to loopback, recreates a
+  guarded disposable data directory, and provisions the documented insecure
+  browser-test admin. It must never be used for a LAN or production node.
 - Passwords hashed with scrypt and per-password random salt.
 - Random opaque session cookies; only token hashes are stored.
 - HttpOnly, SameSite=Lax cookies; Secure when accessed over HTTPS.

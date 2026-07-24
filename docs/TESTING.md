@@ -23,7 +23,12 @@ Required CI matrix after lock generation:
 - Nix `flake check` and package build;
 - dependency audit and secret scan.
 
-The production browser suite starts with an isolated data directory and covers one-time owner setup, session authentication, cross-origin mutation rejection, user creation, and viewer role enforcement.
+The browser suite starts two isolated loopback servers. The normal production
+command covers one-time owner setup, session authentication, cross-origin
+mutation rejection, user creation, and viewer role enforcement. The separate
+`pnpm start:ci` command provisions the explicit test-only admin
+`qwerty123456` / `qwerty123456`; its browser scenario verifies admin login and
+the hourly authentication limit including `Retry-After`.
 
 `pnpm test:examples` bypasses the dashboard and deploys each tracked example
 through the real deployment engine. The harness copies each example into the
