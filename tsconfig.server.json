@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "outDir": "dist-server",
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "types": ["node"]
+  },
+  "include": ["server.ts", "src/server/**/*.ts"],
+  "exclude": ["src/server/next-auth.ts", "node_modules", ".next", "dist-server", "**/*.test.ts"]
+}

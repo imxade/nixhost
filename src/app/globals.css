@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: cupcake --default, dracula --prefersdark;
+}
+
+:root { color-scheme: light dark; }
+html, body { min-height: 100%; }
+body { margin: 0; }
+code, pre, .font-mono { font-variant-ligatures: none; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; }

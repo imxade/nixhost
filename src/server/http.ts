@@ -1,0 +1,55 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { ZodError } from "zod";
+import { HttpError, errorMessage } from "./errors.js";
+import { logger } from "./logger.js";
+import { requestOriginAllowed } from "./next-auth.js";
+
+export async function api<T>(
+  request: NextRequest,
+  handler: () => Promise<T> | T,
+): Promise<NextResponse> {
+  try {
+    if (!(await requestOriginAllowed(request))) {
+      throw new HttpError(403, "Cross-origin request rejected", "invalid_origin");
+    }
+    const result = await handler();
+    return NextResponse.json({ ok: true, data: result });
+  } catch (error) {
+    const validationError = error instanceof ZodError;
+    const status = validationError ? 400 : error instanceof HttpError ? error.status : 500;
+    const code = validationError
+      ? "validation_error"
+      : error instanceof HttpError
+        ? error.code
+        : "internal_error";
+    const message = validationError
+      ? (error.issues[0]?.message ?? "Request validation failed")
+      : status >= 500
+        ? "An internal error occurred"
+        : errorMessage(error);
+    if (status >= 500) {
+      logger.error("API request failed", {
+        error: errorMessage(error),
+        path: request.nextUrl.pathname,
+      });
+    }
+    return NextResponse.json({ ok: false, error: { code, message } }, { status });
+  }
+}
+
+export async function readJson(request: NextRequest, maxBytes = 64 * 1024): Promise<unknown> {
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(length) && length > maxBytes) {
+    throw new HttpError(413, "Request body is too large", "body_too_large");
+  }
+  const text = await request.text();
+  if (Buffer.byteLength(text) > maxBytes) {
+    throw new HttpError(413, "Request body is too large", "body_too_large");
+  }
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new HttpError(400, "Request body must be valid JSON", "invalid_json");
+  }
+}
