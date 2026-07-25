@@ -85,6 +85,12 @@ deployments, so branch polling cannot continuously retry the same broken
 revision. A manual redeploy can retry a transient host failure; a repository
 fix arrives as a new commit and remains automatically deployable.
 
+The newly built `result/bin/nixhost` applied migration 006 to the existing
+production data directory, served a ready health response with the production
+CSP and remained healthy through a complete branch-poll interval. The known
+broken commit's reconciliation count and latest timestamp did not change during
+that soak.
+
 GitHub manifest tests verify that LAN-only registration supplies GitHub's
 required hook URL using an inactive reserved public sentinel, requests only the
 supported push event, and enables installation setup returns. A configured
