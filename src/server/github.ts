@@ -152,7 +152,7 @@ export function appJwt(): string {
 
 export async function syncInstallations(): Promise<number> {
   const installations: Array<Record<string, unknown>> = [];
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; ; page++) {
     const response = await githubFetch(`${API_BASE}/app/installations?per_page=100&page=${page}`, {
       headers: githubHeaders(appJwt()),
     });
@@ -224,11 +224,12 @@ export async function listRepositories(): Promise<GitHubRepository[]> {
       "SELECT id FROM github_installations WHERE suspended_at IS NULL ORDER BY account_login",
     )
     .all() as Array<{ id: number }>;
-  const repositories: GitHubRepository[] = [];
+  const repositories = new Map<number, GitHubRepository>();
   for (const installation of installations) {
     const token = await installationToken(installation.id);
     let page = 1;
-    while (page <= 10) {
+    let fetched = 0;
+    while (true) {
       const response = await githubFetch(
         `${API_BASE}/installation/repositories?per_page=100&page=${page}`,
         {
@@ -239,8 +240,9 @@ export async function listRepositories(): Promise<GitHubRepository[]> {
       if (!response.ok || !Array.isArray(body.repositories)) {
         throw new HttpError(502, githubApiError(body), "github_repositories_failed");
       }
-      for (const repository of body.repositories as Array<Record<string, unknown>>) {
-        repositories.push({
+      const pageRepositories = body.repositories as Array<Record<string, unknown>>;
+      for (const repository of pageRepositories) {
+        repositories.set(Number(repository.id), {
           id: Number(repository.id),
           name: String(repository.name),
           full_name: String(repository.full_name),
@@ -250,11 +252,18 @@ export async function listRepositories(): Promise<GitHubRepository[]> {
           installation_id: installation.id,
         });
       }
-      if ((body.repositories as unknown[]).length < 100) break;
+      fetched += pageRepositories.length;
+      const total = Number(body.total_count);
+      if (
+        pageRepositories.length < 100 ||
+        (Number.isSafeInteger(total) && total >= 0 && fetched >= total)
+      ) {
+        break;
+      }
       page++;
     }
   }
-  return repositories.sort((a, b) => a.full_name.localeCompare(b.full_name));
+  return [...repositories.values()].sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
 export async function repositoryHead(

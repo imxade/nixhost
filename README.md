@@ -13,7 +13,8 @@ Today, Android development and physical-device validation use Nix-on-Droid. The 
 - One long-running self-hosted Next.js control plane.
 - Android/Nix-on-Droid first; portable to other Nix-capable systems.
 - LAN access at `http://<device-ip>:3000` after login.
-- GitHub App creation and repository selection from the dashboard.
+- GitHub App creation directly from Applications, with search across every
+  repository granted to active App installations.
 - Automatic deployment after a push when a public webhook is configured.
 - Periodic branch reconciliation when the host is LAN-only or was offline.
 - Repositories must contain `flake.nix` and `flake.lock`.

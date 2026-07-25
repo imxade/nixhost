@@ -16,7 +16,12 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
    manifest flow. LAN manifests use an inactive reserved public hook URL because
    GitHub rejects both blank and private hook URLs, subscribe only to `push`,
    and synchronize installation repository selections on the setup return.
-4. The user selects an accessible repository and flake app output. An omitted branch resolves from the remote symbolic `HEAD`, with `main` used only when no symbolic default is advertised.
+4. The Applications page offers GitHub connection directly. After installation,
+   the user searches the complete paginated repository set available to every
+   active App installation and selects a flake app output. Repositories not
+   granted to the GitHub App remain inaccessible. An omitted branch resolves
+   from the remote symbolic `HEAD`, with `main` used only when no symbolic
+   default is advertised.
 5. Push webhooks deploy the exact production-branch commit when the node is public.
 6. Periodic branch reconciliation catches pushes missed while the node was LAN-only or offline.
 7. Candidate releases receive private local ports; web apps retain stable LAN proxy ports.

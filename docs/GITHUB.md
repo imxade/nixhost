@@ -28,8 +28,12 @@ selection change refreshes the complete installation list from GitHub rather
 than trusting a callback query parameter.
 
 NixHost uses GitHub's current `2026-03-10` REST API version, 30-second API
-request deadlines, paginated installation/repository discovery, encrypted App
-credentials, and short-lived installation tokens.
+request deadlines, complete paginated installation/repository discovery,
+encrypted App credentials, and short-lived installation tokens. The
+Applications page exposes the connection action directly and searches across
+every repository available to every active installation. GitHub's installation
+selection remains the permission boundary; use **Manage GitHub access** to grant
+the App additional repositories.
 
 ## LAN-only mode
 
