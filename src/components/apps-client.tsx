@@ -27,6 +27,7 @@ type GitHubStatus = {
   canManage: boolean;
   app: null | { installUrl: string };
 };
+type RepositorySource = "github" | "public";
 
 export function AppsClient() {
   const [apps, setApps] = useState<App[]>([]);
@@ -36,6 +37,7 @@ export function AppsClient() {
     canManage: false,
     app: null,
   });
+  const [repositorySource, setRepositorySource] = useState<RepositorySource>("github");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState<number | null>(null);
   const [repositoriesLoaded, setRepositoriesLoaded] = useState(false);
   const [repositoriesLoading, setRepositoriesLoading] = useState(false);
@@ -83,7 +85,18 @@ export function AppsClient() {
   }, []);
   function openImportDialog() {
     (document.getElementById("new-app") as HTMLDialogElement).showModal();
-    if (github.connected && !repositoriesLoaded && !repositoriesLoading) {
+    if (
+      github.connected &&
+      repositorySource === "github" &&
+      !repositoriesLoaded &&
+      !repositoriesLoading
+    ) {
+      void loadRepositories();
+    }
+  }
+  function selectRepositorySource(source: RepositorySource) {
+    setRepositorySource(source);
+    if (source === "github" && github.connected && !repositoriesLoaded && !repositoriesLoading) {
       void loadRepositories();
     }
   }
@@ -99,7 +112,10 @@ export function AppsClient() {
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
-    const selected = repositories.find((repo) => repo.id === selectedRepositoryId);
+    const selected =
+      repositorySource === "github"
+        ? repositories.find((repo) => repo.id === selectedRepositoryId)
+        : undefined;
     const repositoryUrl = selected?.clone_url || String(form.get("repositoryUrl") || "");
     try {
       const app = await apiFetch<App>("/api/apps", {
@@ -259,7 +275,30 @@ export function AppsClient() {
               <span className="label-text mb-1">Application name</span>
               <input name="name" required className="input input-bordered" placeholder="My API" />
             </label>
-            {github.connected && (repositoriesLoading || !repositoriesLoaded) ? (
+            {github.connected && (
+              <fieldset className="join grid grid-cols-2">
+                <legend className="sr-only">Repository source</legend>
+                <button
+                  type="button"
+                  className={`btn join-item ${repositorySource === "github" ? "btn-active" : ""}`}
+                  aria-pressed={repositorySource === "github"}
+                  onClick={() => selectRepositorySource("github")}
+                >
+                  GitHub access
+                </button>
+                <button
+                  type="button"
+                  className={`btn join-item ${repositorySource === "public" ? "btn-active" : ""}`}
+                  aria-pressed={repositorySource === "public"}
+                  onClick={() => selectRepositorySource("public")}
+                >
+                  Public URL
+                </button>
+              </fieldset>
+            )}
+            {github.connected &&
+            repositorySource === "github" &&
+            (repositoriesLoading || !repositoriesLoaded) ? (
               <div
                 role="status"
                 className="grid min-h-32 place-items-center"
@@ -280,7 +319,7 @@ export function AppsClient() {
                   <span className="loading loading-spinner loading-lg" />
                 )}
               </div>
-            ) : github.connected && repositories.length > 0 ? (
+            ) : github.connected && repositorySource === "github" && repositories.length > 0 ? (
               <RepositoryPicker
                 repositories={repositories}
                 selectedId={selectedRepositoryId}
@@ -289,7 +328,7 @@ export function AppsClient() {
               />
             ) : (
               <>
-                {github.connected && (
+                {github.connected && repositorySource === "github" && (
                   <div className="alert">
                     <span>
                       This GitHub App cannot access any repositories yet. Grant repository access,
@@ -311,6 +350,10 @@ export function AppsClient() {
                     className="input input-bordered"
                     placeholder="https://github.com/owner/repository.git"
                   />
+                  <span className="label-text-alt">
+                    Cloned without GitHub App credentials. Private repositories require GitHub
+                    access.
+                  </span>
                 </label>
               </>
             )}
@@ -368,6 +411,7 @@ export function AppsClient() {
                 disabled={
                   busy ||
                   (github.connected &&
+                    repositorySource === "github" &&
                     (!repositoriesLoaded ||
                       (repositories.length > 0 && selectedRepositoryId === null)))
                 }
