@@ -16,7 +16,10 @@ const putSchema = z.union([
     secret: z.boolean().default(true),
   }),
   z.object({
-    dotenv: z.string().min(1).max(64 * 1024),
+    dotenv: z
+      .string()
+      .min(1)
+      .max(64 * 1024),
     secret: z.boolean().default(true),
   }),
 ]);

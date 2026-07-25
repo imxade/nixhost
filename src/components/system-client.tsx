@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatBytes } from "@/lib/client-api";
-import { AccessLinks, type AccessLink } from "./access-links";
+import { type AccessLink, AccessLinks } from "./access-links";
 import { PageHeading } from "./page-heading";
 
 type Status = {

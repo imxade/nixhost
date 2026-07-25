@@ -217,7 +217,10 @@ export class QuickTunnelController {
 
     if (row.pid || row.process_group_id) {
       this.managed.delete(row.key);
-      this.recordFailure(row.key, row.last_error ?? "The Quick Tunnel process stopped unexpectedly");
+      this.recordFailure(
+        row.key,
+        row.last_error ?? "The Quick Tunnel process stopped unexpectedly",
+      );
       row = getQuickTunnel(target.key);
       if (!row) return;
     }
@@ -282,7 +285,11 @@ export class QuickTunnelController {
 
     if (!child.pid) {
       terminalHandled = true;
-      this.recordFailure(target.key, "cloudflared did not return a process ID", previousFailures + 1);
+      this.recordFailure(
+        target.key,
+        "cloudflared did not return a process ID",
+        previousFailures + 1,
+      );
       return;
     }
     const identity = captureProcessIdentity(child.pid);

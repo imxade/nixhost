@@ -95,8 +95,9 @@ export function applicationAccessLinks(input: {
       url: input.quickTunnel.url,
       status: tunnelReady ? serviceStatus : "unavailable",
       note: tunnelReady
-        ? serviceNote ?? "Remains active alongside custom domains while the tunnel process survives."
-        : input.quickTunnel.lastError ?? "The temporary tunnel is not running.",
+        ? (serviceNote ??
+          "Remains active alongside custom domains while the tunnel process survives.")
+        : (input.quickTunnel.lastError ?? "The temporary tunnel is not running."),
     });
   } else if (input.quickTunnel) {
     links.push({
@@ -126,7 +127,7 @@ export function applicationAccessLinks(input: {
       note:
         route.status === "external"
           ? "DNS is not managed by this Cloudflare connection."
-          : route.lastError ?? (routeReady ? serviceNote : null),
+          : (route.lastError ?? (routeReady ? serviceNote : null)),
     });
   }
   return links;

@@ -176,7 +176,11 @@ export class DeploymentEngine {
       transition(deployment.id, "activating");
       app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(app.id) as AppRow;
       if (app.desired_state !== "running") {
-        throw new HttpError(409, "Deployment cancelled because the application was stopped", "deployment_cancelled");
+        throw new HttpError(
+          409,
+          "Deployment cancelled because the application was stopped",
+          "deployment_cancelled",
+        );
       }
       ensureNotCancelled(deployment.id);
       const previousDeploymentId = app.active_deployment_id;

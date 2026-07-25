@@ -28,11 +28,7 @@ export async function GET(request: NextRequest, context: Context) {
     const stderr = readDeploymentLogTail(path.join(logs, `${id}.stderr.log`), 128 * 1024);
     return {
       state: deployment.state,
-      text: [
-        header,
-        stdout ? `\n[stdout]\n${stdout}` : "",
-        stderr ? `\n[stderr]\n${stderr}` : "",
-      ]
+      text: [header, stdout ? `\n[stdout]\n${stdout}` : "", stderr ? `\n[stderr]\n${stderr}` : ""]
         .filter(Boolean)
         .join("\n")
         .slice(-300_000),

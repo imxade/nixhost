@@ -18,9 +18,9 @@ export function AccessLinks({
   }
   return (
     <div className={compact ? "grid gap-2" : "grid gap-3"}>
-      {links.map((link, index) => (
+      {links.map((link) => (
         <div
-          key={`${link.kind}:${link.url || link.label}:${index}`}
+          key={`${link.kind}:${link.url || link.label}`}
           className={
             compact
               ? "flex min-w-0 items-center gap-2"

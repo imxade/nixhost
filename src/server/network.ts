@@ -5,7 +5,7 @@ export function lanHttpUrls(port: number): string[] {
   for (const interfaces of Object.values(os.networkInterfaces())) {
     for (const address of interfaces ?? []) {
       if (address.internal) continue;
-      const family = typeof address.family === "string" ? address.family : String(address.family);
+      const family = String(address.family);
       if (family === "IPv4") addresses.add(`http://${address.address}:${port}`);
       else if (family === "IPv6" && !address.address.includes("%")) {
         addresses.add(`http://[${address.address}]:${port}`);

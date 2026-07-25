@@ -24,12 +24,7 @@ const envSchema = z.object({
   NIXHOST_GIT_POLL_SECONDS: z.coerce.number().int().min(15).max(86400).default(60),
   NIXHOST_CLOUDFLARED_BIN: z.string().trim().min(1).default("cloudflared"),
   NIXHOST_QUICK_TUNNELS_ENABLED: envBoolean(true),
-  NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS: z.coerce
-    .number()
-    .int()
-    .min(5)
-    .max(300)
-    .default(10),
+  NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS: z.coerce.number().int().min(5).max(300).default(10),
   NIXHOST_METRICS_SECONDS: z.coerce.number().int().min(2).max(300).default(5),
   NIXHOST_MIN_FREE_DISK_MB: z.coerce.number().int().min(128).default(1024),
   NIXHOST_MIN_FREE_MEMORY_MB: z.coerce.number().int().min(64).default(256),

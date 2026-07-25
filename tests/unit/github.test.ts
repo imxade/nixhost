@@ -27,8 +27,9 @@ afterAll(() => {
 });
 
 describe("GitHub App manifest", () => {
-  it("provides the required public hook URL but keeps it inactive for a LAN-only node", () => {
-    delete process.env.NIXHOST_PUBLIC_URL;
+  it("provides the required public hook URL but keeps it inactive for a LAN-only node", async () => {
+    const { config } = await import("../../src/server/config.ts");
+    config.NIXHOST_PUBLIC_URL = "";
     const { manifest } = createManifest("http://127.0.0.1:3000");
 
     expect(manifest.hook_attributes).toEqual({
@@ -39,8 +40,9 @@ describe("GitHub App manifest", () => {
     expect(manifest.setup_on_update).toBe(true);
   });
 
-  it("activates the webhook only for the configured public origin", () => {
-    process.env.NIXHOST_PUBLIC_URL = "https://console.example.com/";
+  it("activates the webhook only for the configured public origin", async () => {
+    const { config } = await import("../../src/server/config.ts");
+    config.NIXHOST_PUBLIC_URL = "https://console.example.com/";
     const { manifest } = createManifest("http://127.0.0.1:3000");
 
     expect(manifest.hook_attributes).toEqual({

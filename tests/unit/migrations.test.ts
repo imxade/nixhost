@@ -51,7 +51,9 @@ describe("database migrations", () => {
       "auth_method",
     );
     expect(
-      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'quick_tunnels'").get(),
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'quick_tunnels'")
+        .get(),
     ).toEqual({ name: "quick_tunnels" });
     expect(db.pragma("foreign_key_check")).toEqual([]);
     db.close();

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, formatBytes, formatDate } from "@/lib/client-api";
-import { AccessLinks, type AccessLink } from "./access-links";
+import { type AccessLink, AccessLinks } from "./access-links";
 import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
 import { StatusBadge } from "./status-badge";
@@ -542,8 +542,8 @@ export function AppDetailClient({ appId }: { appId: string }) {
               replaced; omitted keys are left unchanged. Values are encrypted and never shown again.
             </p>
             <div className="alert alert-warning mt-3 text-sm">
-              Enter secrets through an HTTPS dashboard link or a trusted private LAN. Plain HTTP on a
-              shared or untrusted network does not protect values in transit.
+              Enter secrets through an HTTPS dashboard link or a trusted private LAN. Plain HTTP on
+              a shared or untrusted network does not protect values in transit.
             </div>
             <form onSubmit={addEnv} className="mt-4 grid gap-3">
               <textarea
@@ -730,7 +730,9 @@ API_TOKEN=...
                 <span className="label-text mb-1">Crash recovery policy</span>
                 <select
                   name="restartPolicy"
-                  defaultValue={app.restart_policy === "always" ? "unless-stopped" : app.restart_policy}
+                  defaultValue={
+                    app.restart_policy === "always" ? "unless-stopped" : app.restart_policy
+                  }
                   className="select select-bordered"
                 >
                   <option value="on-failure">Restart only after unexpected failure</option>

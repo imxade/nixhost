@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client-api";
-import { AccessLinks, type AccessLink } from "./access-links";
+import { type AccessLink, AccessLinks } from "./access-links";
 import { GitHubConnectButton } from "./github-connect-button";
 import { PageHeading } from "./page-heading";
 import { type GitHubRepositoryOption, RepositoryPicker } from "./repository-picker";

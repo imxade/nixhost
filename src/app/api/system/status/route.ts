@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     } catch {}
     const cloudflare = runtimeInstance.cloudflare.status();
     const quickTunnels = runtimeInstance.quickTunnels.status();
-    const dashboardQuick = quickTunnels.routes.find((route) => route.targetType === "dashboard") ?? null;
+    const dashboardQuick =
+      quickTunnels.routes.find((route) => route.targetType === "dashboard") ?? null;
     return {
       host: {
         hostname: os.hostname(),
