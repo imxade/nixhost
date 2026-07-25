@@ -231,7 +231,7 @@ export class CloudflareController {
             error: String(restoreError),
           }),
         );
-        if (previous.enabled) this.startProcess();
+        if (previous.enabled && replaceTunnel) this.startProcess();
       } else {
         getDb().prepare("DELETE FROM cloudflare_domain_status").run();
       }
