@@ -22,6 +22,17 @@ Last updated: 2026-07-25.
   discovery, manual-token fallback, pre-save account/zone/tunnel-access
   verification, per-project route status and ownership-checked cleanup of
   removed managed records.
+- Automatic account-free Quick Tunnels for the dashboard and every web application's
+  stable public port, with supervised lifecycle, strict URL parsing, simultaneous
+  LAN/temporary/custom access links, and safe cleanup before application deletion.
+- Webhook-first GitHub deployment detection using custom dashboard domain, explicit
+  public URL, or dashboard Quick Tunnel in that order, with periodic reconciliation
+  retained as missed-delivery and route-rotation recovery.
+- Simplified application controls based on actual operational state: Deploy/Redeploy
+  and Stop, with internal desired-state recovery hidden from the UI. Stop cancels
+  in-progress work and prevents webhook or polling restarts until manual redeploy.
+- Multiline write-only dotenv-style secret entry and bounded, symlink-resistant
+  deployment-log snapshot fallback when live SSE is unavailable.
 - File-backed live logs with bounded active/inactive retention.
 - Verified, checksummed SQLite/application-data backup and rollback-safe restore commands.
 - Locked pnpm and Nix inputs, reproducible Nix dependency hash, CI security/audit/license gates and packaged operational commands.
@@ -33,6 +44,28 @@ Last updated: 2026-07-25.
 - Opt-in public-GitHub acceptance automation that pushes a real commit and
   proves exact-commit healthy redeployment through the stable proxy.
 - Apache-2.0 licensing with Rituraj Basak recorded as the owner.
+
+## Validation status for this Quick Tunnel revision
+
+The source-level checks run in the current artifact environment passed:
+
+```text
+TypeScript/TSX parser sweep across repository source
+internal relative/alias import resolution audit
+SQL migration application on a fresh SQLite database (7 migrations)
+tracked secret-pattern scan
+shell syntax checks for modified scripts
+git diff whitespace/error checks
+targeted execution: access-link composition, Quick URL parsing, dotenv parsing,
+                   bounded log reads, and symlink refusal
+```
+
+The current environment has Node.js 22, no installed project dependencies, no Nix,
+no `cloudflared`, and no outbound package-registry access. Therefore the existing
+Node.js 24/pnpm/Vitest/Next.js/Nix/live-Cloudflare validation matrix below was **not
+rerun for this revision**. It records the previously validated baseline only. Before
+release, rerun `pnpm check`, browser/integration tests, Nix checks, and the real
+Quick Tunnel/custom-domain acceptance matrix on the supported host.
 
 ## Validation completed on x86_64 Linux
 
@@ -46,7 +79,7 @@ pnpm build
 pnpm test:e2e                    # two isolated servers, Chromium, 2 scenarios
 pnpm test:examples               # both checked-in examples, exact commits
 pnpm test:deployment
-pnpm db:doctor                   # integrity ok, WAL, no FK violations, 6 migrations exact
+pnpm db:doctor                   # integrity ok, WAL, no FK violations, baseline migrations exact
 pnpm security:check              # private modes and tracked-secret scan
 pnpm audit --prod --audit-level high
 pnpm licenses list --prod

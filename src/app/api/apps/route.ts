@@ -1,6 +1,13 @@
 import type { NextRequest } from "next/server";
-import { applicationDomains, createApplication, listApplications } from "@/server/app-service";
+import { applicationAccessLinks } from "@/server/access-links";
+import {
+  applicationDomains,
+  createApplication,
+  listApplications,
+  queueDeployment,
+} from "@/server/app-service";
 import { requireRole } from "@/server/auth";
+import { events } from "@/server/events";
 import { api, readJson } from "@/server/http";
 import { clientIp, requestUser } from "@/server/next-auth";
 import { getRuntime } from "@/server/runtime";
@@ -9,11 +16,30 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  return api(request, () => {
+  return api(request, async () => {
     requestUser(request);
+    const runtime = await getRuntime();
+    const cloudflare = runtime.cloudflare.status();
     return listApplications().map((app) => {
       const domains = applicationDomains(app.id);
-      return { ...app, domains, domain: domains[0] ?? null };
+      const routes = cloudflare.routes.filter((route) => route.appId === app.id);
+      const quickTunnel = runtime.quickTunnels.applicationRoute(app.id);
+      const operationalStatus = runtime.applicationOperationalStatus(app.id);
+      return {
+        ...app,
+        operationalStatus,
+        domains,
+        domain: domains[0] ?? null,
+        accessLinks: applicationAccessLinks({
+          appName: app.name,
+          publicPort: app.public_port,
+          applicationStatus: operationalStatus,
+          quickTunnel,
+          customRoutes: routes,
+          namedTunnelEnabled: cloudflare.enabled,
+          namedTunnelRunning: cloudflare.running,
+        }),
+      };
     });
   });
 }
@@ -28,6 +54,12 @@ export async function POST(request: NextRequest) {
     });
     const runtimeInstance = await getRuntime();
     await runtimeInstance.proxy.reconcile();
+    await runtimeInstance.quickTunnels.reconcile();
+    const deployment = queueDeployment(app.id, { trigger: "manual" });
+    events.publish("deployment.queued", `app:${app.id}`, {
+      deploymentId: deployment.id,
+      trigger: "manual",
+    });
     return app;
   });
 }

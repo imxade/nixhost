@@ -15,7 +15,11 @@ type Status = {
     repository_selection: string;
     suspended_at: string | null;
   }>;
-  webhookPublic: boolean;
+  webhook: {
+    active: boolean;
+    route: null | { baseUrl: string; kind: string; stable: boolean };
+    reconciliationSeconds: number;
+  };
 };
 export function GitHubClient() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -69,12 +73,38 @@ export function GitHubClient() {
                   {status.app?.slug}
                 </a>
               </p>
-              <div className={`alert ${status.webhookPublic ? "alert-success" : "alert-warning"}`}>
-                <span>
-                  {status.webhookPublic
-                    ? "Public webhook delivery is enabled through NIXHOST_PUBLIC_URL."
-                    : "This host is LAN-only. Pushes are detected by periodic GitHub reconciliation; enable a stable public URL later for immediate webhooks."}
-                </span>
+              <div className={`alert ${status.webhook.active ? "alert-success" : "alert-warning"}`}>
+                <div>
+                  <div className="font-medium">
+                    {status.webhook.active
+                      ? "Signed push webhooks are enabled."
+                      : "No public webhook route is available."}
+                  </div>
+                  <div className="mt-1 text-sm">
+                    {status.webhook.route ? (
+                      <>
+                        GitHub delivers to{" "}
+                        <a
+                          className="link font-mono"
+                          href={status.webhook.route.baseUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {status.webhook.route.baseUrl}
+                        </a>
+                        {status.webhook.route.stable
+                          ? ". This stable route is preferred."
+                          : ". This temporary route is updated automatically when it changes."}
+                      </>
+                    ) : (
+                      "Pushes are still discovered by periodic repository reconciliation."
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs opacity-70">
+                    Reconciliation runs every {status.webhook.reconciliationSeconds} seconds as a
+                    safety net even when webhooks are active.
+                  </div>
+                </div>
               </div>
               <div className="card-actions">
                 <a className="btn btn-primary" href={status.app?.installUrl}>

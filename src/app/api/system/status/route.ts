@@ -1,10 +1,13 @@
 import os from "node:os";
 import type { NextRequest } from "next/server";
+import { dashboardAccessLinks } from "@/server/access-links";
+import { config } from "@/server/config";
 import { currentNixSystem } from "@/server/flake";
 import { getGitHubApp } from "@/server/github";
 import { api } from "@/server/http";
 import { latestHostMetric } from "@/server/metrics";
 import { requestUser } from "@/server/next-auth";
+import { preferredPublicDashboardRoute } from "@/server/public-origin";
 import { getRuntime } from "@/server/runtime";
 
 export const runtime = "nodejs";
@@ -18,6 +21,9 @@ export async function GET(request: NextRequest) {
     try {
       nixSystem = await currentNixSystem();
     } catch {}
+    const cloudflare = runtimeInstance.cloudflare.status();
+    const quickTunnels = runtimeInstance.quickTunnels.status();
+    const dashboardQuick = quickTunnels.routes.find((route) => route.targetType === "dashboard") ?? null;
     return {
       host: {
         hostname: os.hostname(),
@@ -28,8 +34,20 @@ export async function GET(request: NextRequest) {
         pid: process.pid,
       },
       metric: latestHostMetric(),
-      github: { connected: Boolean(getGitHubApp()) },
-      cloudflare: runtimeInstance.cloudflare.status(),
+      github: {
+        connected: Boolean(getGitHubApp()),
+        webhookRoute: preferredPublicDashboardRoute(),
+        reconciliationSeconds: config.NIXHOST_GIT_POLL_SECONDS,
+      },
+      cloudflare,
+      quickTunnels,
+      accessLinks: dashboardAccessLinks({
+        port: config.PORT,
+        quickTunnel: dashboardQuick,
+        customHostname: cloudflare.dashboardHostname,
+        namedTunnelEnabled: cloudflare.enabled,
+        namedTunnelRunning: cloudflare.running,
+      }),
     };
   });
 }

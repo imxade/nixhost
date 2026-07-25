@@ -30,7 +30,10 @@ NixHost protects the management interface and stored credentials from unauthenti
   requires it for debugging. Production responses exclude `unsafe-eval`; the
   production E2E suite asserts that boundary.
 
-LAN HTTP remains readable by an attacker who can observe the local network. Use a trusted LAN or local HTTPS. Cloudflare HTTPS protects the browser-to-edge connection but does not change the trusted-workload model.
+LAN HTTP remains readable by an attacker who can observe the local network. Use a
+trusted LAN or local HTTPS. Cloudflare HTTPS protects the browser-to-edge connection
+but does not change the trusted-workload model. A random `trycloudflare.com` URL is
+not an authorization boundary.
 
 ## Secret storage
 
@@ -39,11 +42,18 @@ LAN HTTP remains readable by an attacker who can observe the local network. Use 
   AES-256-GCM.
 - Master key comes from `NIXHOST_MASTER_KEY` or a mode-0600 local key file.
 - Existing values are never sent back to the dashboard.
+- Enter or rotate secrets only through an HTTPS dashboard route or a trusted private
+  LAN. Plain LAN HTTP does not protect secrets in transit from observers on that
+  network.
 - Cloudflare OAuth starts only for an authenticated owner/admin. Its random
   state is stored as a hash, expires after ten minutes and is deleted before
   code exchange; PKCE S256 binds the returned code to the initiating node.
-- No default public hostname is created. Every Cloudflare dashboard or
-  application hostname is explicitly supplied by the operator.
+- Quick Tunnels create temporary public hostnames automatically unless disabled.
+  Dashboard access still requires NixHost authentication. Hosted applications receive
+  no automatic access control; their temporary URL must be treated as public and the
+  application must implement authentication when needed.
+- Persistent Cloudflare dashboard and application hostnames are explicitly supplied
+  by the operator and created only in authorized zones.
 - Logs attempt no magical generic redaction; applications can transform or exfiltrate any secret provided to them.
 
 For the integrated Android app, replace the local key-file fallback with Android Keystore wrapping.

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, formatBytes, formatDate } from "@/lib/client-api";
+import { AccessLinks, type AccessLink } from "./access-links";
 import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
 import { StatusBadge } from "./status-badge";
@@ -16,7 +17,6 @@ type App = {
   branch: string;
   flake_output: string;
   auto_deploy: number;
-  desired_state: string;
   restart_policy: string;
   health_path: string;
   public_port: number | null;
@@ -39,6 +39,9 @@ type Env = { key: string; secret: boolean; updatedAt: string };
 type AppTab = "deployments" | "logs" | "environment" | "domains" | "settings";
 type Payload = {
   app: App;
+  operationalStatus: string;
+  quickTunnel: null | { status: string; running: boolean; url: string | null };
+  accessLinks: AccessLink[];
   domains: string[];
   cloudflare: {
     configured: boolean;
@@ -59,13 +62,13 @@ type Payload = {
 export function AppDetailClient({ appId }: { appId: string }) {
   const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
-  const [browserHost, setBrowserHost] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [activeTab, setActiveTab] = useState<AppTab>("deployments");
   const [logDeployment, setLogDeployment] = useState<string | null>(null);
   const [logs, setLogs] = useState("");
   const [logError, setLogError] = useState("");
+  const [logMode, setLogMode] = useState<"stream" | "polling">("stream");
   const logRef = useRef<HTMLPreElement | null>(null);
   const load = useCallback(async () => {
     try {
@@ -78,7 +81,6 @@ export function AppDetailClient({ appId }: { appId: string }) {
     }
   }, [appId]);
   useEffect(() => {
-    setBrowserHost(window.location.hostname);
     void load();
     const source = new EventSource(`/api/events?scope=app:${appId}`);
     source.onmessage = () => void load();
@@ -92,25 +94,64 @@ export function AppDetailClient({ appId }: { appId: string }) {
   }, [appId, load]);
   useEffect(() => {
     if (!logDeployment) return;
+    let cancelled = false;
+    let snapshotTimer: ReturnType<typeof setInterval> | null = null;
     setLogs("");
     setLogError("");
+    setLogMode("stream");
+    const scroll = () =>
+      requestAnimationFrame(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+      });
+    const loadSnapshot = async () => {
+      try {
+        const snapshot = await apiFetch<{ text: string }>(
+          `/api/deployments/${logDeployment}/log-snapshot`,
+        );
+        if (cancelled) return;
+        setLogs(snapshot.text);
+        setLogError(
+          "Live streaming is unavailable on this route. Logs are refreshing every two seconds.",
+        );
+        scroll();
+      } catch (cause) {
+        if (!cancelled) {
+          setLogError(cause instanceof Error ? cause.message : "Could not refresh logs");
+        }
+      }
+    };
+    const startSnapshotPolling = () => {
+      if (snapshotTimer) return;
+      setLogMode("polling");
+      void loadSnapshot();
+      snapshotTimer = setInterval(() => void loadSnapshot(), 2000);
+    };
     const source = new EventSource(`/api/deployments/${logDeployment}/logs`);
     source.addEventListener("log", (event) => {
       const payload = JSON.parse((event as MessageEvent).data) as { stream: string; text: string };
       setLogs((current) => (current + payload.text).slice(-300000));
-      requestAnimationFrame(() => {
-        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-      });
+      setLogError("");
+      scroll();
     });
-    source.onerror = () => setLogError("The deployment log stream disconnected. Reconnecting…");
-    source.onopen = () => setLogError("");
-    return () => source.close();
+    source.onerror = () => {
+      source.close();
+      startSnapshotPolling();
+    };
+    source.onopen = () => {
+      setLogMode("stream");
+      setLogError("");
+    };
+    return () => {
+      cancelled = true;
+      source.close();
+      if (snapshotTimer) clearInterval(snapshotTimer);
+    };
   }, [logDeployment]);
   function openLogs(deploymentId: string) {
     setLogDeployment(deploymentId);
     setActiveTab("logs");
   }
-  async function action(name: "deploy" | "start" | "stop" | "restart") {
+  async function action(name: "deploy" | "stop") {
     setBusy(name);
     setError("");
     try {
@@ -187,14 +228,13 @@ export function AppDetailClient({ appId }: { appId: string }) {
   async function addEnv(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy("env");
+    setError("");
     const element = event.currentTarget;
     const form = new FormData(element);
-    const key = String(form.get("key"));
-    const value = String(form.get("value"));
     try {
       await apiFetch(`/api/apps/${appId}/environment`, {
         method: "PUT",
-        body: JSON.stringify({ variables: { [key]: value }, secret: form.get("secret") === "on" }),
+        body: JSON.stringify({ dotenv: String(form.get("dotenv") ?? ""), secret: true }),
       });
       element.reset();
       await load();
@@ -247,7 +287,17 @@ export function AppDetailClient({ appId }: { appId: string }) {
       </div>
     );
   const app = data.app;
-  const lan = app.public_port && browserHost ? `http://${browserHost}:${app.public_port}` : null;
+  const hasDeployment = data.deployments.length > 0;
+  const isRunning = data.operationalStatus === "running";
+  const deploymentInProgress = [
+    "queued",
+    "preparing",
+    "fetching",
+    "evaluating",
+    "starting",
+    "health-checking",
+    "activating",
+  ].includes(data.operationalStatus);
   return (
     <>
       <PageHeading
@@ -257,39 +307,30 @@ export function AppDetailClient({ appId }: { appId: string }) {
           <>
             <button
               type="button"
-              disabled={!!busy}
+              disabled={!!busy || deploymentInProgress}
               className="btn btn-primary"
               onClick={() => void action("deploy")}
             >
-              {busy === "deploy" ? <span className="loading loading-spinner" /> : "Deploy"}
+              {busy === "deploy" || deploymentInProgress ? (
+                <>
+                  <span className="loading loading-spinner" /> Deploying…
+                </>
+              ) : hasDeployment ? (
+                "Redeploy latest"
+              ) : (
+                "Deploy"
+              )}
             </button>
-            {app.desired_state === "running" ? (
+            {isRunning && (
               <button
                 type="button"
                 disabled={!!busy}
-                className="btn"
-                onClick={() => void action("restart")}
+                className="btn btn-ghost"
+                onClick={() => void action("stop")}
               >
-                Restart
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={!!busy}
-                className="btn"
-                onClick={() => void action("start")}
-              >
-                Start
+                Stop
               </button>
             )}
-            <button
-              type="button"
-              disabled={!!busy || app.desired_state === "stopped"}
-              className="btn btn-ghost"
-              onClick={() => void action("stop")}
-            >
-              Stop
-            </button>
           </>
         }
       />
@@ -311,25 +352,36 @@ export function AppDetailClient({ appId }: { appId: string }) {
           </div>
         </div>
       )}
-      <div className="metric-grid mb-6">
-        <div className="stat rounded-box border border-base-300 bg-base-100">
-          <div className="stat-title">Desired state</div>
-          <div className="stat-value text-xl">
-            <StatusBadge state={app.desired_state} />
+      {app.kind === "web" && (
+        <div className="card mb-6 border border-base-300 bg-base-100">
+          <div className="card-body">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="card-title">Access links</h2>
+                <p className="text-sm text-base-content/60">
+                  LAN, temporary Cloudflare, and custom-domain links remain available together.
+                </p>
+              </div>
+              {data.quickTunnel && (
+                <span className="badge badge-warning badge-outline">Temporary URL is public</span>
+              )}
+            </div>
+            <AccessLinks links={data.accessLinks} />
+            {data.quickTunnel && (
+              <div className="alert alert-warning mt-2 text-sm">
+                A temporary URL is not authentication. Anyone who knows it can reach this
+                application unless the application itself requires sign-in.
+              </div>
+            )}
           </div>
         </div>
+      )}
+      <div className="metric-grid mb-6">
         <div className="stat rounded-box border border-base-300 bg-base-100">
-          <div className="stat-title">LAN endpoint</div>
-          <div className="stat-value text-lg font-mono">
-            {app.public_port ? `:${app.public_port}` : "worker"}
+          <div className="stat-title">Application status</div>
+          <div className="stat-value text-xl">
+            <StatusBadge state={data.operationalStatus} />
           </div>
-          {lan && (
-            <div className="stat-desc">
-              <a className="link" href={lan} target="_blank" rel="noreferrer">
-                Open application
-              </a>
-            </div>
-          )}
         </div>
         <div className="stat rounded-box border border-base-300 bg-base-100">
           <div className="stat-title">Production branch</div>
@@ -343,8 +395,8 @@ export function AppDetailClient({ appId }: { appId: string }) {
             {data.cloudflare.enabled
               ? `${data.cloudflare.routes.filter((route) => route.status === "managed").length} on Cloudflare`
               : data.cloudflare.configured
-                ? "Tunnel disabled"
-                : "Cloudflare optional"}
+                ? "Named tunnel disabled"
+                : "Cloudflare account optional"}
           </div>
         </div>
         <div className="stat rounded-box border border-base-300 bg-base-100">
@@ -409,7 +461,7 @@ export function AppDetailClient({ appId }: { appId: string }) {
                             disabled={!!busy}
                             onClick={() => void redeploy(deployment.commit_sha)}
                           >
-                            Redeploy
+                            Redeploy this revision
                           </button>
                         )}
                       </div>
@@ -464,6 +516,9 @@ export function AppDetailClient({ appId }: { appId: string }) {
             {logs || "Connecting to deployment logs…"}
           </pre>
           {logError && <div className="alert alert-warning mt-4">{logError}</div>}
+          <div className="mt-2 text-xs text-base-content/50">
+            Log delivery: {logMode === "stream" ? "live stream" : "authenticated polling fallback"}
+          </div>
           {selected && selected.resource_confidence !== "none" && (
             <div className="alert alert-warning mt-4">
               <span>Resource-exhaustion confidence: {selected.resource_confidence}</span>
@@ -480,28 +535,38 @@ export function AppDetailClient({ appId }: { appId: string }) {
           onChange={() => setActiveTab("environment")}
         />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
-          <form onSubmit={addEnv} className="grid gap-3 md:grid-cols-[1fr_2fr_auto_auto]">
-            <input
-              required
-              name="key"
-              className="input input-bordered font-mono"
-              placeholder="DATABASE_URL"
-            />
-            <input
-              required
-              name="value"
-              type="password"
-              className="input input-bordered"
-              placeholder="Value"
-            />
-            <label className="label cursor-pointer gap-2">
-              <span className="label-text">Secret</span>
-              <input name="secret" type="checkbox" defaultChecked className="checkbox" />
-            </label>
-            <button type="submit" disabled={busy === "env"} className="btn btn-primary">
-              Add
-            </button>
-          </form>
+          <div className="max-w-3xl">
+            <h2 className="text-lg font-bold">Add or update environment secrets</h2>
+            <p className="mt-1 text-sm text-base-content/65">
+              Paste dotenv-style <code>KEY=value</code> lines. Existing keys with the same name are
+              replaced; omitted keys are left unchanged. Values are encrypted and never shown again.
+            </p>
+            <div className="alert alert-warning mt-3 text-sm">
+              Enter secrets through an HTTPS dashboard link or a trusted private LAN. Plain HTTP on a
+              shared or untrusted network does not protect values in transit.
+            </div>
+            <form onSubmit={addEnv} className="mt-4 grid gap-3">
+              <textarea
+                required
+                name="dotenv"
+                className="textarea textarea-bordered min-h-48 font-mono"
+                placeholder={`DATABASE_URL=postgres://...
+API_TOKEN=...
+# comments are ignored`}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Environment variables"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs text-base-content/55">
+                  Up to 200 variables. Changes apply on the next start or deployment.
+                </span>
+                <button type="submit" disabled={busy === "env"} className="btn btn-primary">
+                  {busy === "env" ? <span className="loading loading-spinner" /> : "Save secrets"}
+                </button>
+              </div>
+            </form>
+          </div>
           <div className="mt-5 divide-y divide-base-300 rounded-box border border-base-300">
             {data.environment.map((item) => (
               <div key={item.key} className="flex items-center justify-between p-3">
@@ -540,8 +605,8 @@ export function AppDetailClient({ appId }: { appId: string }) {
             <div>
               <h2 className="text-lg font-bold">Application domains</h2>
               <p className="mt-1 text-sm text-base-content/65">
-                Cloudflare zones are routed through the node tunnel. Domains managed elsewhere keep
-                using this application&apos;s stable LAN port as their origin.
+                Hostnames in a connected Cloudflare zone are created and routed by NixHost. The
+                temporary public URL stays active when custom domains are added.
               </p>
               <form onSubmit={saveDomains} className="mt-4 grid gap-3">
                 <textarea
@@ -662,16 +727,15 @@ export function AppDetailClient({ appId }: { appId: string }) {
                 />
               </label>
               <label className="form-control">
-                <span className="label-text mb-1">Restart policy</span>
+                <span className="label-text mb-1">Crash recovery policy</span>
                 <select
                   name="restartPolicy"
-                  defaultValue={app.restart_policy}
+                  defaultValue={app.restart_policy === "always" ? "unless-stopped" : app.restart_policy}
                   className="select select-bordered"
                 >
-                  <option>on-failure</option>
-                  <option>always</option>
-                  <option>unless-stopped</option>
-                  <option>never</option>
+                  <option value="on-failure">Restart only after unexpected failure</option>
+                  <option value="unless-stopped">Keep running unless manually stopped</option>
+                  <option value="never">Do not restart automatically</option>
                 </select>
               </label>
             </div>

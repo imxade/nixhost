@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+function envBoolean(defaultValue: boolean) {
+  return z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return defaultValue;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["1", "true", "yes", "on"].includes(normalized)) return true;
+      if (["0", "false", "no", "off"].includes(normalized)) return false;
+    }
+    return value;
+  }, z.boolean());
+}
+
 const envSchema = z.object({
   HOSTNAME: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -9,6 +22,14 @@ const envSchema = z.object({
   NIXHOST_CLOUDFLARE_OAUTH_SCOPES: z.string().trim().min(1).optional().or(z.literal("")),
   NIXHOST_BUILD_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
   NIXHOST_GIT_POLL_SECONDS: z.coerce.number().int().min(15).max(86400).default(60),
+  NIXHOST_CLOUDFLARED_BIN: z.string().trim().min(1).default("cloudflared"),
+  NIXHOST_QUICK_TUNNELS_ENABLED: envBoolean(true),
+  NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(5)
+    .max(300)
+    .default(10),
   NIXHOST_METRICS_SECONDS: z.coerce.number().int().min(2).max(300).default(5),
   NIXHOST_MIN_FREE_DISK_MB: z.coerce.number().int().min(128).default(1024),
   NIXHOST_MIN_FREE_MEMORY_MB: z.coerce.number().int().min(64).default(256),

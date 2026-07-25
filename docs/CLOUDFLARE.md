@@ -1,35 +1,71 @@
 # Cloudflare
 
-Cloudflare remains optional. LAN hosting has no Cloudflare dependency and a
-fresh node never exposes itself to the Internet automatically.
+Cloudflare has two independent roles in NixHost:
+
+1. **Automatic temporary access.** On startup, NixHost supervises one account-free
+   Quick Tunnel for the dashboard and one for every web application. No Cloudflare
+   login, OAuth client, API token, domain, public IP, or router port forwarding is
+   required. The dashboard and application pages show every current LAN, temporary,
+   and custom-domain link as a clickable URL.
+2. **Persistent custom domains.** After Cloudflare authorization, NixHost creates and
+   supervises one named tunnel, DNS records, the dashboard hostname, and application
+   ingress rules from inside the NixHost UI. The operator must already own a domain
+   whose DNS zone is active in the authorized Cloudflare account.
+
+Quick Tunnel and named-tunnel routes coexist. Adding `console.example.com` or
+`app.example.com` does not stop the corresponding `trycloudflare.com` process.
+Quick Tunnel URLs normally remain unchanged while NixHost and the corresponding
+`cloudflared` process keep running. A graceful NixHost shutdown closes managed Quick
+Tunnels. A crash, device reboot, process termination, or later recreation can produce
+a different URL.
+
+## Quick Tunnel operating contract
+
+- Quick Tunnels are enabled by default. Set `NIXHOST_QUICK_TUNNELS_ENABLED=false`
+  before startup to make a node LAN/custom-domain only. Set
+  `NIXHOST_CLOUDFLARED_BIN` when `cloudflared` is not on `PATH`.
+- NixHost uses a separate Quick Tunnel process per web service. This avoids
+  path-prefix rewriting and preserves normal application assumptions about `/`,
+  cookies, redirects, assets, and WebSockets.
+- Worker applications have no HTTP port and therefore receive no access URL.
+- A tunnel URL may exist while its application is stopped or a deployment failed;
+  the UI keeps the link clickable but marks the service unavailable.
+- Quick Tunnel URLs are public bearer-like locations, **not authentication**.
+  The NixHost dashboard still requires login, but hosted applications must provide
+  their own authentication when they are not intended to be public.
+- Cloudflare documents Quick Tunnels as development/testing access with no uptime
+  guarantee, a 200 in-flight request limit, and no Server-Sent Events support.
+  NixHost therefore polls application state and falls back to authenticated log
+  snapshots when live SSE is unavailable.
+
+The account-free command NixHost supervises is equivalent to:
+
+```bash
+cloudflared tunnel --no-autoupdate --url http://127.0.0.1:<service-port>
+```
+
+## OAuth callback limitation
+
+Quick Tunnels themselves do not use OAuth. Cloudflare OAuth is only for the
+persistent named tunnel and DNS management. Cloudflare OAuth clients require an
+exact pre-registered redirect URI, so a changing `trycloudflare.com` URL cannot be
+used as a general distributor callback. The configured OAuth redirect must remain
+a stable HTTPS route, a same-device loopback callback, or a distributor-operated
+relay. The manual API-token connection remains available when no suitable OAuth
+callback has been provisioned.
 
 ## Understand the two domain requirements
 
 Cloudflare setup uses two different kinds of domain:
 
-1. The **OAuth client and callback domain** hosts the NixHost authorization
-   callback, for example
-   `https://console.example.com/api/cloudflare/oauth/callback`.
-2. The **managed zones and application hostnames** are the domains NixHost
-   publishes through the named tunnel, for example `example.com`,
-   `console.example.com` and `api.example.com`.
+1. The **OAuth client and callback domain** is the stable route registered for
+   Cloudflare authorization. It is not supplied by a Quick Tunnel.
+2. The **managed zones and application hostnames** are the operator-owned domains
+   NixHost publishes through the named tunnel, for example `example.com`,
+   `console.example.com`, and `api.example.com`.
 
-The callback URL must already be reachable before a browser can finish OAuth.
-Because NixHost deliberately does not issue a default public domain, OAuth
-cannot bootstrap its own first callback route. Use one of these supported
-bootstrap paths:
-
-- **Manual-token bootstrap:** connect Cloudflare once with a least-privilege API
-  token, create `console.example.com`, register OAuth against that working
-  callback, then reconnect using OAuth. This is the simplest personal-node
-  setup.
-- **Existing HTTPS proxy:** route an already controlled HTTPS hostname to the
-  NixHost dashboard through another reverse proxy, VPN gateway or existing
-  tunnel, then use that hostname as the OAuth callback.
-
-Do not register a loopback or LAN callback for a browser running on another
-device. Cloudflare redirects the browser to the registered URI; `localhost`
-there refers to the browser's device, not necessarily the NixHost device.
+A user who does not own a domain can still use the automatic dashboard and app
+Quick Tunnel URLs. A domain is required only for persistent custom hostnames.
 
 ## Step 1 — Add a domain to Cloudflare DNS
 
@@ -225,11 +261,9 @@ NIXHOST_CLOUDFLARE_OAUTH_SCOPES=scope.one scope.two scope.three
 Do not put human-readable permission labels, commas, JSON, colon-delimited
 values or a client secret in `NIXHOST_CLOUDFLARE_OAUTH_SCOPES`.
 
-Also set the stable dashboard origin used by GitHub webhooks:
-
-```text
-NIXHOST_PUBLIC_URL=https://console.example.com
-```
+`NIXHOST_PUBLIC_URL` is optional. GitHub webhook routing automatically prefers the
+enabled custom dashboard domain, then this explicit stable origin, then the current
+dashboard Quick Tunnel URL.
 
 The Cloudflare redirect URI and the value registered on the OAuth client must
 match exactly, including scheme, host, path and port. Restart NixHost after
@@ -267,7 +301,8 @@ unavailable until the client ID, redirect URI and scope string are all present.
 11. Confirm the Cloudflare DNS record is a proxied CNAME targeting
     `<tunnel-uuid>.cfargotunnel.com`.
 12. Confirm `https://console.example.com` reaches the NixHost login page and
-    that authenticated navigation and live logs work.
+    that authenticated navigation works. Live logs use SSE on normal named-tunnel
+    routes and automatically use the polling fallback when needed.
 
 Cloudflare documents the underlying route as a remote tunnel ingress entry plus
 a proxied CNAME. NixHost performs both operations:
@@ -284,9 +319,9 @@ a proxied CNAME. NixHost performs both operations:
 
 To remove the public dashboard route, clear the hostname and save. NixHost
 removes the previous DNS record only when it still targets this node's tunnel
-and carries the `Managed by NixHost` ownership comment. It also moves the
-GitHub App webhook back to `NIXHOST_PUBLIC_URL` when configured, or to the
-inactive sentinel when no stable public origin remains.
+and carries the `Managed by NixHost` ownership comment. It also moves the GitHub App webhook to the next available route: an explicit
+`NIXHOST_PUBLIC_URL`, then the current dashboard Quick Tunnel, or the inactive
+sentinel when no public route remains.
 
 The dashboard hostname cannot also belong to a hosted application.
 

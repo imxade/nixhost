@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import path from "node:path";
 import type { NextRequest } from "next/server";
 import { getDeployment } from "@/server/app-service";
+import { deploymentLogSize, readDeploymentLogRange } from "@/server/deployment-logs";
 import { requestUser } from "@/server/next-auth";
 import { appPaths } from "@/server/paths";
 
@@ -38,12 +38,8 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
           );
         };
         for (const item of files) {
-          try {
-            const size = fs.statSync(item.file).size;
-            offsets.set(item.file, Math.max(0, size - 128 * 1024));
-          } catch {
-            offsets.set(item.file, 0);
-          }
+          const size = deploymentLogSize(item.file);
+          offsets.set(item.file, Math.max(0, size - 128 * 1024));
         }
         const poll = () => {
           try {
@@ -74,20 +70,9 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
           }
           for (const item of files) {
             const offset = offsets.get(item.file) ?? 0;
-            try {
-              const stat = fs.statSync(item.file);
-              if (stat.size < offset) offsets.set(item.file, 0);
-              const currentOffset = stat.size < offset ? 0 : offset;
-              if (stat.size <= currentOffset) continue;
-              const maxRead = Math.min(stat.size - currentOffset, 256 * 1024);
-              const buffer = Buffer.alloc(maxRead);
-              const fd = fs.openSync(item.file, "r");
-              const read = fs.readSync(fd, buffer, 0, maxRead, currentOffset);
-              fs.closeSync(fd);
-              offsets.set(item.file, currentOffset + read);
-              const text = buffer.subarray(0, read).toString("utf8");
-              send(item.stream, `\n[${item.stream}]\n${text}`);
-            } catch {}
+            const chunk = readDeploymentLogRange(item.file, offset, 256 * 1024);
+            if (chunk.nextOffset !== offset) offsets.set(item.file, chunk.nextOffset);
+            if (chunk.text) send(item.stream, `\n[${item.stream}]\n${chunk.text}`);
           }
         };
         poll();

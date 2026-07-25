@@ -38,27 +38,29 @@ as scoped `x-access-token` HTTP Basic credentials without storing credentials in
 the repository URL. The import dialog also keeps a separate **Public URL** path
 for public GitHub repositories that should be cloned without App credentials.
 
-## LAN-only mode
+## Webhook routing and periodic reconciliation
 
-GitHub cannot deliver to a private RFC1918 address. When
-`NIXHOST_PUBLIC_URL` is absent, the generated manifest supplies the reserved
-`https://example.com/` URL with `active: false`. GitHub's current manifest
-validator rejects both an omitted/blank hook URL and a private hook URL, even
-for an inactive hook. The reserved sentinel receives no events because the hook
-is inactive. The Git reconciler polls each connected production branch and
-compares its head with the active or newest deployment.
+GitHub cannot deliver to RFC1918/LAN addresses. NixHost therefore selects the
+webhook route in this order:
 
-This provides eventual auto-deployment without making the dashboard public, but changes appear after the configured polling interval and use GitHub API calls. A repository may back multiple NixHost applications; every matching auto-deploy application is queued.
+1. enabled custom Cloudflare dashboard hostname;
+2. explicit `NIXHOST_PUBLIC_URL`;
+3. current dashboard `trycloudflare.com` Quick Tunnel;
+4. inactive `https://example.com/` sentinel when no public route exists.
 
-## Public webhook mode
+When the dashboard Quick Tunnel URL changes, NixHost updates the GitHub App
+webhook automatically. Webhook payloads are size-limited, structurally validated,
+HMAC-SHA256 verified, delivery-deduplicated, branch-filtered, and converted into
+durable queue records. LAN links are never registered as external webhook targets.
 
-After assigning a stable public dashboard URL, set:
+Periodic branch reconciliation always remains enabled, even when webhooks are
+active. It recovers missed deliveries, failed delivery attempts, temporary route
+changes, and time spent offline. GitHub does not automatically guarantee
+redelivery of every failed webhook, so webhooks are the low-latency signal while
+repository state remains the source of truth.
 
-```text
-NIXHOST_PUBLIC_URL=https://console.example.com
-```
-
-Create/reconnect the GitHub App so its webhook URL points to that origin. Webhooks are size-limited, structurally validated, HMAC verified, atomically delivery-deduplicated, branch-filtered and converted into durable queue records. The exact nonzero `after` commit is deployed. Rapid queued updates supersede older queued work for the same application.
+`NIXHOST_PUBLIC_URL` is optional and is useful when a stable public origin exists
+outside the managed Cloudflare dashboard domain.
 
 ## Offline behavior
 

@@ -82,7 +82,7 @@ export function DeploymentsClient() {
                 <td className="font-mono text-xs">
                   {(row.commit_sha || row.requested_ref).slice(0, 12)}
                 </td>
-                <td>{row.trigger}</td>
+                <td>{row.trigger.replaceAll("_", " ")}</td>
                 <td>{formatDate(row.queued_at)}</td>
                 <td>
                   {row.failure_message && (

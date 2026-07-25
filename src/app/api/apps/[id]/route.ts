@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { applicationAccessLinks } from "@/server/access-links";
 import {
   applicationDomains,
   deleteApplication,
@@ -23,16 +24,31 @@ export async function GET(request: NextRequest, context: Context) {
     requestUser(request);
     const { id } = await context.params;
     const runtimeInstance = await getRuntime();
+    const app = getApplication(id);
     const cloudflare = runtimeInstance.cloudflare.status();
+    const routes = cloudflare.routes.filter((route) => route.appId === id);
+    const quickTunnel = runtimeInstance.quickTunnels.applicationRoute(id);
+    const operationalStatus = runtimeInstance.applicationOperationalStatus(id);
     return {
-      app: getApplication(id),
+      app,
+      operationalStatus,
       domains: applicationDomains(id),
       cloudflare: {
         configured: cloudflare.configured,
         enabled: cloudflare.enabled,
         running: cloudflare.running,
-        routes: cloudflare.routes.filter((route) => route.appId === id),
+        routes,
       },
+      quickTunnel,
+      accessLinks: applicationAccessLinks({
+        appName: app.name,
+        publicPort: app.public_port,
+        applicationStatus: operationalStatus,
+        quickTunnel,
+        customRoutes: routes,
+        namedTunnelEnabled: cloudflare.enabled,
+        namedTunnelRunning: cloudflare.running,
+      }),
       environment: environmentKeys(id),
       deployments: listDeployments(id, 30),
       metric: latestAppMetric(id),
@@ -52,6 +68,7 @@ export async function PATCH(request: NextRequest, context: Context) {
     const runtimeInstance = await getRuntime();
     await runtimeInstance.proxy.reconcile();
     await runtimeInstance.cloudflare.syncIngress();
+    await runtimeInstance.quickTunnels.reconcile();
     return app;
   });
 }
@@ -63,9 +80,11 @@ export async function DELETE(request: NextRequest, context: Context) {
     const { id } = await context.params;
     const runtimeInstance = await getRuntime();
     await runtimeInstance.stopApplication(id);
+    await runtimeInstance.quickTunnels.removeApplication(id);
     deleteApplication(id);
     await runtimeInstance.proxy.reconcile();
     await runtimeInstance.cloudflare.syncIngress();
+    await runtimeInstance.quickTunnels.reconcile();
     return {};
   });
 }

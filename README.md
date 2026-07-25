@@ -13,10 +13,14 @@ Today, Android development and physical-device validation use Nix-on-Droid. The 
 - One long-running self-hosted Next.js control plane.
 - Android/Nix-on-Droid first; portable to other Nix-capable systems.
 - LAN access at `http://<device-ip>:3000` after login.
+- Automatic account-free `trycloudflare.com` Quick Tunnel for the dashboard and one
+  for every web application, with all current access links shown in the UI.
 - GitHub App creation directly from Applications, with search across every
   repository granted to active App installations.
-- Automatic deployment after a push when a public webhook is configured.
-- Periodic branch reconciliation when the host is LAN-only or was offline.
+- Automatic deployment after a signed GitHub push webhook whenever a public dashboard
+  route exists; custom domain wins, otherwise the current dashboard Quick Tunnel is used.
+- Periodic branch reconciliation remains enabled as recovery for missed webhooks,
+  offline periods, and temporary URL changes.
 - Repositories must contain `flake.nix` and `flake.lock`.
 - Preferred runnable output: `apps.<system>.default`.
 - Stable per-application LAN ports with health-checked release switching.
@@ -38,7 +42,8 @@ Today, Android development and physical-device validation use Nix-on-Droid. The 
 - Zod validation
 - Server-Sent Events
 - Native Node HTTP proxy and process supervision
-- Nix, Git and cloudflared as managed executables
+- Nix, Git and cloudflared as managed executables (`NIXHOST_CLOUDFLARED_BIN`
+  can select an absolute cloudflared path)
 - Biome for formatting, linting, and import organization; no ESLint
 - Vitest and Playwright
 
@@ -169,9 +174,10 @@ Each web application can have multiple hostnames such as `api.example.com` and `
 - TLS termination remains the responsibility of Cloudflare or the external reverse proxy.
 
 The dashboard hostname can be added or replaced after connection without
-re-entering Cloudflare credentials. NixHost does not assign Vercel-style
-default domains; public dashboard and application hostnames remain explicitly
-owned and selected by the operator.
+re-entering Cloudflare credentials. Quick Tunnel URLs remain active alongside
+custom hostnames. They are temporary Cloudflare-owned convenience URLs, not
+reserved production domains, and can change after their `cloudflared` process
+is recreated.
 
 ## Security warning
 

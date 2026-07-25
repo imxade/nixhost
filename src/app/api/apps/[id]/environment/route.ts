@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { environmentKeys, removeEnvironmentKey, setEnvironment } from "@/server/app-service";
 import { requireRole } from "@/server/auth";
+import { parseEnvironmentText } from "@/server/environment";
 import { api, readJson } from "@/server/http";
 import { clientIp, requestUser } from "@/server/next-auth";
 
@@ -9,10 +10,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
-const putSchema = z.object({
-  variables: z.record(z.string(), z.string()),
-  secret: z.boolean().default(true),
-});
+const putSchema = z.union([
+  z.object({
+    variables: z.record(z.string(), z.string()),
+    secret: z.boolean().default(true),
+  }),
+  z.object({
+    dotenv: z.string().min(1).max(64 * 1024),
+    secret: z.boolean().default(true),
+  }),
+]);
 const deleteSchema = z.object({ key: z.string().min(1) });
 
 export async function GET(request: NextRequest, context: Context) {
@@ -29,7 +36,8 @@ export async function PUT(request: NextRequest, context: Context) {
     requireRole(user, ["owner", "admin", "operator"]);
     const { id } = await context.params;
     const input = putSchema.parse(await readJson(request));
-    setEnvironment(id, input.variables, input.secret, { id: user.id, ip: clientIp(request) });
+    const variables = "dotenv" in input ? parseEnvironmentText(input.dotenv) : input.variables;
+    setEnvironment(id, variables, input.secret, { id: user.id, ip: clientIp(request) });
     return environmentKeys(id);
   });
 }
@@ -40,7 +48,7 @@ export async function DELETE(request: NextRequest, context: Context) {
     requireRole(user, ["owner", "admin", "operator"]);
     const { id } = await context.params;
     const input = deleteSchema.parse(await readJson(request));
-    removeEnvironmentKey(id, input.key);
+    removeEnvironmentKey(id, input.key, { id: user.id, ip: clientIp(request) });
     return environmentKeys(id);
   });
 }

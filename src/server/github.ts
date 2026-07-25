@@ -8,6 +8,7 @@ import {
 } from "./crypto.ts";
 import { getDb, nowIso, setSetting, setting } from "./db.ts";
 import { HttpError } from "./errors.ts";
+import { preferredPublicDashboardRoute } from "./public-origin.ts";
 
 const API_VERSION = "2026-03-10";
 const API_BASE = "https://api.github.com";
@@ -48,7 +49,7 @@ export function createManifest(baseUrl: string): {
   const state = randomToken(24);
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   setSetting("github_manifest_state", JSON.stringify({ hash: sha256(state), expiresAt }));
-  const publicBase = process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "");
+  const publicBase = preferredPublicDashboardRoute()?.baseUrl ?? null;
   return {
     state,
     manifest: {

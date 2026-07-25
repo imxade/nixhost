@@ -9,12 +9,14 @@ export function StatusBadge({ state }: { state: string }) {
     "health-checking",
     "activating",
   ].includes(state);
+  const neutral = ["stopped", "superseded", "not-deployed", "cancelled"].includes(state);
   const cls = positive
     ? "badge-success"
     : pending
       ? "badge-warning"
-      : state === "stopped" || state === "superseded"
+      : neutral
         ? "badge-ghost"
         : "badge-error";
-  return <span className={`badge ${cls} badge-sm font-medium`}>{state}</span>;
+  const label = state.replaceAll("-", " ");
+  return <span className={`badge ${cls} badge-sm font-medium`}>{label}</span>;
 }

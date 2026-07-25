@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client-api";
+import { AccessLinks, type AccessLink } from "./access-links";
 import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
 
@@ -25,6 +26,7 @@ type OAuthResources = {
 
 export function CloudflareClient() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [dashboardLinks, setDashboardLinks] = useState<AccessLink[]>([]);
   const [resources, setResources] = useState<OAuthResources | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -32,8 +34,12 @@ export function CloudflareClient() {
 
   const load = useCallback(async () => {
     try {
-      const next = await apiFetch<Status>("/api/cloudflare/status");
+      const [next, system] = await Promise.all([
+        apiFetch<Status>("/api/cloudflare/status"),
+        apiFetch<{ accessLinks: AccessLink[] }>("/api/system/status"),
+      ]);
       setStatus(next);
+      setDashboardLinks(system.accessLinks);
       setError("");
       return next;
     } catch (cause) {
@@ -62,6 +68,15 @@ export function CloudflareClient() {
     if (query.has("error") || query.has("authorization")) {
       window.history.replaceState(null, "", window.location.pathname);
     }
+    const source = new EventSource("/api/events?scope=system");
+    source.onmessage = () => void load();
+    source.addEventListener("quick_tunnel.ready", () => void load());
+    source.addEventListener("quick_tunnel.stopped", () => void load());
+    const interval = setInterval(() => void load(), 5000);
+    return () => {
+      source.close();
+      clearInterval(interval);
+    };
   }, [load]);
 
   useEffect(() => {
@@ -101,6 +116,7 @@ export function CloudflareClient() {
         }),
       );
       setResources(null);
+      await load();
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cloudflare connection failed");
@@ -126,6 +142,7 @@ export function CloudflareClient() {
           }),
         }),
       );
+      await load();
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Configuration failed");
@@ -145,6 +162,7 @@ export function CloudflareClient() {
           body: JSON.stringify({ hostname: form.get("hostname") }),
         }),
       );
+      await load();
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Dashboard domain update failed");
@@ -161,6 +179,7 @@ export function CloudflareClient() {
           method: "POST",
         }),
       );
+      await load();
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Tunnel action failed");
@@ -169,10 +188,14 @@ export function CloudflareClient() {
     }
   }
 
+  const routeNeedsAttention =
+    status?.routes.some((route) => route.status === "pending" || route.status === "error") ?? false;
+
   async function sync() {
     setBusy("sync");
     try {
       setStatus(await apiFetch<Status>("/api/cloudflare/sync", { method: "POST" }));
+      await load();
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Route sync failed");
@@ -189,9 +212,11 @@ export function CloudflareClient() {
         actions={
           status?.configured ? (
             <>
-              <button type="button" disabled={!!busy} className="btn" onClick={() => void sync()}>
-                Sync routes
-              </button>
+              {routeNeedsAttention && (
+                <button type="button" disabled={!!busy} className="btn" onClick={() => void sync()}>
+                  Retry route sync
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!!busy}
@@ -206,6 +231,19 @@ export function CloudflareClient() {
       />
 
       {error && <div className="alert alert-error mb-5 break-words">{error}</div>}
+
+      {status && (
+        <section className="card mb-5 border border-base-300 bg-base-100">
+          <div className="card-body">
+            <h2 className="card-title">Dashboard access links</h2>
+            <p className="text-sm text-base-content/65">
+              Quick Tunnel access works without Cloudflare authentication. Connecting an account
+              adds a persistent custom hostname without disabling the temporary URL.
+            </p>
+            <AccessLinks links={dashboardLinks} />
+          </div>
+        </section>
+      )}
 
       {!status ? (
         <div className="grid min-h-48 place-items-center">

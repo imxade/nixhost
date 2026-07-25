@@ -6,14 +6,25 @@
 - All deployed code shares the NixHost account; there is no hostile workload isolation.
 - The initial resource model reports usage but does not enforce hard per-app CPU or memory limits.
 - Arbitrary outbound network usage is not attributed per application.
-- LAN access always has stable per-app ports. Custom DNS names require the user to configure LAN DNS, Cloudflare, or another DNS/TLS reverse proxy.
+- LAN access always has stable per-app ports. Automatic Quick Tunnels provide
+  temporary public URLs, but custom DNS names still require an operator-owned domain.
 - LAN HTTP is unencrypted unless the user adds local TLS or uses a trusted tunnel.
-- GitHub auto-deploy is polling-based while the node has no publicly reachable webhook URL.
+- GitHub auto-deploy uses signed webhooks when a public dashboard route is available
+  and periodic polling at all times as missed-delivery recovery.
 - The control plane uses a custom Next.js server, so Next.js standalone output is intentionally unavailable.
 - Native `better-sqlite3` must be built and validated on every supported system.
 - Backup/restore is currently CLI-only.
 - Host-based custom-domain routing on the dashboard listener handles ordinary HTTP; use the stable per-app port or Cloudflare route for WebSocket origins.
-- Cloudflare integration has not been exercised against a live account in this environment.
+- Quick Tunnels are intended by Cloudflare for development/testing, have no uptime
+  guarantee, cap concurrent in-flight requests, and do not support Server-Sent Events.
+  NixHost uses polling fallbacks, but these URLs are not production SLAs.
+- Every web application uses a separate Quick Tunnel process. This avoids proxy
+  compatibility problems but adds CPU/memory overhead that grows with app count.
+- Quick Tunnels currently have a global opt-out, not a per-application exposure
+  switch. A hosted application that should not be public must enforce its own
+  authentication or the operator must disable Quick Tunnels for the node.
+- Cloudflare named-tunnel/OAuth integration has not been exercised against a live
+  account in this environment.
 - The current Android delivery path requires Nix-on-Droid and terminal setup. The plug-and-play APK, native wrapper and Android release artifacts are a roadmap target for a separate repository, not outputs of this repository.
 - The Maestro CI login flow has passed on an Android 15 x86_64 development
   emulator, but no physical ARM64 Nix-on-Droid/Maestro result has been recorded;

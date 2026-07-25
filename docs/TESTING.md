@@ -49,6 +49,18 @@ refresh-token rotation, manual token validation, managed/external DNS states,
 ownership-checked DNS cleanup and the responsive OAuth/zone-selection UI. A
 mocked API result is not a live Cloudflare acceptance result.
 
+Quick Tunnel unit coverage validates strict `trycloudflare.com` URL discovery and
+rejects deceptive suffixes. Access-link tests cover simultaneous LAN, temporary,
+and custom routes. Environment tests cover multiline dotenv-style input, duplicate
+keys, invalid names, quoting, and size limits. Deployment-log tests verify bounded
+range/tail reads and refusal of symbolic links on platforms supporting `O_NOFOLLOW`.
+
+A release acceptance run must additionally start real `cloudflared` Quick Tunnels,
+verify one dashboard and one per-web-app URL, confirm links remain available beside
+custom domains, verify graceful shutdown closes them, verify URL rotation recovery,
+and exercise the authenticated polling fallback because Quick Tunnels do not carry
+Server-Sent Events.
+
 `pnpm test:examples` bypasses the dashboard and deploys each tracked example
 through the real deployment engine. The harness copies each example into the
 root of an isolated Git repository, deploys its exact commit, waits for its real

@@ -18,7 +18,8 @@ custom Node HTTP server + Next.js App Router
     |
     +--> git
     +--> nix
-    +--> cloudflared (optional)
+    +--> cloudflared Quick Tunnels (default; optional via configuration)
+    +--> cloudflared named tunnel (optional custom domains)
     +--> detached flake application process groups
 ```
 
@@ -39,7 +40,8 @@ The selected product constraint is “Next.js completely.” A custom Node HTTP 
 7. Recreate stable per-app LAN proxy listeners.
 8. Reconcile active application process IDs.
 9. Start metrics, Git reconciliation and deployment scheduling loops.
-10. Start cloudflared when previously enabled.
+10. Start account-free Quick Tunnels by default and the named Cloudflare tunnel
+    when configured and enabled.
 11. Prepare Next.js and listen on the LAN interface.
 
 The runtime is also guarded on `globalThis` to avoid duplicate initialization from Next.js development reloads or instrumentation.

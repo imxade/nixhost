@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getApplicationsByRepositoryId, queueDeployment } from "@/server/app-service";
 import { getDb, nowIso } from "@/server/db";
+import { events } from "@/server/events";
 import { syncInstallations, webhookSecret } from "@/server/github";
 import { logger } from "@/server/logger";
 
@@ -86,12 +87,21 @@ export async function POST(request: NextRequest) {
       );
     } else if (event === "push" && repositoryId) {
       for (const app of getApplicationsByRepositoryId(repositoryId)) {
-        if (!app.auto_deploy) continue;
+        if (!app.auto_deploy || app.desired_state !== "running") continue;
         const ref = String(payload.ref ?? "");
         if (ref === `refs/heads/${app.branch}`) {
           const sha = String(payload.after ?? "");
           if (sha && !/^0+$/.test(sha)) {
-            queueDeployment(app.id, { trigger: "github_push", commitSha: sha, requestedRef: sha });
+            const deployment = queueDeployment(app.id, {
+              trigger: "github_push",
+              commitSha: sha,
+              requestedRef: sha,
+            });
+            events.publish("deployment.queued", `app:${app.id}`, {
+              deploymentId: deployment.id,
+              commit: sha,
+              trigger: "github_push",
+            });
           }
         }
       }

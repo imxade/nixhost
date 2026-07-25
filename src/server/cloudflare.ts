@@ -7,10 +7,10 @@ import {
 } from "./cloudflare-api.ts";
 import { cloudflareOAuthStatus } from "./cloudflare-oauth.ts";
 import { spawnLogged } from "./command.ts";
+import { config } from "./config.ts";
 import { decryptSecret, encryptSecret } from "./crypto.ts";
 import { getDb, nowIso, setSetting, setting } from "./db.ts";
 import { HttpError } from "./errors.ts";
-import { updateAppWebhook } from "./github.ts";
 import { logger } from "./logger.ts";
 import { paths } from "./paths.ts";
 import {
@@ -18,6 +18,7 @@ import {
   matchesProcessIdentity,
   type ProcessIdentity,
 } from "./process-identity.ts";
+import { synchronizeGitHubWebhook } from "./public-webhook.ts";
 
 interface CloudflareRow {
   account_id: string;
@@ -147,7 +148,7 @@ export class CloudflareController {
       throw error;
     }
     if (row.dashboard_hostname) await deleteManagedDnsRecord(row, row.dashboard_hostname);
-    await updateAppWebhook(preferredWebhookBase(dashboardHostname)).catch((error) =>
+    await synchronizeGitHubWebhook(true).catch((error) =>
       logger.warn("GitHub webhook URL update failed", { error: String(error) }),
     );
   }
@@ -237,7 +238,7 @@ export class CloudflareController {
       }
       throw error;
     }
-    await updateAppWebhook(preferredWebhookBase(dashboardHostname)).catch((error) =>
+    await synchronizeGitHubWebhook(true).catch((error) =>
       logger.warn("GitHub webhook URL update failed", { error: String(error) }),
     );
     if (previous?.enabled && replaceTunnel) this.startProcess();
@@ -250,6 +251,7 @@ export class CloudflareController {
       .prepare("UPDATE cloudflare_config SET enabled = 1, updated_at = ? WHERE singleton = 1")
       .run(nowIso());
     this.startProcess();
+    await synchronizeGitHubWebhook(true).catch(() => undefined);
   }
 
   async disable(): Promise<void> {
@@ -257,6 +259,7 @@ export class CloudflareController {
       .prepare("UPDATE cloudflare_config SET enabled = 0, updated_at = ? WHERE singleton = 1")
       .run(nowIso());
     await this.stopProcess();
+    await synchronizeGitHubWebhook(true).catch(() => undefined);
   }
 
   async boot(): Promise<void> {
@@ -282,7 +285,7 @@ export class CloudflareController {
       await ensureDnsRecord(row, row.dashboard_hostname, true);
       ingress.push({
         hostname: row.dashboard_hostname,
-        service: `http://127.0.0.1:${process.env.PORT || 3000}`,
+        service: `http://127.0.0.1:${config.PORT}`,
       });
     }
     const domains = getDb()
@@ -335,16 +338,20 @@ export class CloudflareController {
     const row = getCloudflareConfig();
     if (!row?.tunnel_token_encrypted) throw new Error("Cloudflare tunnel token is unavailable");
     const log = `${paths.logs}/cloudflared.log`;
-    const child = spawnLogged("cloudflared", ["tunnel", "--no-autoupdate", "run"], {
-      cwd: paths.data,
-      env: {
-        ...process.env,
-        TUNNEL_TOKEN: decryptSecret(row.tunnel_token_encrypted),
+    const child = spawnLogged(
+      config.NIXHOST_CLOUDFLARED_BIN,
+      ["tunnel", "--no-autoupdate", "run"],
+      {
+        cwd: paths.data,
+        env: {
+          ...process.env,
+          TUNNEL_TOKEN: decryptSecret(row.tunnel_token_encrypted),
+        },
+        stdoutPath: log,
+        stderrPath: log,
+        detached: true,
       },
-      stdoutPath: log,
-      stderrPath: log,
-      detached: true,
-    });
+    );
     if (!child.pid) throw new Error("cloudflared did not return a process ID");
     const identity = captureProcessIdentity(child.pid);
     if (!identity) {
@@ -585,12 +592,6 @@ function assertDashboardHostnameAvailable(hostname: string | null): void {
       "domain_already_assigned",
     );
   }
-}
-
-function preferredWebhookBase(dashboardHostname: string | null): string | null {
-  return dashboardHostname
-    ? `https://${dashboardHostname}`
-    : (process.env.NIXHOST_PUBLIC_URL?.replace(/\/$/, "") ?? null);
 }
 
 function restoreCloudflareConfig(row: CloudflareRow | null): void {

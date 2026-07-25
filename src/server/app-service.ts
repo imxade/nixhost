@@ -218,6 +218,16 @@ export function setEnvironment(
 ): void {
   getApplication(appId);
   const entries = Object.entries(variables);
+  if (entries.length === 0) {
+    throw new HttpError(400, "Enter at least one environment variable", "empty_environment");
+  }
+  if (entries.length > 200) {
+    throw new HttpError(
+      400,
+      "A maximum of 200 environment variables can be updated at once",
+      "too_many_env_keys",
+    );
+  }
   for (const [key, value] of entries) {
     if (!/^[A-Z_][A-Z0-9_]*$/i.test(key))
       throw new HttpError(400, `Invalid environment variable name: ${key}`, "invalid_env_key");
@@ -269,8 +279,21 @@ export function environmentKeys(
   ).map((row) => ({ key: row.key, secret: Boolean(row.secret), updatedAt: row.updated_at }));
 }
 
-export function removeEnvironmentKey(appId: string, key: string): void {
+export function removeEnvironmentKey(
+  appId: string,
+  key: string,
+  actor?: { id: string; ip?: string | null },
+): void {
+  getApplication(appId);
   getDb().prepare("DELETE FROM app_environment WHERE app_id = ? AND key = ?").run(appId, key);
+  audit({
+    userId: actor?.id,
+    ip: actor?.ip,
+    action: "application.environment_removed",
+    entityType: "application",
+    entityId: appId,
+    details: { key },
+  });
 }
 
 export function queueDeployment(
@@ -286,6 +309,11 @@ export function queueDeployment(
       `UPDATE deployments SET state = 'superseded', finished_at = ?
        WHERE app_id = ? AND state = 'queued'`,
     ).run(now, appId);
+    if (input.trigger === "manual" || input.trigger === "restart") {
+      db.prepare(
+        "UPDATE applications SET desired_state = 'running', updated_at = ? WHERE id = ?",
+      ).run(now, appId);
+    }
     db.prepare(
       `INSERT INTO deployments(id, app_id, commit_sha, requested_ref, trigger, state, resource_confidence,
         queued_at, cancel_requested)

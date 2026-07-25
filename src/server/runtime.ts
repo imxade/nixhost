@@ -13,13 +13,22 @@ import { ensureDataDirectories, paths } from "./paths.ts";
 import { captureProcessIdentity, matchesProcessIdentity } from "./process-identity.ts";
 import { ProcessSupervisor } from "./process-supervisor.ts";
 import { ProxyManager } from "./proxy-manager.ts";
-import type { AppRow, DeploymentRow } from "./types.ts";
+import { synchronizeGitHubWebhook } from "./public-webhook.ts";
+import { QuickTunnelController } from "./quick-tunnels.ts";
+import type { AppRow, DeploymentRow, DeploymentState } from "./types.ts";
+
+export type ApplicationOperationalStatus =
+  | DeploymentState
+  | "stopped"
+  | "not-deployed"
+  | "unavailable";
 
 export class PlatformRuntime {
   readonly proxy = new ProxyManager();
   readonly supervisor = new ProcessSupervisor();
   readonly metrics = new MetricsCollector();
   readonly cloudflare = new CloudflareController();
+  readonly quickTunnels = new QuickTunnelController();
   readonly deployments = new DeploymentEngine(this.supervisor, this.proxy);
   readonly git = new GitReconciler();
   readonly logRetention = new LogRetentionController();
@@ -39,6 +48,8 @@ export class PlatformRuntime {
     this.git.boot();
     this.logRetention.boot();
     await this.cloudflare.boot();
+    await this.quickTunnels.boot();
+    void synchronizeGitHubWebhook().catch(() => undefined);
     this.maintenanceTimer = setInterval(() => this.maintenance(), 60_000);
     this.maintenanceTimer.unref();
     events.publish("runtime.ready", "system", { pid: process.pid, dataDir: paths.data });
@@ -55,8 +66,31 @@ export class PlatformRuntime {
     await this.deployments.close();
     await this.supervisor.close();
     await this.proxy.close();
+    await this.quickTunnels.close();
     this.cloudflare.close();
     releaseRuntimeLock();
+  }
+
+  applicationOperationalStatus(appId: string): ApplicationOperationalStatus {
+    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as
+      | AppRow
+      | undefined;
+    if (!app) throw new Error("Application not found");
+    if (app.desired_state === "stopped") return "stopped";
+
+    if (app.active_deployment_id) {
+      const active = getDb()
+        .prepare("SELECT * FROM deployments WHERE id = ?")
+        .get(app.active_deployment_id) as DeploymentRow | undefined;
+      if (active?.state === "running") {
+        return this.supervisor.isAlive(active) ? "running" : "unavailable";
+      }
+    }
+
+    const latest = getDb()
+      .prepare("SELECT * FROM deployments WHERE app_id = ? ORDER BY queued_at DESC LIMIT 1")
+      .get(appId) as DeploymentRow | undefined;
+    return latest?.state ?? "not-deployed";
   }
 
   async stopApplication(appId: string): Promise<void> {
@@ -66,18 +100,33 @@ export class PlatformRuntime {
     if (!app) throw new Error("Application not found");
     const stoppedAt = nowIso();
     getDb()
-      .prepare(
-        "UPDATE applications SET desired_state = 'stopped', active_internal_port = NULL, active_deployment_id = NULL, updated_at = ? WHERE id = ?",
-      )
+      .prepare("UPDATE applications SET desired_state = 'stopped', updated_at = ? WHERE id = ?")
       .run(stoppedAt, appId);
-    if (app.active_deployment_id) {
-      await this.supervisor.stopDeployment(app.active_deployment_id);
+
+    const candidates = getDb()
+      .prepare(
+        `SELECT id FROM deployments WHERE app_id = ? AND state IN
+         ('queued','preparing','fetching','evaluating','starting','health-checking','activating')`,
+      )
+      .all(appId) as Array<{ id: string }>;
+    for (const candidate of candidates) this.deployments.cancel(candidate.id);
+
+    const current = getDb()
+      .prepare("SELECT active_deployment_id FROM applications WHERE id = ?")
+      .get(appId) as { active_deployment_id: string | null };
+    if (current.active_deployment_id) {
+      await this.supervisor.stopDeployment(current.active_deployment_id);
       getDb()
         .prepare(
           "UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'",
         )
-        .run(stoppedAt, app.active_deployment_id);
+        .run(stoppedAt, current.active_deployment_id);
     }
+    getDb()
+      .prepare(
+        "UPDATE applications SET active_internal_port = NULL, active_deployment_id = NULL, updated_at = ? WHERE id = ?",
+      )
+      .run(stoppedAt, appId);
     await this.proxy.reconcile();
     events.publish("application.stopped", `app:${appId}`, {});
   }
@@ -92,7 +141,9 @@ export class PlatformRuntime {
       .run(nowIso(), appId);
     const latest = getDb()
       .prepare(
-        "SELECT * FROM deployments WHERE app_id = ? AND commit_sha IS NOT NULL ORDER BY COALESCE(activated_at, queued_at) DESC LIMIT 1",
+        `SELECT * FROM deployments
+         WHERE app_id = ? AND commit_sha IS NOT NULL AND activated_at IS NOT NULL
+         ORDER BY activated_at DESC LIMIT 1`,
       )
       .get(appId) as DeploymentRow | undefined;
     return queueDeployment(appId, {
@@ -111,6 +162,7 @@ export class PlatformRuntime {
     purgeExpiredSessions();
     const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString();
     getDb().prepare("DELETE FROM webhook_deliveries WHERE received_at < ?").run(cutoff);
+    void synchronizeGitHubWebhook().catch(() => undefined);
   }
 }
 

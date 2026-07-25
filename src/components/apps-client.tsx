@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client-api";
+import { AccessLinks, type AccessLink } from "./access-links";
 import { GitHubConnectButton } from "./github-connect-button";
 import { PageHeading } from "./page-heading";
 import { type GitHubRepositoryOption, RepositoryPicker } from "./repository-picker";
@@ -16,9 +17,10 @@ type App = {
   branch: string;
   flake_output: string;
   auto_deploy: number;
-  desired_state: string;
   public_port: number | null;
   active_deployment_id: string | null;
+  operationalStatus: string;
+  accessLinks: AccessLink[];
   domain?: string | null;
   updated_at: string;
 };
@@ -68,6 +70,16 @@ export function AppsClient() {
   }, []);
   useEffect(() => {
     void load();
+    const source = new EventSource("/api/events");
+    source.onmessage = () => void load();
+    source.addEventListener("deployment.state", () => void load());
+    source.addEventListener("quick_tunnel.ready", () => void load());
+    source.addEventListener("quick_tunnel.stopped", () => void load());
+    const interval = setInterval(() => void load(), 5000);
+    return () => {
+      source.close();
+      clearInterval(interval);
+    };
   }, [load]);
   const loadRepositories = useCallback(async () => {
     setRepositoriesLoading(true);
@@ -118,7 +130,7 @@ export function AppsClient() {
         : undefined;
     const repositoryUrl = selected?.clone_url || String(form.get("repositoryUrl") || "");
     try {
-      const app = await apiFetch<App>("/api/apps", {
+      await apiFetch<App>("/api/apps", {
         method: "POST",
         body: JSON.stringify({
           name: form.get("name"),
@@ -132,7 +144,6 @@ export function AppsClient() {
           autoDeploy: true,
         }),
       });
-      await apiFetch(`/api/apps/${app.id}/deploy`, { method: "POST", body: "{}" });
       (document.getElementById("new-app") as HTMLDialogElement | null)?.close();
       await load();
     } catch (cause) {
@@ -145,7 +156,7 @@ export function AppsClient() {
     <>
       <PageHeading
         title="Applications"
-        description="Import a repository containing flake.nix and flake.lock. NixHost builds the selected flake app, supervises it, and keeps its LAN endpoint stable."
+        description="Import a locked Nix flake. NixHost deploys it, supervises it, and shows every LAN, temporary public, and custom-domain access link."
         actions={
           loaded ? (
             <>
@@ -216,20 +227,21 @@ export function AppsClient() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filtered.map((app) => (
-            <Link
+            <article
               key={app.id}
-              href={`/apps/${app.id}`}
               className="card border border-base-300 bg-base-100 transition hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="card-body">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="card-title">{app.name}</h2>
-                    <p className="mt-1 text-sm text-base-content/60">
+                  <div className="min-w-0">
+                    <Link className="card-title link-hover" href={`/apps/${app.id}`}>
+                      {app.name}
+                    </Link>
+                    <p className="mt-1 truncate text-sm text-base-content/60">
                       {app.repository_url.replace(/^https:\/\//, "")}
                     </p>
                   </div>
-                  <StatusBadge state={app.active_deployment_id ? "running" : app.desired_state} />
+                  <StatusBadge state={app.operationalStatus} />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
@@ -241,17 +253,26 @@ export function AppsClient() {
                     <div className="font-mono">#{app.flake_output}</div>
                   </div>
                   <div>
-                    <span className="text-base-content/55">LAN endpoint</span>
-                    <div>{app.public_port ? `:${app.public_port}` : "Worker"}</div>
+                    <span className="text-base-content/55">Type</span>
+                    <div>{app.kind === "web" ? "Web service" : "Worker"}</div>
                   </div>
                   <div>
                     <span className="text-base-content/55">Updated</span>
                     <div>{formatDate(app.updated_at)}</div>
                   </div>
                 </div>
-                {app.domain && <div className="badge badge-outline mt-2">{app.domain}</div>}
+                {app.kind === "web" && (
+                  <div className="mt-3 border-t border-base-300 pt-3">
+                    <AccessLinks links={app.accessLinks} compact />
+                  </div>
+                )}
+                <div className="card-actions mt-2 justify-end">
+                  <Link className="btn btn-sm" href={`/apps/${app.id}`}>
+                    Manage
+                  </Link>
+                </div>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
       )}

@@ -10,6 +10,8 @@ PORT=3000
 NIXHOST_DATA_DIR=~/.local/share/nixhost
 NIXHOST_MASTER_KEY=<base64 32-byte key, recommended>
 NIXHOST_PUBLIC_URL=<optional stable HTTPS origin>
+NIXHOST_QUICK_TUNNELS_ENABLED=true
+NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS=10
 NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<optional public OAuth client ID>
 NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=<exact registered callback URI>
 NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<exact space-delimited client scopes>
@@ -42,10 +44,21 @@ Restore with `pnpm restore -- /path/to/backup` while NixHost is stopped. Restore
 
 ## Automatic deployment
 
-Branch polling is the fallback when GitHub cannot reach the webhook. It queues
-each previously unseen commit once. A failed commit is not retried on every
-poll; use **Redeploy** for a transient host failure, or push a new commit with
-the repository fix.
+NixHost registers the GitHub App webhook against the best public dashboard route:
+custom domain, explicit stable URL, then current dashboard Quick Tunnel. LAN routes
+are never used. Branch polling runs periodically regardless of webhook availability
+and queues each previously unseen commit once. A failed commit is not retried on
+every poll; use **Redeploy latest** for a transient host failure, or push a new
+commit with the repository fix.
+
+## Temporary public access
+
+NixHost supervises the dashboard Quick Tunnel and one process per web application.
+The URL remains stable while NixHost and that process continue running. A graceful
+NixHost shutdown closes managed Quick Tunnels; after a crash, device reboot, or later
+restart, a replacement process can receive a new URL. Set
+`NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
+only. Quick Tunnel URLs remain enabled alongside custom domains.
 
 ## Recovery
 
