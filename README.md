@@ -24,7 +24,9 @@ Today, Android development and physical-device validation use Nix-on-Droid. The 
 - Host-based HTTP routing on the dashboard listener and stable per-app ports for any DNS/TLS provider.
 - Multi-zone Cloudflare DNS and Tunnel synchronization for domains managed by the configured token.
 - Persistent SQLite state, encrypted secrets, deployment history, live logs, resource sampling, process restart and recovery.
-- Optional Cloudflare Tunnel configured later from the dashboard.
+- One-click Cloudflare OAuth connection when the distribution supplies its
+  public client ID, with automatic account/zone discovery, encrypted refresh
+  tokens and a manual least-privilege token fallback.
 
 ## Stack
 
@@ -160,11 +162,16 @@ of assuming `main`.
 
 Each web application can have multiple hostnames such as `api.example.com` and `www.example.net`.
 
-- Cloudflare-managed zones available to the configured API token are synchronized automatically.
+- Cloudflare-managed zones authorized through OAuth or the manual API-token fallback are synchronized automatically.
 - Hostnames managed elsewhere are left untouched. Point them through your chosen DNS/TLS reverse proxy to the app's stable LAN port.
 - Each application's Domains tab shows whether every hostname is Cloudflare-managed, externally managed, awaiting synchronization, or failed, together with the stable origin port and last synchronization result.
 - Plain HTTP requests reaching the NixHost dashboard listener are also routed by `Host`.
 - TLS termination remains the responsibility of Cloudflare or the external reverse proxy.
+
+The dashboard hostname can be added or replaced after connection without
+re-entering Cloudflare credentials. NixHost does not assign Vercel-style
+default domains; public dashboard and application hostnames remain explicitly
+owned and selected by the operator.
 
 ## Security warning
 

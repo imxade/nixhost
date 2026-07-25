@@ -6,7 +6,6 @@ import {
   refreshCloudflareOAuthToken,
 } from "./cloudflare-api.ts";
 import { cloudflareOAuthStatus } from "./cloudflare-oauth.ts";
-import { CloudflareQuickTunnel } from "./cloudflare-quick.ts";
 import { spawnLogged } from "./command.ts";
 import { decryptSecret, encryptSecret } from "./crypto.ts";
 import { getDb, nowIso, setSetting, setting } from "./db.ts";
@@ -50,7 +49,6 @@ export interface CloudflareDomainRoute {
 let oauthRefreshPromise: Promise<string> | null = null;
 
 export class CloudflareController {
-  private readonly quick = new CloudflareQuickTunnel();
   private childProcess: ChildProcess | null = null;
   private monitorTimer: NodeJS.Timeout | null = null;
   private processIdentity: ProcessIdentity | null = null;
@@ -65,7 +63,6 @@ export class CloudflareController {
     tunnelId: string | null;
     dashboardHostname: string | null;
     oauth: { available: boolean; pending: boolean };
-    temporary: { enabled: boolean; running: boolean; url: string | null };
     routes: CloudflareDomainRoute[];
   } {
     const row = getCloudflareConfig();
@@ -79,7 +76,6 @@ export class CloudflareController {
       tunnelId: row?.tunnel_id ?? null,
       dashboardHostname: row?.dashboard_hostname ?? null,
       oauth: cloudflareOAuthStatus(userId),
-      temporary: this.quick.status(),
       routes: cloudflareDomainRoutes(Boolean(row)),
     };
   }
@@ -156,21 +152,6 @@ export class CloudflareController {
     );
   }
 
-  async enableTemporaryTunnel(): Promise<void> {
-    if (getCloudflareConfig()) {
-      throw new HttpError(
-        409,
-        "Disable the named Cloudflare connection before using a temporary URL",
-        "cloudflare_already_configured",
-      );
-    }
-    await this.quick.enable();
-  }
-
-  async disableTemporaryTunnel(): Promise<void> {
-    await this.quick.disable();
-  }
-
   private async configureCredential(input: {
     accountId: string;
     zoneId: string;
@@ -190,7 +171,6 @@ export class CloudflareController {
       previous &&
         (previous.account_id !== input.accountId || previous.tunnel_name !== input.tunnelName),
     );
-    await this.quick.disable();
     if (replaceTunnel) await this.stopProcess();
     const now = nowIso();
     getDb()
@@ -281,8 +261,6 @@ export class CloudflareController {
 
   async boot(): Promise<void> {
     const row = getCloudflareConfig();
-    if (row) await this.quick.disable();
-    else await this.quick.boot();
     if (row?.enabled) this.startProcess();
     this.monitorTimer = setInterval(() => {
       const current = getCloudflareConfig();
@@ -294,7 +272,6 @@ export class CloudflareController {
   close(): void {
     if (this.monitorTimer) clearInterval(this.monitorTimer);
     this.monitorTimer = null;
-    this.quick.close();
   }
 
   async syncIngress(): Promise<void> {

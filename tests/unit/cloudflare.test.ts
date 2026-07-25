@@ -7,9 +7,8 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-cloudflare-
 process.env.NIXHOST_DATA_DIR = dataDirectory;
 process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 29).toString("base64");
 
-const [{ CloudflareController }, { parseQuickTunnelUrl }, database, secrets] = await Promise.all([
+const [{ CloudflareController }, database, secrets] = await Promise.all([
   import("../../src/server/cloudflare.ts"),
-  import("../../src/server/cloudflare-quick.ts"),
   import("../../src/server/db.ts"),
   import("../../src/server/crypto.ts"),
 ]);
@@ -97,15 +96,6 @@ afterAll(() => {
 });
 
 describe("Cloudflare application routes", () => {
-  it("extracts only Cloudflare-assigned temporary URLs from connector output", () => {
-    expect(
-      parseQuickTunnelUrl(
-        "INF Your quick Tunnel has been created! Visit it at https://simple-wind-42.trycloudflare.com",
-      ),
-    ).toBe("https://simple-wind-42.trycloudflare.com");
-    expect(parseQuickTunnelUrl("https://trycloudflare.com.attacker.invalid")).toBeNull();
-  });
-
   it("verifies token, zone ownership, and tunnel access before saving", async () => {
     const controller = new CloudflareController();
     await controller.configure({

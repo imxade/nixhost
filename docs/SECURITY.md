@@ -34,9 +34,16 @@ LAN HTTP remains readable by an attacker who can observe the local network. Use 
 
 ## Secret storage
 
-- Application values, GitHub private key/secret and Cloudflare token are encrypted with AES-256-GCM.
+- Application values, GitHub private key/secret, Cloudflare API/tunnel tokens,
+  OAuth PKCE verifiers and OAuth access/refresh tokens are encrypted with
+  AES-256-GCM.
 - Master key comes from `NIXHOST_MASTER_KEY` or a mode-0600 local key file.
 - Existing values are never sent back to the dashboard.
+- Cloudflare OAuth starts only for an authenticated owner/admin. Its random
+  state is stored as a hash, expires after ten minutes and is deleted before
+  code exchange; PKCE S256 binds the returned code to the initiating node.
+- No default public hostname is created. Every Cloudflare dashboard or
+  application hostname is explicitly supplied by the operator.
 - Logs attempt no magical generic redaction; applications can transform or exfiltrate any secret provided to them.
 
 For the integrated Android app, replace the local key-file fallback with Android Keystore wrapping.
@@ -54,3 +61,6 @@ For the integrated Android app, replace the local key-file fallback with Android
 - Add optional local TLS and passkeys.
 - Add interrupted-write and disk-full fault injection to backup/restore tests.
 - Obtain independent security review before exposing the dashboard to the internet.
+- Publish and independently review the distributor Cloudflare OAuth client,
+  verified callback domain and requested scopes before enabling OAuth in a
+  release build.

@@ -240,6 +240,91 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page.locator("pre")).toContainText("[deployment] failed");
   await expect(page.locator("pre")).toContainText("authentication rejected");
 
+  let cloudflarePending = false;
+  await page.route("**/api/cloudflare/status", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          configured: false,
+          enabled: false,
+          running: false,
+          connectionMethod: null,
+          accountId: null,
+          zoneId: null,
+          tunnelId: null,
+          dashboardHostname: null,
+          oauth: { available: true, pending: cloudflarePending },
+          routes: [],
+        },
+      },
+    });
+  });
+  await page.route("**/api/cloudflare/oauth/options", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          accounts: [{ id: "a".repeat(32), name: "Example account" }],
+          zones: [
+            {
+              id: "b".repeat(32),
+              name: "example.com",
+              accountId: "a".repeat(32),
+              accountName: "Example account",
+            },
+          ],
+        },
+      },
+    });
+  });
+  await page.route("**/api/cloudflare/oauth/complete", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      accountId: "a".repeat(32),
+      zoneId: "b".repeat(32),
+      tunnelName: "nixhost",
+      dashboardHostname: "console.example.com",
+    });
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          configured: true,
+          enabled: true,
+          running: true,
+          connectionMethod: "oauth",
+          accountId: "a".repeat(32),
+          zoneId: "b".repeat(32),
+          tunnelId: "tunnel-id",
+          dashboardHostname: "console.example.com",
+          oauth: { available: true, pending: false },
+          routes: [],
+        },
+      },
+    });
+  });
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/integrations/cloudflare");
+  await expect(page.getByRole("button", { name: "Connect Cloudflare" })).toBeVisible();
+  await expect(page.getByText("Manual API token fallback")).toBeVisible();
+
+  cloudflarePending = true;
+  await page.reload();
+  await expect(page.getByLabel("Cloudflare zone")).toContainText("Example account · example.com");
+  await page.getByLabel("Dashboard hostname (optional)").fill("console.example.com");
+  await page.getByRole("button", { name: "Create and enable tunnel" }).click();
+  await expect(page.getByRole("heading", { name: "Persistent tunnel" })).toBeVisible();
+  await expect(page.getByText("Cloudflare OAuth")).toBeVisible();
+  await expect(page.getByLabel("Hostname")).toHaveValue("console.example.com");
+  const cloudflareDimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(cloudflareDimensions.scrollWidth).toBeLessThanOrEqual(
+    cloudflareDimensions.clientWidth + 1,
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   const rejectedOrigin = await page.request.post("/api/users", {
     headers: { origin: "https://attacker.invalid" },
     data: { username: "blocked", password: "blocked-password", role: "viewer" },

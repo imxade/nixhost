@@ -10,12 +10,22 @@ PORT=3000
 NIXHOST_DATA_DIR=~/.local/share/nixhost
 NIXHOST_MASTER_KEY=<base64 32-byte key, recommended>
 NIXHOST_PUBLIC_URL=<optional stable HTTPS origin>
+NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<optional public OAuth client ID>
+NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=<exact registered callback URI>
+NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<exact space-delimited client scopes>
 NIXHOST_BUILD_CONCURRENCY=1
 NIXHOST_GIT_POLL_SECONDS=60
 NIXHOST_METRICS_SECONDS=5
 NIXHOST_MIN_FREE_DISK_MB=1024
 NIXHOST_MIN_FREE_MEMORY_MB=256
 ```
+
+The Cloudflare client must be registered as a public Authorization Code client
+with PKCE and token endpoint authentication method `none`. Never ship a
+Cloudflare OAuth client secret in this repository or the future APK. The
+redirect URI must resolve back to
+`/api/cloudflare/oauth/callback`; a loopback URI is suitable only when the
+browser and NixHost run on the same device.
 
 ## Backup
 
@@ -30,6 +40,13 @@ The Nix store and releases can be reconstructed from repositories and lock files
 
 Restore with `pnpm restore -- /path/to/backup` while NixHost is stopped. Restore verifies the manifest, every checksum, archive paths, the master-key mode, SQLite integrity, and foreign keys before replacing current state. A failed replacement rolls the previous database, key, and application directory back into place.
 
+## Automatic deployment
+
+Branch polling is the fallback when GitHub cannot reach the webhook. It queues
+each previously unseen commit once. A failed commit is not retried on every
+poll; use **Redeploy** for a transient host failure, or push a new commit with
+the repository fix.
+
 ## Recovery
 
 - If the dashboard crashes, detached active apps should continue.
@@ -37,6 +54,8 @@ Restore with `pnpm restore -- /path/to/backup` while NixHost is stopped. Restore
 - Interrupted builds are marked interrupted rather than assumed successful.
 - If SQLite integrity fails, stop the service and restore a verified backup; do not delete the database blindly.
 - If the encryption key is lost, encrypted GitHub/Cloudflare/application secrets cannot be recovered.
+- If Cloudflare OAuth authorization is revoked or its refresh token expires,
+  reconnect from the Cloudflare page. Existing LAN routes continue operating.
 
 ## Log retention
 

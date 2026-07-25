@@ -17,9 +17,11 @@ Last updated: 2026-07-25.
 - Detached application process groups, Linux start-time/cmdline/command-hash identity checks, conservative non-Linux recovery and guarded group signalling.
 - Candidate health checks, atomic route activation, current healthy release preservation and control-plane restart recovery.
 - Stable per-application LAN ports plus multiple normalized custom domains, host-based HTTP routing and provider-neutral DNS/TLS support.
-- Optional multi-zone Cloudflare DNS/Tunnel synchronization, pre-save
-  token/account/zone/tunnel-access verification, per-project route status and
-  ownership-checked cleanup of removed managed records.
+- Optional multi-zone Cloudflare DNS/Tunnel synchronization, public-client
+  OAuth with PKCE/single-use state/encrypted refresh tokens, account/zone
+  discovery, manual-token fallback, pre-save account/zone/tunnel-access
+  verification, per-project route status and ownership-checked cleanup of
+  removed managed records.
 - File-backed live logs with bounded active/inactive retention.
 - Verified, checksummed SQLite/application-data backup and rollback-safe restore commands.
 - Locked pnpm and Nix inputs, reproducible Nix dependency hash, CI security/audit/license gates and packaged operational commands.
@@ -99,7 +101,10 @@ The dependency audit originally identified high-severity `sharp`/libvips and Pos
   and signed public webhook delivery are pending the owner’s test-account
   action. Public-repository branch reconciliation and push redeployment have
   passed.
-- Cloudflare live zone/tunnel, Access policy, reconnect and token-handling tests have not been run against an account.
+- Cloudflare live OAuth consent, zone/tunnel, Access policy, reconnect,
+  refresh-token and custom-domain lifecycle tests have not been run against an
+  account. Unit and browser coverage use deterministic mocked Cloudflare
+  responses and cannot replace that evidence.
 - No native `aarch64-linux`, Darwin or physical Android build was executed. Cross-platform packages in the dependency store are not evidence that those targets work.
 - Android development automation passed its browser flow on an Android 15
   x86_64 emulator using the locked Maestro shell, while the Nix-on-Droid

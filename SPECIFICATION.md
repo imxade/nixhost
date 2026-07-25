@@ -30,13 +30,18 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 10. Desired application state, queue state, users, sessions, integrations, and history persist in SQLite.
 11. Secrets are encrypted at rest and existing secret values are never returned by APIs.
 12. Host and per-application resource data are shown without claiming exact OOM causality when evidence is insufficient.
-13. Cloudflare Tunnel remains optional and can expose selected applications or the dashboard later.
+13. Cloudflare Tunnel remains optional. A configured public OAuth client uses
+    Authorization Code with PKCE, single-use state and encrypted refresh tokens
+    to discover accounts/zones and create a persistent named tunnel. Manual
+    least-privilege API tokens remain a fallback.
 14. Restart recovery must preserve running application processes where the host permits it.
 15. Web applications may have multiple normalized custom domains. DNS and TLS may be managed by Cloudflare or by another provider targeting the application's stable LAN port.
 16. Failed password checks are bounded in one-hour windows by source and username, and throttled responses provide retry timing.
 17. Every project hostname exposes a persisted Cloudflare route result: managed, external, pending/not configured, or failed.
-18. Cloudflare credentials are stored only after token activity,
-    account/zone ownership and tunnel-list access are verified.
+18. Cloudflare credentials are stored only after account/zone ownership and
+    tunnel-list access are verified. OAuth state expires, is consumed exactly
+    once and remains bound to the authenticated user who started authorization.
+    NixHost does not create account-free or Vercel-style default public domains.
 19. Authenticated application, user, integration and settings flows remain
     operable without horizontal overflow on phone, tablet and desktop screens.
 

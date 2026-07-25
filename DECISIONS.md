@@ -40,9 +40,15 @@
 
 ## ADR-007 — Optional Cloudflare, LAN first
 
-**Decision:** Start with authenticated LAN access. Cloudflare Tunnel is configured later per node and per application.
+**Decision:** Start with authenticated LAN access. Cloudflare is connected later
+through a distributor-configured public OAuth client using Authorization Code
+with PKCE, with manual API tokens retained as a fallback. Public routes use
+operator-owned domains on persistent named tunnels.
 
-**Reason:** Initial use must not require a public account or domain. The same localhost origins can later be exposed through outbound tunnels.
+**Reason:** Initial use must not require a public account or domain. OAuth avoids
+asking end users to construct long-lived API tokens, while named tunnels provide
+stable DNS, SSE and availability. The same localhost origins can later be
+exposed through outbound tunnels without inventing a default NixHost domain.
 
 ## ADR-008 — No security claim between applications
 

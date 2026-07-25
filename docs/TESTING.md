@@ -43,6 +43,12 @@ and `1440x900`. The suite checks the applications, users, GitHub, Cloudflare,
 settings, and new-application screens for horizontal overflow and requires
 exactly one visible theme control at each size.
 
+Cloudflare tests cover PKCE construction, hashed single-use state, callback
+replay rejection, encrypted pending grants, paginated account/zone discovery,
+refresh-token rotation, manual token validation, managed/external DNS states,
+ownership-checked DNS cleanup and the responsive OAuth/zone-selection UI. A
+mocked API result is not a live Cloudflare acceptance result.
+
 `pnpm test:examples` bypasses the dashboard and deploys each tracked example
 through the real deployment engine. The harness copies each example into the
 root of an isolated Git repository, deploys its exact commit, waits for its real
@@ -82,7 +88,8 @@ For the current Nix-on-Droid distribution:
 2. Run the locked install, typecheck, unit, production build, database doctor, security check, flake check and package build commands where the device supports them.
 3. Start the packaged control plane and deploy `examples/hello-nixhost`.
 4. Run version-controlled Maestro flows against the Android browser for first-run setup, login/logout, role restrictions, GitHub authorization handoff, application creation, deployment and error states.
-5. Verify access from a second LAN device and through an authenticated temporary Cloudflare hostname.
+5. Verify access from a second LAN device and through an authenticated
+   operator-owned Cloudflare hostname.
 6. Exercise screen-off/wake-lock, Wi-Fi loss and recovery, Wi-Fi/mobile switching, process crash, device reboot, memory pressure, OEM battery killing and explicit Force stop.
 
 Maestro results complement rather than replace command logs, process checks and a second-device network test. Record the Maestro and Nix-on-Droid versions, flow files, timestamps, screenshots and any device-specific exclusions. Never convert an unsupported kernel or architecture case into a passing fixture.
