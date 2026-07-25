@@ -289,12 +289,15 @@ export async function repositoryHead(
 
 export function gitAuthenticationEnvironment(installationTokenValue?: string): NodeJS.ProcessEnv {
   if (!installationTokenValue) return { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  const basicCredentials = Buffer.from(`x-access-token:${installationTokenValue}`).toString(
+    "base64",
+  );
   return {
     ...process.env,
     GIT_TERMINAL_PROMPT: "0",
     GIT_CONFIG_COUNT: "1",
-    GIT_CONFIG_KEY_0: "http.extraHeader",
-    GIT_CONFIG_VALUE_0: `Authorization: Bearer ${installationTokenValue}`,
+    GIT_CONFIG_KEY_0: "http.https://github.com/.extraHeader",
+    GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicCredentials}`,
   };
 }
 

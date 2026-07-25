@@ -33,7 +33,10 @@ encrypted App credentials, and short-lived installation tokens. The
 Applications page exposes the connection action directly and searches across
 every repository available to every active installation. GitHub's installation
 selection remains the permission boundary; use **Manage GitHub access** to grant
-the App additional repositories.
+the App additional repositories. HTTPS Git operations pass installation tokens
+as scoped `x-access-token` HTTP Basic credentials without storing credentials in
+the repository URL. The import dialog also keeps a separate **Public URL** path
+for public GitHub repositories that should be cloned without App credentials.
 
 ## LAN-only mode
 

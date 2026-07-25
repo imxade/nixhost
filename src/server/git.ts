@@ -146,7 +146,7 @@ export async function removeReleaseWorktree(appId: string, releaseDir: string): 
 
 function sanitize(value: string): string {
   return value
-    .replace(/Authorization:\s*Bearer\s+\S+/gi, "Authorization: [REDACTED]")
+    .replace(/Authorization:\s*(?:Bearer|Basic)\s+\S+/gi, "Authorization: [REDACTED]")
     .slice(-4000)
     .trim();
 }

@@ -8,11 +8,12 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-github-test
 process.env.NIXHOST_DATA_DIR = dataDirectory;
 process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 31).toString("base64");
 
-const [{ createManifest, listRepositories }, database, secrets] = await Promise.all([
-  import("../../src/server/github.ts"),
-  import("../../src/server/db.ts"),
-  import("../../src/server/crypto.ts"),
-]);
+const [{ createManifest, gitAuthenticationEnvironment, listRepositories }, database, secrets] =
+  await Promise.all([
+    import("../../src/server/github.ts"),
+    import("../../src/server/db.ts"),
+    import("../../src/server/crypto.ts"),
+  ]);
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -120,5 +121,20 @@ describe("GitHub repository discovery", () => {
     expect(repositories.some((repository) => repository.full_name === "owner/repo-1001")).toBe(
       true,
     );
+  });
+});
+
+describe("GitHub Git authentication", () => {
+  it("uses GitHub's x-access-token HTTP Basic credentials without changing the repository URL", () => {
+    const environment = gitAuthenticationEnvironment("installation-secret");
+
+    expect(environment.GIT_TERMINAL_PROMPT).toBe("0");
+    expect(environment.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraHeader");
+    expect(environment.GIT_CONFIG_VALUE_0).toMatch(/^Authorization: Basic /);
+    const encoded = environment.GIT_CONFIG_VALUE_0?.replace("Authorization: Basic ", "") ?? "";
+    expect(Buffer.from(encoded, "base64").toString("utf8")).toBe(
+      "x-access-token:installation-secret",
+    );
+    expect(environment.GIT_CONFIG_VALUE_0).not.toContain("installation-secret");
   });
 });
