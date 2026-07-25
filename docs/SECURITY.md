@@ -26,6 +26,9 @@ NixHost protects the management interface and stored credentials from unauthenti
 - GitHub webhook bypasses browser-origin checks but requires SHA-256 HMAC validation.
 - Webhook delivery IDs are deduplicated.
 - Security response headers and CSP are configured centrally.
+- Development CSP permits `unsafe-eval` because the React development runtime
+  requires it for debugging. Production responses exclude `unsafe-eval`; the
+  production E2E suite asserts that boundary.
 
 LAN HTTP remains readable by an attacker who can observe the local network. Use a trusted LAN or local HTTPS. Cloudflare HTTPS protects the browser-to-edge connection but does not change the trusted-workload model.
 

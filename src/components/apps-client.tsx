@@ -36,6 +36,7 @@ export function AppsClient() {
   const [github, setGithub] = useState<GitHubStatus>({ connected: false });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const load = useCallback(async () => {
     setError("");
@@ -50,6 +51,8 @@ export function AppsClient() {
         setRepositories(await apiFetch<Repository[]>("/api/github/repositories"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load applications");
+    } finally {
+      setLoaded(true);
     }
   }, []);
   useEffect(() => {
@@ -101,13 +104,15 @@ export function AppsClient() {
         title="Applications"
         description="Import a repository containing flake.nix and flake.lock. NixHost builds the selected flake app, supervises it, and keeps its LAN endpoint stable."
         actions={
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => (document.getElementById("new-app") as HTMLDialogElement).showModal()}
-          >
-            New application
-          </button>
+          apps.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => (document.getElementById("new-app") as HTMLDialogElement).showModal()}
+            >
+              New application
+            </button>
+          ) : undefined
         }
       />
       {error && (
@@ -118,34 +123,51 @@ export function AppsClient() {
           </button>
         </div>
       )}
-      <div className="mb-5 flex items-center gap-3">
-        <input
-          className="input input-bordered w-full max-w-md"
-          placeholder="Search applications"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button type="button" className="btn btn-ghost" onClick={() => void load()}>
-          Refresh
-        </button>
-      </div>
-      {filtered.length === 0 ? (
+      {apps.length > 0 && (
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <input
+            className="input input-bordered w-full max-w-md bg-base-100"
+            placeholder="Search applications"
+            aria-label="Search applications"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button type="button" className="btn btn-ghost sm:ml-auto" onClick={() => void load()}>
+            Refresh
+          </button>
+        </div>
+      )}
+      {!loaded ? (
+        <div
+          role="status"
+          className="grid min-h-[40vh] place-items-center"
+          aria-label="Loading applications"
+        >
+          <span className="loading loading-spinner loading-lg" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="hero min-h-[40vh] rounded-box border border-dashed border-base-300 bg-base-100">
           <div className="hero-content text-center">
             <div>
-              <h2 className="text-2xl font-bold">No applications yet</h2>
+              <h2 className="text-2xl font-bold">
+                {apps.length === 0 ? "Deploy your first application" : "No matching applications"}
+              </h2>
               <p className="mt-2 text-base-content/65">
-                Connect GitHub or import a public HTTPS repository.
+                {apps.length === 0
+                  ? "Connect GitHub or import a trusted public repository containing a locked Nix flake."
+                  : "Try a different application name or repository."}
               </p>
-              <button
-                type="button"
-                className="btn btn-primary mt-5"
-                onClick={() =>
-                  (document.getElementById("new-app") as HTMLDialogElement).showModal()
-                }
-              >
-                Import repository
-              </button>
+              {apps.length === 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary mt-5"
+                  onClick={() =>
+                    (document.getElementById("new-app") as HTMLDialogElement).showModal()
+                  }
+                >
+                  Import repository
+                </button>
+              )}
             </div>
           </div>
         </div>

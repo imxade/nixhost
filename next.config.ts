@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const development = process.env.NODE_ENV === "development";
+const scriptSources = ["'self'", "'unsafe-inline'", ...(development ? ["'unsafe-eval'"] : [])];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
@@ -26,8 +29,9 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value:
-              "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://github.com; object-src 'none'",
+            value: `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src ${scriptSources.join(
+              " ",
+            )}; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://github.com; object-src 'none'`,
           },
         ],
       },

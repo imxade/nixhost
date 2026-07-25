@@ -19,6 +19,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   const setupDocument = await request.get("/setup");
   const setupHtml = await setupDocument.text();
   expect(setupDocument.ok()).toBe(true);
+  expect(setupDocument.headers()["content-security-policy"]).not.toContain("'unsafe-eval'");
   expect(setupHtml.indexOf('src="/theme-init.js"')).toBeGreaterThan(-1);
   expect(setupHtml.indexOf('src="/theme-init.js"')).toBeLessThan(setupHtml.indexOf("<body"));
   expect((await request.get("/theme-init.js")).ok()).toBe(true);
@@ -56,6 +57,8 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page).toHaveURL(/\/apps$/);
   await expect(page.getByRole("heading", { name: "Applications", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import repository" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "New application" })).toHaveCount(0);
   expect(fs.existsSync(tokenPath)).toBe(false);
 
   for (const viewport of [

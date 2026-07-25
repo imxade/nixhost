@@ -32,7 +32,7 @@ export function DashboardShell({
   return (
     <div className="drawer lg:drawer-open min-h-screen">
       <input id="nixhost-drawer" type="checkbox" className="drawer-toggle" />
-      <div className="drawer-content flex min-h-screen min-w-0 flex-col">
+      <div className="dashboard-surface drawer-content flex min-h-screen min-w-0 flex-col">
         <header className="navbar sticky top-0 z-20 gap-2 border-b border-base-300 bg-base-100/95 px-3 backdrop-blur lg:hidden">
           <label
             htmlFor="nixhost-drawer"
@@ -44,13 +44,13 @@ export function DashboardShell({
           <span className="flex-1 text-xl font-bold tracking-tight">NixHost</span>
           <ThemeToggle compact />
         </header>
-        <main className="mx-auto w-full min-w-0 max-w-[100rem] flex-1 p-4 md:p-7 xl:p-10">
+        <main className="mx-auto w-full min-w-0 max-w-[96rem] flex-1 p-4 sm:p-5 md:p-7 xl:p-9">
           {children}
         </main>
       </div>
       <aside className="drawer-side z-30">
         <label htmlFor="nixhost-drawer" aria-label="Close navigation" className="drawer-overlay" />
-        <div className="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100 p-4 shadow-xl lg:shadow-none">
+        <div className="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100/95 p-4 shadow-2xl backdrop-blur lg:shadow-none">
           <Link href="/apps" className="flex items-center gap-3 px-3 py-4">
             <span className="grid size-10 place-items-center rounded-xl bg-primary font-black text-primary-content shadow-sm">
               N

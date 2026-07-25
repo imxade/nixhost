@@ -35,6 +35,34 @@ body {
       transparent 30rem
     );
 }
+.dashboard-surface {
+  background-color: var(--color-base-200);
+  background-image:
+    radial-gradient(
+      circle at 8% 4%,
+      color-mix(in oklab, var(--color-primary) 10%, transparent) 0,
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 96% 96%,
+      color-mix(in oklab, var(--color-secondary) 8%, transparent) 0,
+      transparent 26rem
+    );
+}
+.dashboard-surface :where(.card, .stat) {
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--color-base-content) 5%, transparent),
+    0 12px 32px color-mix(in oklab, var(--color-base-content) 4%, transparent);
+}
+.dashboard-surface :where(.table) thead {
+  color: color-mix(in oklab, var(--color-base-content) 64%, transparent);
+}
+.dashboard-surface :where(.table) tbody tr {
+  transition: background-color 140ms ease;
+}
+.dashboard-surface :where(.table) tbody tr:hover {
+  background-color: color-mix(in oklab, var(--color-primary) 5%, transparent);
+}
 .form-control {
   display: grid;
   width: 100%;
@@ -72,4 +100,9 @@ pre,
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: 1rem;
+}
+@media (max-width: 30rem) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
 }
