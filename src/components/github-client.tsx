@@ -1,10 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client-api";
+import { GitHubConnectButton } from "./github-connect-button";
 import { PageHeading } from "./page-heading";
 
 type Status = {
   connected: boolean;
+  canManage: boolean;
   app: null | { slug: string; htmlUrl: string; installUrl: string };
   installations: Array<{
     id: number;
@@ -30,25 +32,6 @@ export function GitHubClient() {
   useEffect(() => {
     void load();
   }, [load]);
-  async function connect() {
-    setBusy(true);
-    try {
-      const result = await apiFetch<{ action: string; manifest: string }>("/api/github/manifest");
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = result.action;
-      const field = document.createElement("input");
-      field.type = "hidden";
-      field.name = "manifest";
-      field.value = result.manifest;
-      form.appendChild(field);
-      document.body.appendChild(form);
-      form.submit();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Connect failed");
-      setBusy(false);
-    }
-  }
   async function sync() {
     setBusy(true);
     try {
@@ -66,7 +49,7 @@ export function GitHubClient() {
         title="GitHub"
         description="Use a node-owned GitHub App to browse selected repositories and receive signed push events. When this node is LAN-only, periodic reconciliation still detects branch changes."
         actions={
-          status?.connected ? (
+          status?.connected && status.canManage ? (
             <button type="button" disabled={busy} className="btn" onClick={() => void sync()}>
               Sync installations
             </button>
@@ -136,14 +119,17 @@ export function GitHubClient() {
                 NixHost creates a GitHub App preconfigured with repository read access and signed
                 push events. You choose which repositories it can access.
               </p>
-              <button
-                type="button"
-                disabled={busy}
-                className="btn btn-primary mt-6"
-                onClick={() => void connect()}
-              >
-                {busy ? <span className="loading loading-spinner" /> : "Create GitHub App"}
-              </button>
+              {status.canManage ? (
+                <GitHubConnectButton
+                  className="btn btn-primary mt-6"
+                  label="Create GitHub App"
+                  onError={setError}
+                />
+              ) : (
+                <div className="alert mt-6 text-left">
+                  An owner or administrator must connect the GitHub App.
+                </div>
+              )}
             </div>
           </div>
         </div>

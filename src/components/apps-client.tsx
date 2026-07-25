@@ -2,7 +2,9 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client-api";
+import { GitHubConnectButton } from "./github-connect-button";
 import { PageHeading } from "./page-heading";
+import { type GitHubRepositoryOption, RepositoryPicker } from "./repository-picker";
 import { StatusBadge } from "./status-badge";
 
 type App = {
@@ -20,20 +22,24 @@ type App = {
   domain?: string | null;
   updated_at: string;
 };
-type Repository = {
-  id: number;
-  full_name: string;
-  clone_url: string;
-  default_branch: string;
-  installation_id: number;
-  private: boolean;
+type GitHubStatus = {
+  connected: boolean;
+  canManage: boolean;
+  app: null | { installUrl: string };
 };
-type GitHubStatus = { connected: boolean };
 
 export function AppsClient() {
   const [apps, setApps] = useState<App[]>([]);
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [github, setGithub] = useState<GitHubStatus>({ connected: false });
+  const [repositories, setRepositories] = useState<GitHubRepositoryOption[]>([]);
+  const [github, setGithub] = useState<GitHubStatus>({
+    connected: false,
+    canManage: false,
+    app: null,
+  });
+  const [selectedRepositoryId, setSelectedRepositoryId] = useState<number | null>(null);
+  const [repositoriesLoaded, setRepositoriesLoaded] = useState(false);
+  const [repositoriesLoading, setRepositoriesLoading] = useState(false);
+  const [repositoryError, setRepositoryError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -47,8 +53,11 @@ export function AppsClient() {
       ]);
       setApps(appRows);
       setGithub(status);
-      if (status.connected)
-        setRepositories(await apiFetch<Repository[]>("/api/github/repositories"));
+      if (!status.connected) {
+        setRepositories([]);
+        setRepositoriesLoaded(false);
+        setSelectedRepositoryId(null);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load applications");
     } finally {
@@ -58,6 +67,26 @@ export function AppsClient() {
   useEffect(() => {
     void load();
   }, [load]);
+  const loadRepositories = useCallback(async () => {
+    setRepositoriesLoading(true);
+    setRepositoryError("");
+    try {
+      setRepositories(await apiFetch<GitHubRepositoryOption[]>("/api/github/repositories"));
+      setRepositoriesLoaded(true);
+    } catch (cause) {
+      setRepositoryError(
+        cause instanceof Error ? cause.message : "Could not load GitHub repositories",
+      );
+    } finally {
+      setRepositoriesLoading(false);
+    }
+  }, []);
+  function openImportDialog() {
+    (document.getElementById("new-app") as HTMLDialogElement).showModal();
+    if (github.connected && !repositoriesLoaded && !repositoriesLoading) {
+      void loadRepositories();
+    }
+  }
   const filtered = useMemo(
     () =>
       apps.filter((app) =>
@@ -70,9 +99,7 @@ export function AppsClient() {
     setBusy(true);
     setError("");
     const form = new FormData(event.currentTarget);
-    const selected = repositories.find(
-      (repo) => String(repo.id) === String(form.get("repositoryId")),
-    );
+    const selected = repositories.find((repo) => repo.id === selectedRepositoryId);
     const repositoryUrl = selected?.clone_url || String(form.get("repositoryUrl") || "");
     try {
       const app = await apiFetch<App>("/api/apps", {
@@ -104,14 +131,19 @@ export function AppsClient() {
         title="Applications"
         description="Import a repository containing flake.nix and flake.lock. NixHost builds the selected flake app, supervises it, and keeps its LAN endpoint stable."
         actions={
-          apps.length > 0 ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => (document.getElementById("new-app") as HTMLDialogElement).showModal()}
-            >
-              New application
-            </button>
+          loaded ? (
+            <>
+              {!github.connected && github.canManage && <GitHubConnectButton onError={setError} />}
+              {apps.length > 0 && (
+                <button
+                  type="button"
+                  className={`btn ${github.connected ? "btn-primary" : ""}`}
+                  onClick={openImportDialog}
+                >
+                  New application
+                </button>
+              )}
+            </>
           ) : undefined
         }
       />
@@ -158,13 +190,7 @@ export function AppsClient() {
                   : "Try a different application name or repository."}
               </p>
               {apps.length === 0 && (
-                <button
-                  type="button"
-                  className="btn btn-primary mt-5"
-                  onClick={() =>
-                    (document.getElementById("new-app") as HTMLDialogElement).showModal()
-                  }
-                >
+                <button type="button" className="btn btn-primary mt-5" onClick={openImportDialog}>
                   Import repository
                 </button>
               )}
@@ -233,32 +259,60 @@ export function AppsClient() {
               <span className="label-text mb-1">Application name</span>
               <input name="name" required className="input input-bordered" placeholder="My API" />
             </label>
-            {github.connected && repositories.length > 0 ? (
-              <label className="form-control">
-                <span className="label-text mb-1">GitHub repository</span>
-                <select name="repositoryId" className="select select-bordered" defaultValue="">
-                  <option value="" disabled>
-                    Select repository
-                  </option>
-                  {repositories.map((repo) => (
-                    <option value={repo.id} key={repo.id}>
-                      {repo.full_name}
-                      {repo.private ? " · private" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {github.connected && (repositoriesLoading || !repositoriesLoaded) ? (
+              <div
+                role="status"
+                className="grid min-h-32 place-items-center"
+                aria-label="Loading GitHub repositories"
+              >
+                {repositoryError ? (
+                  <div className="alert alert-error">
+                    <span>{repositoryError}</span>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => void loadRepositories()}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <span className="loading loading-spinner loading-lg" />
+                )}
+              </div>
+            ) : github.connected && repositories.length > 0 ? (
+              <RepositoryPicker
+                repositories={repositories}
+                selectedId={selectedRepositoryId}
+                installUrl={github.app?.installUrl}
+                onSelect={setSelectedRepositoryId}
+              />
             ) : (
-              <label className="form-control">
-                <span className="label-text mb-1">GitHub repository URL</span>
-                <input
-                  name="repositoryUrl"
-                  type="url"
-                  required
-                  className="input input-bordered"
-                  placeholder="https://github.com/owner/repository.git"
-                />
-              </label>
+              <>
+                {github.connected && (
+                  <div className="alert">
+                    <span>
+                      This GitHub App cannot access any repositories yet. Grant repository access,
+                      then refresh this page.
+                    </span>
+                    {github.app?.installUrl && (
+                      <a className="btn btn-sm" href={github.app.installUrl}>
+                        Manage access
+                      </a>
+                    )}
+                  </div>
+                )}
+                <label className="form-control">
+                  <span className="label-text mb-1">Public GitHub repository URL</span>
+                  <input
+                    name="repositoryUrl"
+                    type="url"
+                    required
+                    className="input input-bordered"
+                    placeholder="https://github.com/owner/repository.git"
+                  />
+                </label>
+              </>
             )}
             <div className="grid gap-4 md:grid-cols-2">
               <label className="form-control">
@@ -309,7 +363,16 @@ export function AppsClient() {
               >
                 Cancel
               </button>
-              <button type="submit" disabled={busy} className="btn btn-primary">
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  (github.connected &&
+                    (!repositoriesLoaded ||
+                      (repositories.length > 0 && selectedRepositoryId === null)))
+                }
+                className="btn btn-primary"
+              >
                 {busy ? <span className="loading loading-spinner" /> : "Import and deploy"}
               </button>
             </div>

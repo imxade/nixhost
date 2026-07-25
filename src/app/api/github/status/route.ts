@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   return api(request, () => {
-    requestUser(request);
+    const user = requestUser(request);
     const app = getGitHubApp();
     const installations = getDb()
       .prepare(
@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       .all();
     return {
       connected: Boolean(app),
+      canManage: user.role === "owner" || user.role === "admin",
       app: app
         ? { appId: app.app_id, slug: app.slug, htmlUrl: app.html_url, installUrl: installUrl() }
         : null,

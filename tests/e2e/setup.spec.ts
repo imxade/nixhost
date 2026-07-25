@@ -59,6 +59,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import repository" })).toHaveCount(1);
   await expect(page.getByRole("button", { name: "New application" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Connect GitHub" })).toHaveCount(1);
   expect(fs.existsSync(tokenPath)).toBe(false);
 
   for (const viewport of [
@@ -102,6 +103,72 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   }
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  await page.route("**/api/github/status", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          connected: true,
+          canManage: true,
+          app: {
+            installUrl: "https://github.com/apps/nixhost-test/installations/new",
+          },
+        },
+      },
+    });
+  });
+  await page.route("**/api/github/repositories", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: [
+          {
+            id: 1,
+            full_name: "owner/alpha",
+            clone_url: "https://github.com/owner/alpha.git",
+            default_branch: "main",
+            installation_id: 10,
+            private: false,
+          },
+          {
+            id: 2,
+            full_name: "owner/beta",
+            clone_url: "https://github.com/owner/beta.git",
+            default_branch: "trunk",
+            installation_id: 10,
+            private: true,
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/apps");
+  await page.getByRole("button", { name: "Import repository" }).click();
+  await page.getByLabel("Search GitHub repositories").fill("beta");
+  await expect(page.getByRole("button", { name: /owner\/beta/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /owner\/alpha/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /owner\/beta/ }).click();
+  await expect(page.getByRole("button", { name: /owner\/beta/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 768, height: 1024 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByLabel("Search GitHub repositories")).toBeVisible();
+    const dialog = await page.getByRole("dialog").boundingBox();
+    expect(dialog?.x).toBeGreaterThanOrEqual(0);
+    expect((dialog?.x ?? 0) + (dialog?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   const rejectedOrigin = await page.request.post("/api/users", {
     headers: { origin: "https://attacker.invalid" },
     data: { username: "blocked", password: "blocked-password", role: "viewer" },
@@ -122,6 +189,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await viewerPage.getByLabel("Password").fill("viewer password 123");
   await viewerPage.getByRole("button", { name: "Sign in" }).click();
   await expect(viewerPage).toHaveURL(/\/apps$/);
+  await expect(viewerPage.getByRole("button", { name: "Connect GitHub" })).toHaveCount(0);
 
   await viewerPage.goto("/users");
   await expect(viewerPage).toHaveURL(/\/apps$/);
