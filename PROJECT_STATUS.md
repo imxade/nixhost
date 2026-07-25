@@ -36,17 +36,17 @@ Last updated: 2026-07-25.
 
 ## Validation completed on x86_64 Linux
 
-The following passed on 2026-07-24:
+The following passed on 2026-07-25:
 
 ```text
 pnpm biome:ci
 pnpm typecheck
-pnpm test                         # 11 files, 40 tests
+pnpm test                         # 13 files, 46 tests
 pnpm build
 pnpm test:e2e                    # two isolated servers, Chromium, 2 scenarios
 pnpm test:examples               # both checked-in examples, exact commits
 pnpm test:deployment
-pnpm db:doctor                   # integrity ok, WAL, no FK violations, 5 migrations exact
+pnpm db:doctor                   # integrity ok, WAL, no FK violations, 6 migrations exact
 pnpm security:check              # private modes and tracked-secret scan
 pnpm audit --prod --audit-level high
 pnpm licenses list --prod
@@ -74,7 +74,16 @@ overflow across authenticated routes at phone, tablet, and desktop sizes,
 session cookies, hostile-origin rejection, user creation, viewer login, viewer
 write denial, the separate CI admin and hourly throttle timing.
 
-The Cloudflare unit integration verifies managed and external per-project states, remote ingress construction, removal of stale NixHost-owned DNS, and preservation of records whose target or ownership comment does not match. It uses a deterministic mocked Cloudflare API; it is not a live-account result.
+The Cloudflare unit integration verifies PKCE/scopes, one-time callback state,
+refresh-token rotation, candidate rollback, managed and external per-project
+states, remote ingress construction, removal of stale NixHost-owned DNS, and
+preservation of records whose target or ownership comment does not match. It
+uses a deterministic mocked Cloudflare API; it is not a live-account result.
+
+Git reconciliation now records every observed commit, including failed
+deployments, so branch polling cannot continuously retry the same broken
+revision. A manual redeploy can retry a transient host failure; a repository
+fix arrives as a new commit and remains automatically deployable.
 
 GitHub manifest tests verify that LAN-only registration supplies GitHub's
 required hook URL using an inactive reserved public sentinel, requests only the
