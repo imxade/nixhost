@@ -23,10 +23,17 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   expect(setupHtml.indexOf('src="/theme-init.js"')).toBeGreaterThan(-1);
   expect(setupHtml.indexOf('src="/theme-init.js"')).toBeLessThan(setupHtml.indexOf("<body"));
   expect((await request.get("/theme-init.js")).ok()).toBe(true);
+  const logoAsset = await request.get("/nixhost-mark.svg");
+  expect(logoAsset.ok()).toBe(true);
+  expect(logoAsset.headers()["content-type"]).toContain("image/svg+xml");
 
   await page.goto("/");
   await expect(page).toHaveURL(/\/setup$/);
   await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeVisible();
+  await expect(page.locator("[data-brand-mark]")).toBeVisible();
+  const lightLogoColor = await page
+    .locator("[data-brand-mark] rect")
+    .evaluate((element) => getComputedStyle(element).fill);
 
   const labels = ["Setup token", "Owner username", "Password"];
   const boxes = await Promise.all(labels.map((label) => page.getByLabel(label).boundingBox()));
@@ -39,6 +46,10 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await page.evaluate(() => localStorage.setItem("nixhost-theme", "dracula"));
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dracula");
+  const darkLogoColor = await page
+    .locator("[data-brand-mark] rect")
+    .evaluate((element) => getComputedStyle(element).fill);
+  expect(darkLogoColor).not.toBe(lightLogoColor);
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dracula");
   await page.getByRole("button", { name: "Toggle color theme" }).click();

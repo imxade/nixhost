@@ -4,6 +4,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "NixHost", template: "%s · NixHost" },
   description: "LAN-first control plane for trusted Nix flake deployments.",
+  icons: {
+    icon: [{ url: "/nixhost-mark.svg", type: "image/svg+xml" }],
+    shortcut: "/nixhost-mark.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

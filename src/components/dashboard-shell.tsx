@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/client-api";
+import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
 
 const items = [
@@ -41,7 +42,10 @@ export function DashboardShell({
           >
             ☰
           </label>
-          <span className="flex-1 text-xl font-bold tracking-tight">NixHost</span>
+          <Link href="/apps" className="flex min-w-0 flex-1 items-center gap-2.5">
+            <BrandMark className="size-8 shrink-0 shadow-sm" />
+            <span className="truncate text-xl font-bold tracking-tight">NixHost</span>
+          </Link>
           <ThemeToggle compact />
         </header>
         <main className="mx-auto w-full min-w-0 max-w-[96rem] flex-1 p-4 sm:p-5 md:p-7 xl:p-9">
@@ -52,9 +56,7 @@ export function DashboardShell({
         <label htmlFor="nixhost-drawer" aria-label="Close navigation" className="drawer-overlay" />
         <div className="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100/95 p-4 shadow-2xl backdrop-blur lg:shadow-none">
           <Link href="/apps" className="flex items-center gap-3 px-3 py-4">
-            <span className="grid size-10 place-items-center rounded-xl bg-primary font-black text-primary-content shadow-sm">
-              N
-            </span>
+            <BrandMark className="size-10 shrink-0 shadow-sm" />
             <div>
               <div className="text-xl font-bold">NixHost</div>
               <div className="text-xs text-base-content/60">LAN deployment control plane</div>
