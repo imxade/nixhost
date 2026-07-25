@@ -155,6 +155,10 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   });
   await page.goto("/apps");
   await page.getByRole("button", { name: "Import repository" }).click();
+  await expect(page.getByRole("button", { name: "Public URL" })).toBeVisible();
+  await page.getByRole("button", { name: "Public URL" }).click();
+  await expect(page.getByLabel("Public GitHub repository URL")).toBeVisible();
+  await page.getByRole("button", { name: "GitHub access" }).click();
   await page.getByLabel("Search GitHub repositories").fill("beta");
   await expect(page.getByRole("button", { name: /owner\/beta/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /owner\/alpha/ })).toHaveCount(0);
@@ -179,6 +183,62 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+
+  await page.route("**/api/apps/log-test", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          app: {
+            id: "log-test",
+            name: "Log test",
+            slug: "log-test",
+            kind: "web",
+            repository_url: "https://github.com/example/log-test.git",
+            branch: "main",
+            flake_output: "default",
+            auto_deploy: 1,
+            desired_state: "running",
+            restart_policy: "on-failure",
+            health_path: "/",
+            public_port: 10042,
+            active_internal_port: null,
+            active_deployment_id: null,
+            updated_at: "2026-07-25T00:00:00.000Z",
+          },
+          domains: [],
+          cloudflare: { configured: false, enabled: false, running: false, routes: [] },
+          environment: [],
+          deployments: [
+            {
+              id: "deployment-log-test",
+              state: "failed",
+              commit_sha: null,
+              requested_ref: "main",
+              trigger: "manual",
+              queued_at: "2026-07-25T00:00:00.000Z",
+              activated_at: null,
+              failure_message: "Git clone failed: authentication rejected",
+              resource_confidence: "none",
+            },
+          ],
+          metric: null,
+        },
+      },
+    });
+  });
+  await page.route("**/api/deployments/deployment-log-test/logs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: 'event: log\ndata: {"stream":"deployment","text":"[deployment] failed · manual · main\\n[error] Git clone failed: authentication rejected\\n"}\n\n',
+    });
+  });
+  await page.goto("/apps/log-test");
+  await page.getByRole("button", { name: "Logs" }).click();
+  await expect(page.getByRole("tab", { name: "Logs" })).toBeChecked();
+  await expect(page.locator("pre")).toContainText("[deployment] failed");
+  await expect(page.locator("pre")).toContainText("authentication rejected");
 
   const rejectedOrigin = await page.request.post("/api/users", {
     headers: { origin: "https://attacker.invalid" },

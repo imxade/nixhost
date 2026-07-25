@@ -28,9 +28,15 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
     ];
     const encoder = new TextEncoder();
     let interval: NodeJS.Timeout | undefined;
+    let lastDeploymentStatus = "";
     const offsets = new Map<string, number>();
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
+        const send = (stream: string, text: string) => {
+          controller.enqueue(
+            encoder.encode(`event: log\ndata: ${JSON.stringify({ stream, text })}\n\n`),
+          );
+        };
         for (const item of files) {
           try {
             const size = fs.statSync(item.file).size;
@@ -40,6 +46,32 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
           }
         }
         const poll = () => {
+          try {
+            const current = getDeployment(id);
+            const deploymentStatus = JSON.stringify({
+              state: current.state,
+              commit: current.commit_sha,
+              failure: current.failure_message,
+            });
+            if (deploymentStatus !== lastDeploymentStatus) {
+              lastDeploymentStatus = deploymentStatus;
+              const revision = current.commit_sha || current.requested_ref;
+              send(
+                "deployment",
+                [
+                  `[deployment] ${current.state} · ${current.trigger} · ${revision.slice(0, 12)}`,
+                  current.failure_message ? `[error] ${current.failure_message}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n")
+                  .concat("\n"),
+              );
+            }
+          } catch {
+            if (interval) clearInterval(interval);
+            controller.close();
+            return;
+          }
           for (const item of files) {
             const offset = offsets.get(item.file) ?? 0;
             try {
@@ -54,16 +86,13 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
               fs.closeSync(fd);
               offsets.set(item.file, currentOffset + read);
               const text = buffer.subarray(0, read).toString("utf8");
-              controller.enqueue(
-                encoder.encode(
-                  `event: log\ndata: ${JSON.stringify({ stream: item.stream, text })}\n\n`,
-                ),
-              );
+              send(item.stream, `\n[${item.stream}]\n${text}`);
             } catch {}
           }
         };
         poll();
         interval = setInterval(poll, 500);
+        interval.unref();
       },
       cancel() {
         if (interval) clearInterval(interval);

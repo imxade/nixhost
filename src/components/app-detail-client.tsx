@@ -36,6 +36,7 @@ type Deployment = {
   resource_confidence: string;
 };
 type Env = { key: string; secret: boolean; updatedAt: string };
+type AppTab = "deployments" | "logs" | "environment" | "domains" | "settings";
 type Payload = {
   app: App;
   domains: string[];
@@ -61,8 +62,10 @@ export function AppDetailClient({ appId }: { appId: string }) {
   const [browserHost, setBrowserHost] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [activeTab, setActiveTab] = useState<AppTab>("deployments");
   const [logDeployment, setLogDeployment] = useState<string | null>(null);
   const [logs, setLogs] = useState("");
+  const [logError, setLogError] = useState("");
   const logRef = useRef<HTMLPreElement | null>(null);
   const load = useCallback(async () => {
     try {
@@ -90,6 +93,7 @@ export function AppDetailClient({ appId }: { appId: string }) {
   useEffect(() => {
     if (!logDeployment) return;
     setLogs("");
+    setLogError("");
     const source = new EventSource(`/api/deployments/${logDeployment}/logs`);
     source.addEventListener("log", (event) => {
       const payload = JSON.parse((event as MessageEvent).data) as { stream: string; text: string };
@@ -98,8 +102,14 @@ export function AppDetailClient({ appId }: { appId: string }) {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
       });
     });
+    source.onerror = () => setLogError("The deployment log stream disconnected. Reconnecting…");
+    source.onopen = () => setLogError("");
     return () => source.close();
   }, [logDeployment]);
+  function openLogs(deploymentId: string) {
+    setLogDeployment(deploymentId);
+    setActiveTab("logs");
+  }
   async function action(name: "deploy" | "start" | "stop" | "restart") {
     setBusy(name);
     setError("");
@@ -357,7 +367,8 @@ export function AppDetailClient({ appId }: { appId: string }) {
           role="tab"
           className="tab"
           aria-label="Deployments"
-          defaultChecked
+          checked={activeTab === "deployments"}
+          onChange={() => setActiveTab("deployments")}
         />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <div className="overflow-x-auto">
@@ -387,7 +398,7 @@ export function AppDetailClient({ appId }: { appId: string }) {
                         <button
                           type="button"
                           className="btn btn-xs"
-                          onClick={() => setLogDeployment(deployment.id)}
+                          onClick={() => openLogs(deployment.id)}
                         >
                           Logs
                         </button>
@@ -412,7 +423,15 @@ export function AppDetailClient({ appId }: { appId: string }) {
             <p className="text-base-content/60">No deployments yet.</p>
           )}
         </div>
-        <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Live logs" />
+        <input
+          type="radio"
+          name="app-tabs"
+          role="tab"
+          className="tab"
+          aria-label="Logs"
+          checked={activeTab === "logs"}
+          onChange={() => setActiveTab("logs")}
+        />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -442,20 +461,24 @@ export function AppDetailClient({ appId }: { appId: string }) {
             ref={logRef}
             className="h-[30rem] overflow-auto rounded-box bg-neutral p-4 text-xs text-neutral-content whitespace-pre-wrap"
           >
-            {logs || "Waiting for log output…"}
+            {logs || "Connecting to deployment logs…"}
           </pre>
-          {selected?.failure_message && (
-            <div className="alert alert-error mt-4">
-              <span>
-                {selected.failure_message}
-                {selected.resource_confidence !== "none"
-                  ? ` · resource confidence: ${selected.resource_confidence}`
-                  : ""}
-              </span>
+          {logError && <div className="alert alert-warning mt-4">{logError}</div>}
+          {selected && selected.resource_confidence !== "none" && (
+            <div className="alert alert-warning mt-4">
+              <span>Resource-exhaustion confidence: {selected.resource_confidence}</span>
             </div>
           )}
         </div>
-        <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Environment" />
+        <input
+          type="radio"
+          name="app-tabs"
+          role="tab"
+          className="tab"
+          aria-label="Environment"
+          checked={activeTab === "environment"}
+          onChange={() => setActiveTab("environment")}
+        />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <form onSubmit={addEnv} className="grid gap-3 md:grid-cols-[1fr_2fr_auto_auto]">
             <input
@@ -503,7 +526,15 @@ export function AppDetailClient({ appId }: { appId: string }) {
             )}
           </div>
         </div>
-        <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Domains" />
+        <input
+          type="radio"
+          name="app-tabs"
+          role="tab"
+          className="tab"
+          aria-label="Domains"
+          checked={activeTab === "domains"}
+          onChange={() => setActiveTab("domains")}
+        />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
             <div>
@@ -588,7 +619,15 @@ export function AppDetailClient({ appId }: { appId: string }) {
             </aside>
           </div>
         </div>
-        <input type="radio" name="app-tabs" role="tab" className="tab" aria-label="Settings" />
+        <input
+          type="radio"
+          name="app-tabs"
+          role="tab"
+          className="tab"
+          aria-label="Settings"
+          checked={activeTab === "settings"}
+          onChange={() => setActiveTab("settings")}
+        />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
           <form onSubmit={saveSettings} className="grid max-w-3xl gap-4">
             <label className="form-control">
