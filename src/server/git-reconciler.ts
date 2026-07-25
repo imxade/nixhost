@@ -38,13 +38,10 @@ export class GitReconciler {
                 .prepare("SELECT * FROM deployments WHERE id = ?")
                 .get(app.active_deployment_id) as DeploymentRow | undefined)
             : undefined;
-          const pending = getDb()
-            .prepare(
-              `SELECT 1 FROM deployments WHERE app_id = ? AND state IN
-               ('queued','preparing','fetching','evaluating','starting','health-checking','activating') AND commit_sha = ? LIMIT 1`,
-            )
+          const observed = getDb()
+            .prepare("SELECT 1 FROM deployments WHERE app_id = ? AND commit_sha = ? LIMIT 1")
             .get(app.id, head);
-          if (active?.commit_sha !== head && !pending) {
+          if (shouldQueueReconciledHead(head, active?.commit_sha ?? null, Boolean(observed))) {
             const deployment = queueDeployment(app.id, {
               commitSha: head,
               requestedRef: head,
@@ -67,6 +64,14 @@ export class GitReconciler {
       this.running = false;
     }
   }
+}
+
+export function shouldQueueReconciledHead(
+  head: string,
+  activeCommit: string | null,
+  alreadyObserved: boolean,
+): boolean {
+  return activeCommit !== head && !alreadyObserved;
 }
 
 async function remoteHead(app: AppRow): Promise<string> {
