@@ -20,6 +20,7 @@ describe("database migrations", () => {
     apply(db, migration("003_application_domains.sql"));
     apply(db, migration("004_hourly_login_limits.sql"));
     apply(db, migration("005_cloudflare_domain_status.sql"));
+    apply(db, migration("006_cloudflare_oauth.sql"));
 
     expect(
       db
@@ -38,6 +39,16 @@ describe("database migrations", () => {
         )
         .get(),
     ).toEqual({ name: "cloudflare_domain_status" });
+    expect(
+      db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cloudflare_oauth_sessions'",
+        )
+        .get(),
+    ).toEqual({ name: "cloudflare_oauth_sessions" });
+    expect(db.prepare("SELECT auth_method FROM cloudflare_config").columns()[0]?.name).toBe(
+      "auth_method",
+    );
     expect(db.pragma("foreign_key_check")).toEqual([]);
     db.close();
   });
@@ -62,6 +73,7 @@ describe("database migrations", () => {
     apply(db, migration("003_application_domains.sql"));
     apply(db, migration("004_hourly_login_limits.sql"));
     apply(db, migration("005_cloudflare_domain_status.sql"));
+    apply(db, migration("006_cloudflare_oauth.sql"));
 
     expect(db.prepare("SELECT hostname, app_id FROM application_domains").all()).toEqual([
       { hostname: "app.example.com", app_id: "app-1" },

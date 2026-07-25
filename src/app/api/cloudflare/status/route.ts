@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   return api(request, async () => {
-    requestUser(request);
-    return (await getRuntime()).cloudflare.status();
+    const user = requestUser(request);
+    return (await getRuntime()).cloudflare.status(user.id);
   });
 }

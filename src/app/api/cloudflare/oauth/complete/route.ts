@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { audit } from "@/server/audit";
 import { requireRole } from "@/server/auth";
+import {
+  clearPendingCloudflareOAuthGrant,
+  pendingCloudflareOAuthGrant,
+} from "@/server/cloudflare-oauth";
 import { api, readJson } from "@/server/http";
 import { clientIp, requestUser } from "@/server/next-auth";
 import { getRuntime } from "@/server/runtime";
@@ -10,15 +14,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  accountId: z
-    .string()
-    .trim()
-    .regex(/^[0-9a-f]{32}$/i, "Enter a valid Cloudflare account ID"),
-  zoneId: z
-    .string()
-    .trim()
-    .regex(/^[0-9a-f]{32}$/i, "Enter a valid Cloudflare zone ID"),
-  apiToken: z.string().trim().min(10).max(1000),
+  accountId: z.string().regex(/^[0-9a-f]{32}$/i),
+  zoneId: z.string().regex(/^[0-9a-f]{32}$/i),
   tunnelName: z
     .string()
     .trim()
@@ -33,11 +30,14 @@ export async function POST(request: NextRequest) {
     const user = requestUser(request);
     requireRole(user, ["owner", "admin"]);
     const input = schema.parse(await readJson(request));
-    await (await getRuntime()).cloudflare.configure(input);
+    const tokens = await pendingCloudflareOAuthGrant(user.id);
+    const runtime = await getRuntime();
+    await runtime.cloudflare.configureOAuth({ ...input, tokens });
+    clearPendingCloudflareOAuthGrant(user.id);
     audit({
       userId: user.id,
       ip: clientIp(request),
-      action: "cloudflare.configured",
+      action: "cloudflare.oauth.connected",
       details: {
         accountId: input.accountId,
         zoneId: input.zoneId,
@@ -45,6 +45,6 @@ export async function POST(request: NextRequest) {
         dashboardHostname: input.dashboardHostname,
       },
     });
-    return (await getRuntime()).cloudflare.status(user.id);
+    return runtime.cloudflare.status(user.id);
   });
 }

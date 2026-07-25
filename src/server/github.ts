@@ -301,15 +301,17 @@ export function gitAuthenticationEnvironment(installationTokenValue?: string): N
   };
 }
 
-export async function updateAppWebhook(publicBaseUrl: string): Promise<boolean> {
+export async function updateAppWebhook(publicBaseUrl: string | null): Promise<boolean> {
   const app = getGitHubApp();
   if (!app) return false;
-  const base = publicBaseUrl.replace(/\/$/, "");
+  const url = publicBaseUrl
+    ? `${publicBaseUrl.replace(/\/$/, "")}/api/github/webhook`
+    : INACTIVE_WEBHOOK_URL;
   const response = await githubFetch(`${API_BASE}/app/hook/config`, {
     method: "PATCH",
     headers: githubHeaders(appJwt()),
     body: JSON.stringify({
-      url: `${base}/api/github/webhook`,
+      url,
       content_type: "json",
       insecure_ssl: "0",
       secret: decryptSecret(app.webhook_secret_encrypted),

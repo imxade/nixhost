@@ -7,17 +7,26 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-cloudflare-
 process.env.NIXHOST_DATA_DIR = dataDirectory;
 process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 29).toString("base64");
 
-const [{ CloudflareController }, database, { encryptSecret }] = await Promise.all([
+const [{ CloudflareController }, { parseQuickTunnelUrl }, database, secrets] = await Promise.all([
   import("../../src/server/cloudflare.ts"),
+  import("../../src/server/cloudflare-quick.ts"),
   import("../../src/server/db.ts"),
   import("../../src/server/crypto.ts"),
 ]);
 
 const apiCalls: Array<{ url: string; init?: RequestInit }> = [];
+let failNextConfiguration = false;
 const cloudflareFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input);
   apiCalls.push({ url, init });
   const parsed = new URL(url);
+  if (parsed.pathname.endsWith("/configurations") && failNextConfiguration) {
+    failNextConfiguration = false;
+    return new Response(
+      JSON.stringify({ success: false, errors: [{ message: "configuration rejected" }] }),
+      { status: 500, headers: { "content-type": "application/json" } },
+    );
+  }
   let result: unknown = {};
   if (parsed.pathname === "/client/v4/user/tokens/verify") {
     result = { id: "token-id", status: "active" };
@@ -74,7 +83,12 @@ db.prepare(
     singleton, account_id, zone_id, api_token_encrypted, tunnel_id, tunnel_name,
     tunnel_token_encrypted, enabled, created_at, updated_at
   ) VALUES (1, 'account', 'zone-primary', ?, 'tunnel-id', 'nixhost', ?, 1, ?, ?)`,
-).run(encryptSecret("cloudflare-test-token"), encryptSecret("tunnel-test-token"), now, now);
+).run(
+  secrets.encryptSecret("cloudflare-test-token"),
+  secrets.encryptSecret("tunnel-test-token"),
+  now,
+  now,
+);
 
 afterAll(() => {
   vi.unstubAllGlobals();
@@ -83,6 +97,15 @@ afterAll(() => {
 });
 
 describe("Cloudflare application routes", () => {
+  it("extracts only Cloudflare-assigned temporary URLs from connector output", () => {
+    expect(
+      parseQuickTunnelUrl(
+        "INF Your quick Tunnel has been created! Visit it at https://simple-wind-42.trycloudflare.com",
+      ),
+    ).toBe("https://simple-wind-42.trycloudflare.com");
+    expect(parseQuickTunnelUrl("https://trycloudflare.com.attacker.invalid")).toBeNull();
+  });
+
   it("verifies token, zone ownership, and tunnel access before saving", async () => {
     const controller = new CloudflareController();
     await controller.configure({
@@ -117,6 +140,35 @@ describe("Cloudflare application routes", () => {
     expect(
       db.prepare("SELECT account_id FROM cloudflare_config WHERE singleton = 1").get(),
     ).toEqual({ account_id: "account" });
+  });
+
+  it("restores working credentials when candidate ingress configuration fails", async () => {
+    const before = db
+      .prepare(
+        "SELECT api_token_encrypted, dashboard_hostname FROM cloudflare_config WHERE singleton = 1",
+      )
+      .get() as { api_token_encrypted: string; dashboard_hostname: string | null };
+    failNextConfiguration = true;
+
+    await expect(
+      new CloudflareController().configure({
+        accountId: "account",
+        zoneId: "zone-primary",
+        apiToken: "candidate-test-token",
+        tunnelName: "nixhost",
+        dashboardHostname: "console.example.com",
+      }),
+    ).rejects.toMatchObject({ code: "cloudflare_api_failed" });
+
+    const after = db
+      .prepare(
+        "SELECT api_token_encrypted, dashboard_hostname FROM cloudflare_config WHERE singleton = 1",
+      )
+      .get() as { api_token_encrypted: string; dashboard_hostname: string | null };
+    expect(secrets.decryptSecret(after.api_token_encrypted)).toBe(
+      secrets.decryptSecret(before.api_token_encrypted),
+    );
+    expect(after.dashboard_hostname).toBe(before.dashboard_hostname);
   });
 
   it("reports managed and external domains and removes stale managed DNS", async () => {
