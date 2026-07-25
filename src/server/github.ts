@@ -11,6 +11,7 @@ import { HttpError } from "./errors.ts";
 
 const API_VERSION = "2026-03-10";
 const API_BASE = "https://api.github.com";
+const INACTIVE_WEBHOOK_URL = "https://example.com/";
 
 interface GitHubAppRow {
   app_id: number;
@@ -65,14 +66,10 @@ export function createManifest(baseUrl: string): {
         metadata: "read",
       },
       default_events: ["push"],
-      ...(publicBase
-        ? {
-            hook_attributes: {
-              url: `${publicBase}/api/github/webhook`,
-              active: true,
-            },
-          }
-        : {}),
+      hook_attributes: {
+        url: publicBase ? `${publicBase}/api/github/webhook` : INACTIVE_WEBHOOK_URL,
+        active: Boolean(publicBase),
+      },
     },
   };
 }

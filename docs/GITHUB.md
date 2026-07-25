@@ -34,11 +34,12 @@ credentials, and short-lived installation tokens.
 ## LAN-only mode
 
 GitHub cannot deliver to a private RFC1918 address. When
-`NIXHOST_PUBLIC_URL` is absent, the generated manifest omits
-`hook_attributes` completely. This is required because GitHub validates a hook
-URL's public reachability even when `active` is false. The Git reconciler polls
-each connected production branch and compares its head with the active or
-newest deployment.
+`NIXHOST_PUBLIC_URL` is absent, the generated manifest supplies the reserved
+`https://example.com/` URL with `active: false`. GitHub's current manifest
+validator rejects both an omitted/blank hook URL and a private hook URL, even
+for an inactive hook. The reserved sentinel receives no events because the hook
+is inactive. The Git reconciler polls each connected production branch and
+compares its head with the active or newest deployment.
 
 This provides eventual auto-deployment without making the dashboard public, but changes appear after the configured polling interval and use GitHub API calls. A repository may back multiple NixHost applications; every matching auto-deploy application is queued.
 

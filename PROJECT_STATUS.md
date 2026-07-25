@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-07-24.
+Last updated: 2026-07-25.
 
 ## Implemented
 
@@ -8,7 +8,7 @@ Last updated: 2026-07-24.
 - One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.
 - Fixed one-hour password-failure limits: six per source/username and 30 per source, with `Retry-After` on throttled responses.
 - SQLite WAL state with forward-only, empty-database-tested migrations and encrypted stored secrets.
-- Locked GitHub App manifest flow with no invalid LAN hook, push-only
+- Locked GitHub App manifest flow with an inactive, schema-valid LAN hook, push-only
   subscriptions, repository-selection return synchronization, paginated
   installation/repository discovery, short-lived installation tokens,
   signed/deduplicated public webhooks and LAN reconciliation.
@@ -74,10 +74,10 @@ write denial, the separate CI admin and hourly throttle timing.
 
 The Cloudflare unit integration verifies managed and external per-project states, remote ingress construction, removal of stale NixHost-owned DNS, and preservation of records whose target or ownership comment does not match. It uses a deterministic mocked Cloudflare API; it is not a live-account result.
 
-GitHub manifest tests verify that LAN-only registration completely omits an
-unreachable webhook, requests only the supported push event, and enables
-installation setup returns. A configured `NIXHOST_PUBLIC_URL` supplies and
-activates the public webhook origin.
+GitHub manifest tests verify that LAN-only registration supplies GitHub's
+required hook URL using an inactive reserved public sentinel, requests only the
+supported push event, and enables installation setup returns. A configured
+`NIXHOST_PUBLIC_URL` supplies and activates the real public webhook origin.
 
 The public fixture
 `https://github.com/imxade/nixhost-deployment-test.git` uses `trunk` as remote

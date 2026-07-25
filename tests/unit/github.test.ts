@@ -19,11 +19,14 @@ afterAll(() => {
 });
 
 describe("GitHub App manifest", () => {
-  it("keeps the webhook inactive for a LAN-only node", () => {
+  it("provides the required public hook URL but keeps it inactive for a LAN-only node", () => {
     delete process.env.NIXHOST_PUBLIC_URL;
     const { manifest } = createManifest("http://127.0.0.1:3000");
 
-    expect(manifest).not.toHaveProperty("hook_attributes");
+    expect(manifest.hook_attributes).toEqual({
+      url: "https://example.com/",
+      active: false,
+    });
     expect(manifest.default_events).toEqual(["push"]);
     expect(manifest.setup_on_update).toBe(true);
   });

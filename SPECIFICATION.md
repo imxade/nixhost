@@ -13,9 +13,9 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 1. A one-time terminal token claims a new node and creates the owner account.
 2. Every dashboard/API operation requires an authenticated role after setup.
 3. GitHub is connected from the dashboard through a per-node GitHub App
-   manifest flow. LAN manifests omit unreachable webhook attributes, subscribe
-   only to `push`, and synchronize installation repository selections on the
-   setup return.
+   manifest flow. LAN manifests use an inactive reserved public hook URL because
+   GitHub rejects both blank and private hook URLs, subscribe only to `push`,
+   and synchronize installation repository selections on the setup return.
 4. The user selects an accessible repository and flake app output. An omitted branch resolves from the remote symbolic `HEAD`, with `main` used only when no symbolic default is advertised.
 5. Push webhooks deploy the exact production-branch commit when the node is public.
 6. Periodic branch reconciliation catches pushes missed while the node was LAN-only or offline.
