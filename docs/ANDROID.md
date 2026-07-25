@@ -47,12 +47,11 @@ can contribute to Android release evidence.
 
 A later integrated application should own:
 
-- foreground service and persistent notification;
-- wake lock;
-- boot receiver within current Android policy;
-- Android Keystore-wrapped encryption key;
-- local status/recovery activity;
-- Nix bootstrap and signed updates.
+- fork the official Nix-on-Droid repository using the GitHub CLI.
+- add a persistent background service that keeps the NextHost application running.
+- add foreground service and persistent notification keep the project running
+- replace the launcher UI with a WebView that directly displays the web interface.
+- prefill the account creation key in the web interface during the initial account setup.
 
 The Next.js control plane remains unchanged and is started by this native lifecycle wrapper.
 
