@@ -67,6 +67,10 @@ restart, a replacement process can receive a new URL. Set
 `NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
 only. Quick Tunnel URLs remain enabled alongside custom domains.
 
+Source development must use `npm run dev` or `pnpm dev`; those commands enter the
+locked Nix shell when necessary and run the lifecycle-owning custom server. Starting
+Next.js directly bypasses that lifecycle and is unsupported.
+
 ## Recovery
 
 - If the dashboard crashes, detached active apps should continue.

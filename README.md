@@ -75,10 +75,14 @@ Only `x86_64-linux` has completed the full release matrix recorded in this
 repository.
 
 ```bash
-nix develop
-pnpm install
-pnpm dev
+nix develop --command pnpm install
+npm run dev
 ```
+
+`npm run dev` and `pnpm dev` automatically enter the locked Nix development
+shell when needed, so the development server receives the same Node, Nix, Git,
+and cloudflared executables as the packaged application. Both commands use the
+lifecycle-owning custom server; Ctrl+C therefore closes managed Quick Tunnels.
 
 Android-device automation uses the separate reproducible tool shell:
 
