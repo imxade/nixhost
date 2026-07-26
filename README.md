@@ -149,8 +149,10 @@ See [`docs/DEPLOYMENT_CONTRACT.md`](docs/DEPLOYMENT_CONTRACT.md) and the example
 
 The opt-in acceptance test clones a dedicated public GitHub repository, resolves
 its default branch, deploys the exact initial revision, pushes a marker commit,
-runs the same reconciliation path used by the server, and verifies that the new
-exact revision replaces the healthy release:
+waits for the production background reconciler without invoking it directly,
+and verifies that the new exact revision replaces the healthy release. It also
+opens the real application Quick Tunnel before and after the push and requires
+that its URL stay healthy and unchanged across activation:
 
 ```bash
 gh auth setup-git

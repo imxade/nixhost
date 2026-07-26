@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import https from "node:https";
 import os from "node:os";
 import path from "node:path";
+import tls from "node:tls";
 
 const repositoryUrl = process.env.NIXHOST_PUBLIC_TEST_REPOSITORY_URL?.trim();
 if (!repositoryUrl || !/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\.git)?$/i.test(repositoryUrl)) {
@@ -22,8 +24,9 @@ process.env.NIXHOST_DATA_DIR = path.join(root, "data");
 process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 37).toString("base64");
 process.env.NIXHOST_MIN_FREE_DISK_MB = "128";
 process.env.NIXHOST_MIN_FREE_MEMORY_MB = "64";
-process.env.NIXHOST_GIT_POLL_SECONDS = "86400";
+process.env.NIXHOST_GIT_POLL_SECONDS = "15";
 process.env.NIXHOST_METRICS_SECONDS = "2";
+process.env.NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS = "5";
 
 const [{ PlatformRuntime }, database, appService] = await Promise.all([
   import("../../src/server/runtime.ts"),
@@ -66,6 +69,10 @@ try {
   assert.equal(firstRunning.id, first.id);
   assert.equal(firstRunning.state, "running");
   await assertHealthy(application.public_port);
+  await runtime.quickTunnels.reconcile();
+  const firstQuickUrl = await waitForApplicationQuickTunnel(runtime, application.id, 120_000);
+  await new Promise((resolve) => setTimeout(resolve, 30_000));
+  await assertPublicHealthy(firstQuickUrl, 180_000);
 
   const marker = new Date().toISOString();
   fs.writeFileSync(path.join(pusher, ".nixhost-redeploy-marker"), `${marker}\n`);
@@ -73,10 +80,10 @@ try {
   git(pusher, ["commit", "-m", `test: verify NixHost push redeployment ${marker}`]);
   const pushedCommit = git(pusher, ["rev-parse", "HEAD"]).trim();
   assert.notEqual(pushedCommit, firstCommit);
+  const pushedAt = Date.now();
   git(pusher, ["push", "origin", `HEAD:${branch}`]);
 
-  await runtime.git.reconcile();
-  const redeployed = await waitForCommit(application.id, pushedCommit, 180_000);
+  const redeployed = await waitForCommit(application.id, pushedCommit, 240_000);
   assert.equal(redeployed.state, "running");
   assert.equal(redeployed.trigger, "reconcile");
   const active = database
@@ -93,6 +100,9 @@ try {
     "superseded",
   );
   await assertHealthy(application.public_port);
+  const redeployedQuickUrl = await waitForApplicationQuickTunnel(runtime, application.id, 30_000);
+  assert.equal(redeployedQuickUrl, firstQuickUrl);
+  await assertPublicHealthy(redeployedQuickUrl, 120_000);
 
   console.log(
     JSON.stringify({
@@ -101,8 +111,13 @@ try {
       initialCommit: firstCommit,
       pushedCommit,
       pushTriggeredRedeployment: true,
+      automaticPollingDetectedPush: true,
+      redeploymentSeconds: Math.round((Date.now() - pushedAt) / 1000),
       exactCommitActivated: true,
       stableProxyHealthy: true,
+      quickTunnelUrl: redeployedQuickUrl,
+      quickTunnelHealthy: true,
+      quickTunnelStableAcrossRedeployment: true,
     }),
   );
 } finally {
@@ -162,4 +177,103 @@ async function assertHealthy(publicPort: number): Promise<void> {
   const response = await fetch(`http://127.0.0.1:${publicPort}/health`);
   assert.equal(response.status, 200);
   assert.match(await response.text(), /"status":"ok"/);
+}
+
+async function waitForApplicationQuickTunnel(
+  activeRuntime: InstanceType<typeof PlatformRuntime>,
+  applicationId: string,
+  timeoutMs: number,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await activeRuntime.quickTunnels.reconcile();
+    const route = activeRuntime.quickTunnels.applicationRoute(applicationId);
+    if (route?.running && route.url) return route.url;
+    if (route?.status === "error") {
+      throw new Error(`Application Quick Tunnel failed: ${route.lastError ?? "unknown error"}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Application Quick Tunnel did not become ready within ${timeoutMs}ms`);
+}
+
+async function assertPublicHealthy(origin: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = "no response";
+  const hostname = new URL(origin).hostname;
+  while (Date.now() < deadline) {
+    try {
+      const response = await requestHealth(`${origin}/health`);
+      if (response.status === 200 && /"status":"ok"/.test(response.body)) return;
+      lastError = `HTTP ${response.status}: ${response.body.slice(0, 200)}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    const publicAddresses = await resolvePublicAddresses(hostname);
+    for (const publicAddress of publicAddresses) {
+      try {
+        const response = await requestHealth(`${origin}/health`, publicAddress);
+        if (response.status === 200 && /"status":"ok"/.test(response.body)) return;
+        lastError = `HTTP ${response.status}: ${response.body.slice(0, 200)}`;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+  throw new Error(`Quick Tunnel did not serve the deployed app: ${lastError}`);
+}
+
+async function resolvePublicAddresses(hostname: string): Promise<string[]> {
+  try {
+    const response = await fetch(
+      `https://cloudflare-dns.com/dns-query?${new URLSearchParams({ name: hostname, type: "A" })}`,
+      {
+        signal: AbortSignal.timeout(10_000),
+        headers: { accept: "application/dns-json" },
+      },
+    );
+    if (!response.ok) return [];
+    const body = (await response.json()) as {
+      Answer?: Array<{ type?: number; data?: string }>;
+    };
+    return [
+      ...new Set(
+        body.Answer?.filter((answer) => answer.type === 1).map((answer) => answer.data) ?? [],
+      ),
+    ].filter((address): address is string => Boolean(address));
+  } catch {
+    return [];
+  }
+}
+
+function requestHealth(url: string, address?: string): Promise<{ status: number; body: string }> {
+  const target = new URL(url);
+  return new Promise((resolve, reject) => {
+    const request = https.get(
+      target,
+      address
+        ? {
+            createConnection: () =>
+              tls.connect({
+                host: address,
+                port: 443,
+                servername: target.hostname,
+              }),
+          }
+        : {},
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () =>
+          resolve({
+            status: response.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+      },
+    );
+    request.setTimeout(30_000, () => request.destroy(new Error("HTTPS health check timed out")));
+    request.once("error", reject);
+  });
 }

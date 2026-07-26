@@ -68,9 +68,13 @@ health endpoint, verifies the stable proxy response, and stops its process group
 
 `pnpm test:github-public` is a separate opt-in external test. It requires a
 dedicated repository URL and `NIXHOST_PUBLIC_TEST_PUSH=1`, pushes a marker
-commit, then proves that production reconciliation deploys that exact commit,
-keeps the stable proxy healthy, and supersedes the old release. It must never be
-pointed at a repository whose history should remain untouched.
+commit, then waits for the background polling loop without calling reconciliation
+directly. It proves that the exact pushed commit activates, the stable proxy stays
+healthy, the old release is superseded, and a real application Quick Tunnel serves
+the health endpoint at the same URL before and after deployment. The probe allows
+for Cloudflare's initial DNS warm-up and can verify the edge through public DNS
+when the test host's resolver has negatively cached the newly assigned hostname.
+It must never be pointed at a repository whose history should remain untouched.
 
 ## Deployment fixtures
 
