@@ -1,6 +1,5 @@
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
 import { spawnLogged } from "./command.ts";
 import { config } from "./config.ts";
 import { getDb, nowIso } from "./db.ts";
@@ -36,6 +35,10 @@ interface QuickTunnelRow {
   last_error: string | null;
   started_at: string | null;
   updated_at: string;
+}
+
+interface QuickTunnelStatusRow extends QuickTunnelRow {
+  app_name: string | null;
 }
 
 interface ManagedQuickTunnel {
@@ -97,19 +100,22 @@ export class QuickTunnelController {
   }
 
   status(): { enabled: boolean; routes: QuickTunnelRoute[] } {
-    const targets = targetMap();
     const rows = getDb()
-      .prepare("SELECT * FROM quick_tunnels ORDER BY target_type, key")
-      .all() as QuickTunnelRow[];
+      .prepare(
+        `SELECT q.*, a.name AS app_name
+         FROM quick_tunnels q
+         LEFT JOIN applications a ON a.id = q.app_id
+         ORDER BY q.target_type, q.key`,
+      )
+      .all() as QuickTunnelStatusRow[];
     return {
       enabled: config.NIXHOST_QUICK_TUNNELS_ENABLED,
       routes: rows.map((row) => {
-        const target = targets.get(row.key);
         return {
           key: row.key,
           targetType: row.target_type,
           appId: row.app_id,
-          appName: target?.appName ?? null,
+          appName: row.app_name,
           localPort: row.local_port,
           url: row.url,
           status: row.status,
@@ -120,11 +126,6 @@ export class QuickTunnelController {
         };
       }),
     };
-  }
-
-  dashboardUrl(): string | null {
-    const row = getQuickTunnel("dashboard");
-    return row?.status === "running" && this.isRunning(row) ? row.url : null;
   }
 
   applicationRoute(appId: string): QuickTunnelRoute | null {
@@ -230,8 +231,6 @@ export class QuickTunnelController {
   }
 
   private async startTarget(target: QuickTunnelTarget, previousFailures: number): Promise<void> {
-    const directory = quickTunnelDirectory(target.key);
-    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const log = logPath(target.key);
     fs.writeFileSync(log, "", { mode: 0o600 });
     const now = nowIso();
@@ -246,30 +245,13 @@ export class QuickTunnelController {
 
     let child: ChildProcess;
     try {
-      child = spawnLogged(
-        config.NIXHOST_CLOUDFLARED_BIN,
-        [
-          "tunnel",
-          "--no-autoupdate",
-          "--loglevel",
-          "info",
-          "--logformat",
-          "json",
-          "--url",
-          `http://127.0.0.1:${target.localPort}`,
-        ],
-        {
-          cwd: paths.data,
-          env: {
-            ...process.env,
-            HOME: directory,
-            XDG_CONFIG_HOME: directory,
-          },
-          stdoutPath: log,
-          stderrPath: log,
-          detached: true,
-        },
-      );
+      child = spawnLogged(config.NIXHOST_CLOUDFLARED_BIN, quickTunnelArguments(target.localPort), {
+        cwd: paths.data,
+        env: process.env,
+        stdoutPath: log,
+        stderrPath: log,
+        detached: true,
+      });
     } catch (error) {
       this.recordFailure(target.key, errorMessage(error), previousFailures + 1);
       return;
@@ -460,12 +442,8 @@ function readQuickTunnelUrl(file: string): string | null {
   }
 }
 
-function quickTunnelDirectory(key: string): string {
-  return path.join(paths.runtime, "quick-tunnels", safeKey(key));
-}
-
 function logPath(key: string): string {
-  return path.join(paths.logs, `quick-tunnel-${safeKey(key)}.log`);
+  return `${paths.logs}/quick-tunnel-${safeKey(key)}.log`;
 }
 
 function safeKey(key: string): string {
@@ -497,4 +475,19 @@ function delay(ms: number): Promise<void> {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export function quickTunnelArguments(localPort: number): string[] {
+  return [
+    "tunnel",
+    "--config",
+    "/dev/null",
+    "--no-autoupdate",
+    "--loglevel",
+    "info",
+    "--output",
+    "json",
+    "--url",
+    `http://127.0.0.1:${localPort}`,
+  ];
 }

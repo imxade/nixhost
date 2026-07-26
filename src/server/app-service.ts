@@ -163,10 +163,6 @@ export function updateApplication(
   return getApplication(id);
 }
 
-export function applicationDomain(id: string): string | null {
-  return applicationDomains(id)[0] ?? null;
-}
-
 export function applicationDomains(id: string): string[] {
   return (
     getDb()

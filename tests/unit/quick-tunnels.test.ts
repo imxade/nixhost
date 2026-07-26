@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseQuickTunnelUrl } from "../../src/server/quick-tunnel-url.ts";
+import { quickTunnelArguments } from "../../src/server/quick-tunnels.ts";
 
 describe("Quick Tunnel URL discovery", () => {
   it("extracts the Cloudflare URL from structured or plain logs", () => {
@@ -13,5 +14,20 @@ describe("Quick Tunnel URL discovery", () => {
   it("rejects non-Quick-Tunnel hosts and deceptive suffixes", () => {
     expect(parseQuickTunnelUrl("https://example.com")).toBeNull();
     expect(parseQuickTunnelUrl("https://demo.trycloudflare.com.evil.example")).toBeNull();
+  });
+
+  it("uses supported cloudflared flags without changing the process home", () => {
+    expect(quickTunnelArguments(4100)).toEqual([
+      "tunnel",
+      "--config",
+      "/dev/null",
+      "--no-autoupdate",
+      "--loglevel",
+      "info",
+      "--output",
+      "json",
+      "--url",
+      "http://127.0.0.1:4100",
+    ]);
   });
 });
