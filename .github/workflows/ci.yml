@@ -26,6 +26,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
         env:
           NIXHOST_E2E_DATA_DIR: ${{ runner.temp }}/nixhost-e2e
