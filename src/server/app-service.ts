@@ -338,12 +338,6 @@ export function listDeployments(appId?: string, limit = 50): DeploymentRow[] {
     .all(limit) as DeploymentRow[];
 }
 
-export function requestDeploymentCancellation(id: string): void {
-  const deployment = getDeployment(id);
-  if (["running", "failed", "cancelled", "superseded"].includes(deployment.state)) return;
-  getDb().prepare("UPDATE deployments SET cancel_requested = 1 WHERE id = ?").run(id);
-}
-
 export function deleteApplication(id: string): void {
   getApplication(id);
   getDb().prepare("DELETE FROM applications WHERE id = ?").run(id);

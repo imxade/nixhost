@@ -103,14 +103,6 @@ export function latestHostMetric(): RuntimeMetric {
   };
 }
 
-export function processGroupMetric(processGroupId: number): {
-  cpuPercent: number;
-  memoryBytes: number;
-  processCount: number;
-} {
-  return readProcessGroup(processGroupId, new Map());
-}
-
 let previousHostCpu = os.cpus().map((cpu) => ({ ...cpu.times }));
 function hostCpuPercent(): number {
   const current = os.cpus();

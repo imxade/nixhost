@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { type AuthenticatedUser, authenticateSession } from "./auth.ts";
@@ -40,9 +40,4 @@ export async function requestOriginAllowed(request: NextRequest): Promise<boolea
   } catch {
     return false;
   }
-}
-
-export async function serverClientIp(): Promise<string | null> {
-  const values = await headers();
-  return values.get("cf-connecting-ip") ?? values.get("x-nixhost-client-ip") ?? null;
 }

@@ -10,7 +10,6 @@ import { logger } from "./logger.ts";
 import { appPaths } from "./paths.ts";
 import {
   captureProcessIdentity,
-  isPidReachable,
   matchesProcessIdentity,
   type ProcessIdentity,
 } from "./process-identity.ts";
@@ -236,11 +235,6 @@ export class ProcessSupervisor {
       });
     }
   }
-}
-
-/** Kept for callers/tests that only need a liveness probe, never for recovery signalling. */
-export function isPidAlive(pid: number | null): boolean {
-  return isPidReachable(pid);
 }
 
 function terminateProcessGroup(processGroupId: number, signal: NodeJS.Signals): void {

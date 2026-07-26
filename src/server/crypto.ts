@@ -117,10 +117,6 @@ export function signJwtRs256(payload: Record<string, unknown>, privateKeyPem: st
   return `${body}.${signature}`;
 }
 
-export function hmacSha256Hex(secret: string, body: Buffer): string {
-  return crypto.createHmac("sha256", secret).update(body).digest("hex");
-}
-
 function deriveScrypt(
   password: string,
   salt: Buffer,
