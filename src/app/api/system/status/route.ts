@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
         architecture: process.arch,
         node: process.version,
         nixSystem,
-        pid: process.pid,
       },
       metric: latestHostMetric(),
       github: {

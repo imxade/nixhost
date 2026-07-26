@@ -4,6 +4,7 @@ const development = process.env.NODE_ENV === "development";
 const scriptSources = ["'self'", "'unsafe-inline'", ...(development ? ["'unsafe-eval'"] : [])];
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["better-sqlite3"],

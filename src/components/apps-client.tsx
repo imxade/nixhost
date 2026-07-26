@@ -156,7 +156,7 @@ export function AppsClient() {
     <>
       <PageHeading
         title="Applications"
-        description="Import a locked Nix flake. NixHost deploys it, supervises it, and shows every LAN, temporary public, and custom-domain access link."
+        description="Import a locked Nix flake. NixHost deploys it, supervises it, and shows its available access URLs."
         actions={
           loaded ? (
             <>
@@ -183,7 +183,7 @@ export function AppsClient() {
         </div>
       )}
       {apps.length > 0 && (
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="mb-5">
           <input
             className="input input-bordered w-full max-w-md bg-base-100"
             placeholder="Search applications"
@@ -191,9 +191,6 @@ export function AppsClient() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button type="button" className="btn btn-ghost sm:ml-auto" onClick={() => void load()}>
-            Refresh
-          </button>
         </div>
       )}
       {!loaded ? (

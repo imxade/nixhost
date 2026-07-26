@@ -12,7 +12,6 @@ type Status = {
     architecture: string;
     node: string;
     nixSystem: string | null;
-    pid: number;
   };
   metric: null | {
     cpuPercent: number;
@@ -67,11 +66,6 @@ export function SystemClient() {
       <PageHeading
         title="System"
         description="Current host health, dashboard access links, and public routing status."
-        actions={
-          <button type="button" className="btn" onClick={() => void load()}>
-            Refresh
-          </button>
-        }
       />
       {error && <div className="alert alert-error mb-5">{error}</div>}
       {!data ? (
@@ -132,8 +126,6 @@ export function SystemClient() {
                   <dd className="break-all font-mono">{data.host.nixSystem || "Unavailable"}</dd>
                   <dt className="text-base-content/55">Node.js</dt>
                   <dd className="font-mono">{data.host.node}</dd>
-                  <dt className="text-base-content/55">Control PID</dt>
-                  <dd className="font-mono">{data.host.pid}</dd>
                 </dl>
               </div>
             </div>

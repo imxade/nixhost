@@ -49,11 +49,6 @@ export function DeploymentsClient() {
       <PageHeading
         title="Deployments"
         description="Durable deployment history across every application. Queued work survives control-plane restarts."
-        actions={
-          <button type="button" className="btn" onClick={() => void load()}>
-            Refresh
-          </button>
-        }
       />
       {error && <div className="alert alert-error mb-5">{error}</div>}
       <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
