@@ -1,20 +1,67 @@
+import fs from "node:fs";
 import os from "node:os";
 
-export function lanHttpUrls(port: number): string[] {
-  const addresses = new Set<string>();
-  for (const interfaces of Object.values(os.networkInterfaces())) {
+type NetworkInterfaces = ReturnType<typeof os.networkInterfaces>;
+
+export function lanHttpUrls(
+  port: number,
+  networkInterfaces: NetworkInterfaces = os.networkInterfaces(),
+  preferredInterface: string | null = defaultRouteInterface(),
+): string[] {
+  const addresses: Array<{ address: string; interfaceName: string; rank: number }> = [];
+  for (const [interfaceName, interfaces] of Object.entries(networkInterfaces)) {
     for (const address of interfaces ?? []) {
-      if (address.internal) continue;
-      const family = String(address.family);
-      if (family === "IPv4") addresses.add(`http://${address.address}:${port}`);
-      else if (family === "IPv6" && !address.address.includes("%")) {
-        addresses.add(`http://[${address.address}]:${port}`);
-      }
+      if (address.internal || String(address.family) !== "IPv4") continue;
+      addresses.push({
+        address: address.address,
+        interfaceName,
+        rank: interfaceRank(interfaceName, address.address, preferredInterface),
+      });
     }
   }
-  return [...addresses].sort((a, b) => {
-    const aIpv4 = !a.includes("[");
-    const bIpv4 = !b.includes("[");
-    return aIpv4 === bIpv4 ? a.localeCompare(b) : aIpv4 ? -1 : 1;
-  });
+  const primary = addresses.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      a.interfaceName.localeCompare(b.interfaceName) ||
+      a.address.localeCompare(b.address),
+  )[0];
+  return primary ? [`http://${primary.address}:${port}`] : [];
+}
+
+function interfaceRank(
+  interfaceName: string,
+  address: string,
+  preferredInterface: string | null,
+): number {
+  if (interfaceName === preferredInterface) return 0;
+  const virtual = /^(br-|docker|podman|tailscale|tun|veth|virbr|vmnet|wg)/i.test(interfaceName);
+  const physical = /^(ap|bond|en|eth|wl|wlan)/i.test(interfaceName);
+  return (virtual ? 100 : physical ? 10 : 20) + (isPrivateIpv4(address) ? 0 : 5);
+}
+
+function isPrivateIpv4(address: string): boolean {
+  const [first = Number.NaN, second = Number.NaN] = address.split(".").map(Number);
+  return (
+    address.split(".").length === 4 &&
+    (first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      (first === 100 && second >= 64 && second <= 127))
+  );
+}
+
+function defaultRouteInterface(): string | null {
+  if (process.platform !== "linux") return null;
+  try {
+    const routes = fs.readFileSync("/proc/net/route", "utf8").trim().split("\n").slice(1);
+    const defaults = routes
+      .map((line) => line.trim().split(/\s+/))
+      .filter(
+        (fields) => fields[1] === "00000000" && (Number.parseInt(fields[3] ?? "0", 16) & 1) === 1,
+      )
+      .sort((a, b) => Number(a[6] ?? 0) - Number(b[6] ?? 0));
+    return defaults[0]?.[0] ?? null;
+  } catch {
+    return null;
+  }
 }
