@@ -41,7 +41,8 @@ a different URL.
 The account-free command NixHost supervises is equivalent to:
 
 ```bash
-cloudflared tunnel --no-autoupdate --url http://127.0.0.1:<service-port>
+cloudflared tunnel --config /dev/null --no-autoupdate --loglevel info \
+  --output json --url http://127.0.0.1:<service-port>
 ```
 
 ## OAuth callback limitation
@@ -243,9 +244,12 @@ Cloudflare consent screen. Keep the logo, policy and client pages available.
 
 ## Step 6 — Configure NixHost
 
-Set all three values in the service environment before starting NixHost:
+Cloudflare OAuth is an optional distributor feature and is disabled by default.
+Enable it and set all three client values in the service environment before
+starting NixHost:
 
 ```text
+NIXHOST_CLOUDFLARE_OAUTH_ENABLED=true
 NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<client ID from Cloudflare>
 NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=https://console.example.com/api/cloudflare/oauth/callback
 NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<space-delimited exact scope IDs>
@@ -268,7 +272,10 @@ dashboard Quick Tunnel URL.
 The Cloudflare redirect URI and the value registered on the OAuth client must
 match exactly, including scheme, host, path and port. Restart NixHost after
 changing its process environment. The **Connect Cloudflare** button remains
-unavailable until the client ID, redirect URI and scope string are all present.
+unavailable until the feature switch, client ID, redirect URI and scope string
+are all present. Set `NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false` to disconnect the
+complete OAuth provider at one boundary. Account-free Quick Tunnels and manual
+API-token named tunnels do not depend on it and continue working.
 
 ## Step 7 — Authorize and create the persistent tunnel
 

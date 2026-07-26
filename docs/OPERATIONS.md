@@ -12,6 +12,7 @@ NIXHOST_MASTER_KEY=<base64 32-byte key, recommended>
 NIXHOST_PUBLIC_URL=<optional stable HTTPS origin>
 NIXHOST_QUICK_TUNNELS_ENABLED=true
 NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS=10
+NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false
 NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<optional public OAuth client ID>
 NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=<exact registered callback URI>
 NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<exact space-delimited client scopes>
@@ -28,6 +29,12 @@ Cloudflare OAuth client secret in this repository or the future APK. The
 redirect URI must resolve back to
 `/api/cloudflare/oauth/callback`; a loopback URI is suitable only when the
 browser and NixHost run on the same device.
+
+OAuth is an optional provider module and defaults off. Turn it on only after its
+client and callback have been independently tested. A single
+`NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false` disconnects authorization and refresh
+without changing account-free Quick Tunnels, manual-token named tunnels, LAN
+routing, application deployment, or GitHub integration.
 
 ## Backup
 

@@ -285,9 +285,8 @@ export function CloudflareClient() {
               ) : (
                 <div className="alert alert-warning mt-2">
                   <span>
-                    This build has no Cloudflare OAuth client configured. The distributor must
-                    provide the public client ID and registered callback URI; manual connection
-                    remains available below.
+                    Cloudflare OAuth is disabled or not fully configured in this distribution.
+                    Manual token connection and automatic Quick Tunnels remain available.
                   </span>
                 </div>
               )}

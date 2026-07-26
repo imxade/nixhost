@@ -13,7 +13,9 @@ custom Node HTTP server + Next.js App Router
     |-- process supervisor
     |-- metrics collector
     |-- GitHub reconciler
-    |-- Cloudflare controller
+    |-- provider-neutral routing
+    |-- Cloudflare Quick/named tunnel controller
+    |   `-- optional OAuth provider (feature-gated module)
     |-- per-app LAN proxy listeners
     |
     +--> git
@@ -100,6 +102,12 @@ The built-in Node HTTP proxy supports ordinary HTTP and WebSocket upgrades. It r
 Web applications can also own multiple normalized DNS hostnames. Ordinary HTTP requests on the dashboard listener are dispatched by `Host`; each app's stable port remains the provider-neutral origin for WebSockets and external DNS/TLS proxies.
 
 Cloudflare synchronization persists one result per project hostname. The application Domains tab and the global Cloudflare page share that state, including managed/external/error status, zone, last error and synchronization time. Removal cleanup is ownership-checked before deleting a DNS record.
+
+Cloudflare OAuth is deliberately outside the tunnel and DNS controller. The
+stable facade dynamically loads `cloudflare-oauth-provider.ts` only when
+`NIXHOST_CLOUDFLARE_OAUTH_ENABLED=true` and the complete client configuration is
+present. Disabling that one switch leaves account-free Quick Tunnels and manual
+API-token named tunnels intact.
 
 ## Scaling boundary
 

@@ -1,11 +1,11 @@
 import type { ChildProcess } from "node:child_process";
 import { normalizeDomain } from "./app-service.ts";
+import { cloudflareApiRequest } from "./cloudflare-api.ts";
 import {
   type CloudflareOAuthTokens,
-  cloudflareApiRequest,
-  refreshCloudflareOAuthToken,
-} from "./cloudflare-api.ts";
-import { cloudflareOAuthStatus } from "./cloudflare-oauth.ts";
+  cloudflareAuthorizationAccessToken,
+  cloudflareOAuthStatus,
+} from "./cloudflare-oauth.ts";
 import { spawnLogged } from "./command.ts";
 import { config } from "./config.ts";
 import { decryptSecret, encryptSecret } from "./crypto.ts";
@@ -46,8 +46,6 @@ export interface CloudflareDomainRoute {
   lastError: string | null;
   lastSyncedAt: string | null;
 }
-
-let oauthRefreshPromise: Promise<string> | null = null;
 
 export class CloudflareController {
   private childProcess: ChildProcess | null = null;
@@ -474,7 +472,7 @@ export function cloudflareDomainRoutes(configured = Boolean(getCloudflareConfig(
 }
 
 async function cfRequest<T>(row: CloudflareRow, path: string, init: RequestInit = {}): Promise<T> {
-  return cloudflareApiRequest<T>(await cloudflareAccessToken(row), path, init);
+  return cloudflareApiRequest<T>(await cloudflareAuthorizationAccessToken(row), path, init);
 }
 
 async function cfRequestWithToken<T>(
@@ -524,61 +522,6 @@ async function validateCloudflareResourceAccess(
     apiToken,
     `/accounts/${encodeURIComponent(accountId)}/cfd_tunnel?per_page=1&is_deleted=false`,
   );
-}
-
-async function cloudflareAccessToken(row: CloudflareRow): Promise<string> {
-  if (
-    row.auth_method !== "oauth" ||
-    !row.oauth_access_token_expires_at ||
-    Date.parse(row.oauth_access_token_expires_at) > Date.now() + 120_000
-  ) {
-    return decryptSecret(row.api_token_encrypted);
-  }
-  if (!oauthRefreshPromise) {
-    oauthRefreshPromise = refreshStoredCloudflareOAuthToken().finally(() => {
-      oauthRefreshPromise = null;
-    });
-  }
-  return oauthRefreshPromise;
-}
-
-async function refreshStoredCloudflareOAuthToken(): Promise<string> {
-  const current = getCloudflareConfig();
-  if (current?.auth_method !== "oauth") {
-    throw new HttpError(409, "Cloudflare OAuth is not configured", "cloudflare_oauth_unavailable");
-  }
-  if (
-    !current.oauth_access_token_expires_at ||
-    Date.parse(current.oauth_access_token_expires_at) > Date.now() + 120_000
-  ) {
-    return decryptSecret(current.api_token_encrypted);
-  }
-  if (!current.oauth_refresh_token_encrypted) {
-    throw new HttpError(
-      401,
-      "Cloudflare authorization expired; connect Cloudflare again",
-      "cloudflare_oauth_expired",
-    );
-  }
-  const previousRefreshToken = decryptSecret(current.oauth_refresh_token_encrypted);
-  const tokens = await refreshCloudflareOAuthToken(previousRefreshToken);
-  const refreshToken = tokens.refreshToken ?? previousRefreshToken;
-  getDb()
-    .prepare(
-      `UPDATE cloudflare_config SET
-        api_token_encrypted = ?,
-        oauth_refresh_token_encrypted = ?,
-        oauth_access_token_expires_at = ?,
-        updated_at = ?
-       WHERE singleton = 1 AND auth_method = 'oauth'`,
-    )
-    .run(
-      encryptSecret(tokens.accessToken),
-      encryptSecret(refreshToken),
-      tokens.expiresAt,
-      nowIso(),
-    );
-  return tokens.accessToken;
 }
 
 function assertDashboardHostnameAvailable(hostname: string | null): void {

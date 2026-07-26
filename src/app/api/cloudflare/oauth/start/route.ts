@@ -9,10 +9,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  return api(request, () => {
+  return api(request, async () => {
     const user = requestUser(request);
     requireRole(user, ["owner", "admin"]);
-    const authorizationUrl = createCloudflareAuthorization(user.id);
+    const authorizationUrl = await createCloudflareAuthorization(user.id);
     audit({
       userId: user.id,
       ip: clientIp(request),

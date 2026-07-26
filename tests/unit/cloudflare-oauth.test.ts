@@ -12,6 +12,7 @@ process.env.NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI =
   "http://127.0.0.1:3000/api/cloudflare/oauth/callback";
 process.env.NIXHOST_CLOUDFLARE_OAUTH_SCOPES =
   "account:cloudflare_tunnel:edit zone:zone:read zone:dns:edit";
+process.env.NIXHOST_CLOUDFLARE_OAUTH_ENABLED = "true";
 
 const tokenRequests: URLSearchParams[] = [];
 const cloudflareFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -70,7 +71,7 @@ afterAll(() => {
 
 describe("Cloudflare OAuth", () => {
   it("binds a single-use callback to the authenticated user and PKCE verifier", async () => {
-    const authorization = new URL(oauth.createCloudflareAuthorization("owner-id"));
+    const authorization = new URL(await oauth.createCloudflareAuthorization("owner-id"));
     const state = authorization.searchParams.get("state") ?? "";
     const session = db
       .prepare("SELECT verifier_encrypted FROM cloudflare_oauth_sessions")

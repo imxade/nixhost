@@ -28,9 +28,10 @@ Today, Android development and physical-device validation use Nix-on-Droid. The 
 - Host-based HTTP routing on the dashboard listener and stable per-app ports for any DNS/TLS provider.
 - Multi-zone Cloudflare DNS and Tunnel synchronization for domains managed by the configured token.
 - Persistent SQLite state, encrypted secrets, deployment history, live logs, resource sampling, process restart and recovery.
-- One-click Cloudflare OAuth connection when the distribution supplies its
-  public client ID, with automatic account/zone discovery, encrypted refresh
-  tokens and a manual least-privilege token fallback.
+- Feature-gated Cloudflare OAuth connection when a tested distribution supplies
+  its public client configuration, with automatic account/zone discovery,
+  encrypted refresh tokens and an independent manual least-privilege token
+  fallback. OAuth defaults off and disconnects with one environment switch.
 
 ## Stack
 

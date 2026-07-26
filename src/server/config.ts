@@ -20,6 +20,7 @@ const envSchema = z.object({
   NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID: z.string().trim().min(1).optional().or(z.literal("")),
   NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI: z.string().url().optional().or(z.literal("")),
   NIXHOST_CLOUDFLARE_OAUTH_SCOPES: z.string().trim().min(1).optional().or(z.literal("")),
+  NIXHOST_CLOUDFLARE_OAUTH_ENABLED: envBoolean(false),
   NIXHOST_BUILD_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
   NIXHOST_GIT_POLL_SECONDS: z.coerce.number().int().min(15).max(86400).default(60),
   NIXHOST_CLOUDFLARED_BIN: z.string().trim().min(1).default("cloudflared"),

@@ -48,6 +48,9 @@ not an authorization boundary.
 - Cloudflare OAuth starts only for an authenticated owner/admin. Its random
   state is stored as a hash, expires after ten minutes and is deleted before
   code exchange; PKCE S256 binds the returned code to the initiating node.
+- Cloudflare OAuth defaults disabled and is dynamically loaded only when the
+  feature switch and all public-client settings are present. Manual API-token
+  access and account-free Quick Tunnels do not load or depend on the provider.
 - Quick Tunnels create temporary public hostnames automatically unless disabled.
   Dashboard access still requires NixHost authentication. Hosted applications receive
   no automatic access control; their temporary URL must be treated as public and the
