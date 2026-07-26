@@ -120,11 +120,11 @@ export function SystemClient() {
               </div>
             </div>
           </div>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <div className="card border border-base-300 bg-base-100">
+          <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+            <div className="card min-w-0 overflow-hidden border border-base-300 bg-base-100">
               <div className="card-body">
                 <h2 className="card-title">Host</h2>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-sm">
+                <dl className="grid min-w-0 gap-x-5 gap-y-3 text-sm sm:grid-cols-[auto_minmax(0,1fr)] [&_dd]:min-w-0 [&_dd]:break-words">
                   <dt className="text-base-content/55">Hostname</dt>
                   <dd>{data.host.hostname}</dd>
                   <dt className="text-base-content/55">Platform</dt>
@@ -132,7 +132,7 @@ export function SystemClient() {
                     {data.host.platform} / {data.host.architecture}
                   </dd>
                   <dt className="text-base-content/55">Nix system</dt>
-                  <dd className="font-mono">{data.host.nixSystem || "Unavailable"}</dd>
+                  <dd className="break-all font-mono">{data.host.nixSystem || "Unavailable"}</dd>
                   <dt className="text-base-content/55">Node.js</dt>
                   <dd className="font-mono">{data.host.node}</dd>
                   <dt className="text-base-content/55">Control PID</dt>
@@ -140,10 +140,10 @@ export function SystemClient() {
                 </dl>
               </div>
             </div>
-            <div className="card border border-base-300 bg-base-100">
+            <div className="card min-w-0 overflow-hidden border border-base-300 bg-base-100">
               <div className="card-body">
                 <h2 className="card-title">Automation and routing</h2>
-                <div className="flex justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap justify-between gap-3">
                   <span>GitHub</span>
                   <span
                     className={`badge ${data.github.connected ? "badge-success" : "badge-ghost"}`}
@@ -151,7 +151,7 @@ export function SystemClient() {
                     {data.github.connected ? "connected" : "not connected"}
                   </span>
                 </div>
-                <div className="flex justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap justify-between gap-3">
                   <span>Named Cloudflare tunnel</span>
                   <span
                     className={`badge ${data.cloudflare.running ? "badge-success" : data.cloudflare.configured ? "badge-warning" : "badge-ghost"}`}
@@ -163,7 +163,7 @@ export function SystemClient() {
                         : "not connected"}
                   </span>
                 </div>
-                <div className="flex justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap justify-between gap-3">
                   <span>Temporary routes</span>
                   <span className="badge badge-outline">
                     {data.quickTunnels.routes.filter((route) => route.running).length}/
@@ -176,7 +176,7 @@ export function SystemClient() {
                     Signed webhook target:{" "}
                     {data.github.webhookRoute ? (
                       <a
-                        className="link font-mono"
+                        className="link break-all font-mono"
                         href={`${data.github.webhookRoute.baseUrl}/api/github/webhook`}
                         target="_blank"
                         rel="noreferrer"
@@ -186,7 +186,7 @@ export function SystemClient() {
                     ) : (
                       "not available"
                     )}
-                    . Periodic Git reconciliation runs every {data.github.reconciliationSeconds}
+                    . Periodic Git reconciliation runs every {data.github.reconciliationSeconds}{" "}
                     seconds as a safety net. LAN addresses are never registered as external webhook
                     targets.
                   </p>

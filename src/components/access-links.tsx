@@ -17,17 +17,21 @@ export function AccessLinks({
     return <div className="text-sm text-base-content/55">No web access links for this worker.</div>;
   }
   return (
-    <div className={compact ? "grid gap-2" : "grid gap-3"}>
+    <div className={compact ? "grid min-w-0 gap-2" : "grid min-w-0 gap-3"}>
       {links.map((link) => (
         <div
           key={`${link.kind}:${link.url || link.label}`}
           className={
             compact
-              ? "flex min-w-0 items-center gap-2"
-              : "rounded-box border border-base-300 bg-base-100 p-3"
+              ? "flex min-w-0 max-w-full items-center gap-2"
+              : "rounded-box min-w-0 max-w-full overflow-hidden border border-base-300 bg-base-100 p-3"
           }
         >
-          <div className={compact ? "min-w-0 flex-1" : "flex flex-wrap items-start gap-3"}>
+          <div
+            className={
+              compact ? "min-w-0 flex-1" : "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start"
+            }
+          >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{link.label}</span>
@@ -35,7 +39,7 @@ export function AccessLinks({
               </div>
               {link.url ? (
                 <a
-                  className="link mt-1 block truncate font-mono text-xs"
+                  className="link mt-1 block max-w-full truncate font-mono text-xs"
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
@@ -52,7 +56,7 @@ export function AccessLinks({
             </div>
             {!compact && link.url && (
               <a
-                className="btn btn-sm"
+                className="btn btn-sm w-full shrink-0 sm:w-auto"
                 href={link.url}
                 target="_blank"
                 rel="noreferrer"

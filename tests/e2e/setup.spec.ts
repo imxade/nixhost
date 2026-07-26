@@ -206,6 +206,9 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
             active_deployment_id: null,
             updated_at: "2026-07-25T00:00:00.000Z",
           },
+          operationalStatus: "failed",
+          quickTunnel: null,
+          accessLinks: [],
           domains: [],
           cloudflare: { configured: false, enabled: false, running: false, routes: [] },
           environment: [],
@@ -241,19 +244,20 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page.locator("pre")).toContainText("authentication rejected");
 
   let cloudflarePending = false;
+  let cloudflareConfigured = false;
   await page.route("**/api/cloudflare/status", async (route) => {
     await route.fulfill({
       json: {
         ok: true,
         data: {
-          configured: false,
-          enabled: false,
-          running: false,
-          connectionMethod: null,
-          accountId: null,
-          zoneId: null,
-          tunnelId: null,
-          dashboardHostname: null,
+          configured: cloudflareConfigured,
+          enabled: cloudflareConfigured,
+          running: cloudflareConfigured,
+          connectionMethod: cloudflareConfigured ? "oauth" : null,
+          accountId: cloudflareConfigured ? "a".repeat(32) : null,
+          zoneId: cloudflareConfigured ? "b".repeat(32) : null,
+          tunnelId: cloudflareConfigured ? "tunnel-id" : null,
+          dashboardHostname: cloudflareConfigured ? "console.example.com" : null,
           oauth: { available: true, pending: cloudflarePending },
           routes: [],
         },
@@ -285,6 +289,8 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
       tunnelName: "nixhost",
       dashboardHostname: "console.example.com",
     });
+    cloudflareConfigured = true;
+    cloudflarePending = false;
     await route.fulfill({
       json: {
         ok: true,
