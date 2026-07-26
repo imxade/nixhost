@@ -20,34 +20,26 @@ export function dashboardAccessLinks(input: {
   namedTunnelEnabled: boolean;
   namedTunnelRunning: boolean;
 }): AccessLink[] {
-  const links: AccessLink[] = lanHttpUrls(input.port).map((url, index) => ({
+  const links: AccessLink[] = lanHttpUrls(input.port).map((url) => ({
     kind: "lan",
-    label: index === 0 ? "Dashboard on LAN" : `Dashboard on LAN ${index + 1}`,
+    label: "LAN",
     url,
     status: "available",
-    note: "Reachable only from the same local network.",
+    note: null,
   }));
-  if (input.quickTunnel?.url) {
+  if (input.quickTunnel?.running && input.quickTunnel.url) {
     links.push({
       kind: "temporary",
-      label: "Temporary dashboard URL",
+      label: "Temporary public URL",
       url: input.quickTunnel.url,
-      status: input.quickTunnel.running ? "available" : "unavailable",
-      note: "Changes only when this Quick Tunnel process must be recreated.",
-    });
-  } else if (input.quickTunnel) {
-    links.push({
-      kind: "temporary",
-      label: "Temporary dashboard URL",
-      url: "",
-      status: input.quickTunnel.status === "starting" ? "starting" : "unavailable",
-      note: input.quickTunnel.lastError ?? "Cloudflare is preparing the temporary URL.",
+      status: "available",
+      note: null,
     });
   }
   if (input.customHostname) {
     links.push({
       kind: "custom",
-      label: "Dashboard custom domain",
+      label: "Custom domain",
       url: `https://${input.customHostname}`,
       status:
         input.namedTunnelEnabled && input.namedTunnelRunning
@@ -64,7 +56,6 @@ export function dashboardAccessLinks(input: {
 }
 
 export function applicationAccessLinks(input: {
-  appName: string;
   publicPort: number | null;
   applicationStatus: string;
   quickTunnel: QuickTunnelRoute | null;
@@ -80,32 +71,20 @@ export function applicationAccessLinks(input: {
       : serviceStatus === "starting"
         ? `The application is currently ${input.applicationStatus}.`
         : `The URL is configured, but the application is ${input.applicationStatus}.`;
-  const links: AccessLink[] = lanHttpUrls(input.publicPort).map((url, index) => ({
+  const links: AccessLink[] = lanHttpUrls(input.publicPort).map((url) => ({
     kind: "lan",
-    label: index === 0 ? `${input.appName} on LAN` : `${input.appName} on LAN ${index + 1}`,
+    label: "LAN",
     url,
     status: serviceStatus,
-    note: serviceNote ?? "Reachable only from the same local network.",
+    note: serviceNote,
   }));
-  if (input.quickTunnel?.url) {
-    const tunnelReady = input.quickTunnel.running;
+  if (input.quickTunnel?.running && input.quickTunnel.url) {
     links.push({
       kind: "temporary",
       label: "Temporary public URL",
       url: input.quickTunnel.url,
-      status: tunnelReady ? serviceStatus : "unavailable",
-      note: tunnelReady
-        ? (serviceNote ??
-          "Remains active alongside custom domains while the tunnel process survives.")
-        : (input.quickTunnel.lastError ?? "The temporary tunnel is not running."),
-    });
-  } else if (input.quickTunnel) {
-    links.push({
-      kind: "temporary",
-      label: "Temporary public URL",
-      url: "",
-      status: input.quickTunnel.status === "starting" ? "starting" : "unavailable",
-      note: input.quickTunnel.lastError ?? "Cloudflare is preparing the temporary URL.",
+      status: serviceStatus,
+      note: serviceNote,
     });
   }
   for (const route of input.customRoutes) {

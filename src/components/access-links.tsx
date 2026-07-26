@@ -14,7 +14,7 @@ export function AccessLinks({
   compact?: boolean;
 }) {
   if (links.length === 0) {
-    return <div className="text-sm text-base-content/55">No web access links for this worker.</div>;
+    return <div className="text-sm text-base-content/55">No access URL is available.</div>;
   }
   return (
     <div className={compact ? "grid min-w-0 gap-2" : "grid min-w-0 gap-3"}>
@@ -27,43 +27,30 @@ export function AccessLinks({
               : "rounded-box min-w-0 max-w-full overflow-hidden border border-base-300 bg-base-100 p-3"
           }
         >
-          <div
-            className={
-              compact ? "min-w-0 flex-1" : "flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start"
-            }
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{link.label}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">{link.label}</span>
+              {link.status !== "available" && (
                 <span className={`badge badge-sm ${statusClass(link.status)}`}>{link.status}</span>
-              </div>
-              {link.url ? (
-                <a
-                  className="link mt-1 block max-w-full truncate font-mono text-xs"
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={link.url}
-                >
-                  {link.url}
-                </a>
-              ) : (
-                <div className="mt-1 text-xs text-base-content/55">URL not available yet</div>
-              )}
-              {!compact && link.note && (
-                <div className="mt-1 text-xs text-base-content/55">{link.note}</div>
               )}
             </div>
-            {!compact && link.url && (
+            {link.status === "available" ? (
               <a
-                className="btn btn-sm w-full shrink-0 sm:w-auto"
+                className="link mt-1 block max-w-full break-all font-mono text-xs"
                 href={link.url}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`Open ${link.label}`}
+                title={link.url}
               >
-                Open
+                {link.url}
               </a>
+            ) : (
+              <div className="mt-1 break-all font-mono text-xs text-base-content/55">
+                {link.url}
+              </div>
+            )}
+            {!compact && link.note && (
+              <div className="mt-1 text-xs text-base-content/55">{link.note}</div>
             )}
           </div>
         </div>

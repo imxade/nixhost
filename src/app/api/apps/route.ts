@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
         domains,
         domain: domains[0] ?? null,
         accessLinks: applicationAccessLinks({
-          appName: app.name,
           publicPort: app.public_port,
           applicationStatus: operationalStatus,
           quickTunnel,

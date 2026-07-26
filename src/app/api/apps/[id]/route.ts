@@ -41,7 +41,6 @@ export async function GET(request: NextRequest, context: Context) {
       },
       quickTunnel,
       accessLinks: applicationAccessLinks({
-        appName: app.name,
         publicPort: app.public_port,
         applicationStatus: operationalStatus,
         quickTunnel,

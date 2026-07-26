@@ -18,7 +18,6 @@ describe("application access links", () => {
 
   it("keeps temporary and custom routes together", () => {
     const links = applicationAccessLinks({
-      appName: "Example",
       publicPort: 4100,
       applicationStatus: "running",
       quickTunnel,
@@ -46,7 +45,6 @@ describe("application access links", () => {
 
   it("does not report a failed application as available", () => {
     const links = applicationAccessLinks({
-      appName: "Example",
       publicPort: 4100,
       applicationStatus: "failed",
       quickTunnel,
@@ -56,5 +54,26 @@ describe("application access links", () => {
     });
 
     expect(links.every((link) => link.status === "unavailable")).toBe(true);
+  });
+
+  it("does not invent a temporary URL while the tunnel is starting or failed", () => {
+    for (const status of ["starting", "error"] as const) {
+      const links = applicationAccessLinks({
+        publicPort: 4100,
+        applicationStatus: "running",
+        quickTunnel: {
+          ...quickTunnel,
+          url: null,
+          running: false,
+          status,
+          lastError: status === "error" ? "cloudflared was not found" : null,
+        },
+        customRoutes: [],
+        namedTunnelEnabled: false,
+        namedTunnelRunning: false,
+      });
+
+      expect(links.some((link) => link.kind === "temporary")).toBe(false);
+    }
   });
 });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatBytes } from "@/lib/client-api";
 import { type AccessLink, AccessLinks } from "./access-links";
 import { PageHeading } from "./page-heading";
+import { QuickTunnelNotice, type QuickTunnelState } from "./quick-tunnel-notice";
 
 type Status = {
   host: {
@@ -29,7 +30,7 @@ type Status = {
   cloudflare: { configured: boolean; enabled: boolean; running: boolean };
   quickTunnels: {
     enabled: boolean;
-    routes: Array<{ key: string; status: string; running: boolean; url: string | null }>;
+    routes: Array<QuickTunnelState & { key: string; targetType: string }>;
   };
   accessLinks: AccessLink[];
 };
@@ -57,6 +58,10 @@ export function SystemClient() {
       clearInterval(timer);
     };
   }, [load]);
+  const dashboardTunnel =
+    data?.quickTunnels.routes.find((route) => route.targetType === "dashboard") ?? null;
+  const activeTemporaryRoutes =
+    data?.quickTunnels.routes.filter((route) => route.running && route.url).length ?? 0;
   return (
     <>
       <PageHeading
@@ -78,22 +83,14 @@ export function SystemClient() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="card-title">Dashboard access</h2>
-                  <p className="text-sm text-base-content/60">
-                    Every currently configured LAN, temporary, and custom-domain address.
-                  </p>
+                  <p className="text-sm text-base-content/60">Available dashboard URLs.</p>
                 </div>
-                {data.quickTunnels.enabled && (
-                  <span className="badge badge-warning badge-outline">Quick Tunnel enabled</span>
-                )}
               </div>
               <AccessLinks links={data.accessLinks} />
-              {data.quickTunnels.enabled && (
-                <div className="alert alert-warning mt-2 text-sm">
-                  Quick Tunnel URLs are temporary, publicly reachable, and intended as a convenient
-                  fallback. The dashboard still requires NixHost authentication. Live updates may
-                  fall back to polling on this route.
-                </div>
-              )}
+              <QuickTunnelNotice
+                route={dashboardTunnel}
+                activeMessage="This temporary URL is public, but the dashboard still requires NixHost authentication."
+              />
             </div>
           </section>
 
@@ -163,13 +160,16 @@ export function SystemClient() {
                         : "not connected"}
                   </span>
                 </div>
-                <div className="flex min-w-0 flex-wrap justify-between gap-3">
-                  <span>Temporary routes</span>
-                  <span className="badge badge-outline">
-                    {data.quickTunnels.routes.filter((route) => route.running).length}/
-                    {data.quickTunnels.routes.length} running
-                  </span>
-                </div>
+                {data.quickTunnels.enabled && (
+                  <div className="flex min-w-0 flex-wrap justify-between gap-3">
+                    <span>Temporary public URLs</span>
+                    <span
+                      className={`badge ${activeTemporaryRoutes > 0 ? "badge-success" : "badge-ghost"}`}
+                    >
+                      {activeTemporaryRoutes} active
+                    </span>
+                  </div>
+                )}
                 <div className="mt-4 rounded-box border border-base-300 p-3 text-sm">
                   <div className="font-medium">Git deployment detection</div>
                   <p className="mt-1 text-base-content/65">
@@ -190,11 +190,6 @@ export function SystemClient() {
                     seconds as a safety net. LAN addresses are never registered as external webhook
                     targets.
                   </p>
-                </div>
-                <div className="alert mt-4 text-sm">
-                  Running applications are supervised independently from page requests. Quick
-                  Tunnels stay active while NixHost is running; a graceful shutdown closes them.
-                  After a crash or device reboot, NixHost may recreate a tunnel with a new URL.
                 </div>
               </div>
             </div>

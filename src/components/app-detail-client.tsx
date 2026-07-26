@@ -6,6 +6,7 @@ import { apiFetch, formatBytes, formatDate } from "@/lib/client-api";
 import { type AccessLink, AccessLinks } from "./access-links";
 import { type DomainRoute, DomainRouteStatusBadge } from "./domain-route-status";
 import { PageHeading } from "./page-heading";
+import { QuickTunnelNotice, type QuickTunnelState } from "./quick-tunnel-notice";
 import { StatusBadge } from "./status-badge";
 
 type App = {
@@ -40,7 +41,7 @@ type AppTab = "deployments" | "logs" | "environment" | "domains" | "settings";
 type Payload = {
   app: App;
   operationalStatus: string;
-  quickTunnel: null | { status: string; running: boolean; url: string | null };
+  quickTunnel: QuickTunnelState | null;
   accessLinks: AccessLink[];
   domains: string[];
   cloudflare: {
@@ -358,21 +359,14 @@ export function AppDetailClient({ appId }: { appId: string }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="card-title">Access links</h2>
-                <p className="text-sm text-base-content/60">
-                  LAN, temporary Cloudflare, and custom-domain links remain available together.
-                </p>
+                <p className="text-sm text-base-content/60">Available application URLs.</p>
               </div>
-              {data.quickTunnel && (
-                <span className="badge badge-warning badge-outline">Temporary URL is public</span>
-              )}
             </div>
             <AccessLinks links={data.accessLinks} />
-            {data.quickTunnel && (
-              <div className="alert alert-warning mt-2 text-sm">
-                A temporary URL is not authentication. Anyone who knows it can reach this
-                application unless the application itself requires sign-in.
-              </div>
-            )}
+            <QuickTunnelNotice
+              route={data.quickTunnel}
+              activeMessage="This temporary URL is public. The application must provide its own authentication if access should be restricted."
+            />
           </div>
         </div>
       )}
