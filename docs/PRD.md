@@ -2,7 +2,7 @@
 
 ## Product
 
-**NixHost** is an Android-first personal PaaS for trusted Nix flake applications. A user installs or already has working Nix, opens the LAN dashboard, connects GitHub, selects a repository, and deploys. The platform rebuilds and redeploys the configured production branch automatically.
+**NixHost** is a self-hosted personal PaaS for trusted Nix flake applications. A user installs or already has working Nix, opens the LAN dashboard, connects GitHub, selects a repository, and deploys. The platform rebuilds and redeploys the configured production branch automatically.
 
 ## Positioning
 

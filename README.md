@@ -1,78 +1,29 @@
 # NixHost
 
-NixHost is a LAN-first, self-hosted, VPS-like application host and deployment control plane built entirely with Next.js and TypeScript. It imports trusted GitHub repositories containing Nix flakes, runs their `apps.<system>` outputs, supervises the resulting processes, streams logs, assigns stable LAN ports and custom domains, and optionally exposes selected services through Cloudflare Tunnel.
+Self-hosted deployment platform for [Nix flake](https://nix.dev/concepts/flakes)
+applications. Connect a GitHub repository, pick a flake output, and deploy —
+NixHost supervises the process, streams logs, assigns a stable LAN port, and
+optionally exposes it through Cloudflare Tunnel.
 
-This is not merely “Vercel for Android.” A `flake.nix` can package far more than a web frontend: APIs, workers, bots, schedulers, language runtimes, databases intended for a trusted single-user host, and other long-running foreground services can all use the same GitHub auto-deployment pipeline.
+## Features
 
-> “VPS-like” describes the general-purpose application-hosting experience, not an isolation claim. NixHost does **not** turn Android into a virtual machine or a real VPS. Flakes provide reproducible software and commands, but cannot add missing kernel capabilities or bypass Android architecture, memory, battery, force-stop, and background-process restrictions. All deployed repositories run as the NixHost account and must be trusted.
+- **GitHub auto-deploy** — push to your production branch, NixHost redeploys
+  the exact commit. Branch reconciliation catches missed webhooks.
+- **LAN-first** — every application gets a stable port reachable at
+  `http://<device-ip>:<port>` with no external dependency.
+- **Quick Tunnels** — account-free temporary `trycloudflare.com` URLs for the
+  dashboard and every web application, available immediately.
+- **Persistent named tunnels** — optional Cloudflare OAuth or manual API token
+  connection for custom domains, DNS management and multi-zone support.
+- **Encrypted secrets** — environment variables are encrypted at rest and never
+  returned by APIs. Paste directly from a `.env` file.
+- **Zero-downtime deploys** — the current healthy release stays routed until the
+  candidate passes health checks.
 
-Today, Android development and physical-device validation use Nix-on-Droid. The distribution roadmap is a plug-and-play APK: install it, open it, and configure NixHost through the automatically started web interface without separate terminal setup. The APK, its native foreground-service wrapper, and Android distribution artifacts deliberately belong in a separate future repository; they are not part of this repository. That distribution must pass the Maestro, multi-device, foreground-service, packaging and licensing gates in [`docs/TESTING.md`](docs/TESTING.md). LAN access and optional Cloudflare exposure will keep the same NixHost authentication model.
+## Quick start
 
-## Current product contract
-
-- One long-running self-hosted Next.js control plane.
-- Android/Nix-on-Droid first; portable to other Nix-capable systems.
-- LAN access at `http://<device-ip>:3000` after login.
-- Automatic account-free `trycloudflare.com` Quick Tunnel for the dashboard and one
-  for every web application, with all current access links shown in the UI.
-- GitHub App creation directly from Applications, with search across every
-  repository granted to active App installations.
-- Automatic deployment after a signed GitHub push webhook whenever a public dashboard
-  route exists; custom domain wins, otherwise the current dashboard Quick Tunnel is used.
-- Periodic branch reconciliation remains enabled as recovery for missed webhooks,
-  offline periods, and temporary URL changes.
-- Repositories must contain `flake.nix` and `flake.lock`.
-- Preferred runnable output: `apps.<system>.default`.
-- Stable per-application LAN ports with health-checked release switching.
-- Up to 20 normalized custom domains per web application, unique across the node.
-- Host-based HTTP routing on the dashboard listener and stable per-app ports for any DNS/TLS provider.
-- Multi-zone Cloudflare DNS and Tunnel synchronization for domains managed by the configured token.
-- Persistent SQLite state, encrypted secrets, deployment history, live logs, resource sampling, process restart and recovery.
-- Feature-gated Cloudflare OAuth connection when a tested distribution supplies
-  its public client configuration, with automatic account/zone discovery,
-  encrypted refresh tokens and an independent manual least-privilege token
-  fallback. OAuth defaults off and disconnects with one environment switch.
-
-## Stack
-
-- Next.js App Router and React
-- TypeScript strict mode
-- Node.js 24 LTS target
-- Tailwind CSS and daisyUI
-- SQLite through `better-sqlite3`
-- Zod validation
-- Server-Sent Events
-- Native Node HTTP proxy and process supervision
-- Nix, Git and cloudflared as managed executables (`NIXHOST_CLOUDFLARED_BIN`
-  can select an absolute cloudflared path)
-- Biome for formatting, linting, and import organization; no ESLint
-- Vitest and Playwright
-
-## Repository layout
-
-```text
-src/app/                 Next.js pages and API Route Handlers
-src/components/          Dashboard client components
-src/server/              Durable control-plane services
-migrations/              Transactional SQLite migrations
-scripts/                 Diagnostics and launch helpers
-tests/                   Unit and browser tests
-docs/                    Product, architecture and operations documentation
-examples/hello-nixhost/      Minimal deployable flake example
-examples/npm-start-nixhost/  npm-start application packaged for deployment
-server.ts                 Custom persistent Next.js server
-instrumentation.ts        Runtime boot hook for standard Next.js paths
-flake.nix                 Locked Nix entry point and development shell
-nixhost.nix               Production package definition
-```
-
-## Development start
-
-Prerequisites: a working Nix installation and one of the flake's declared
-systems: `x86_64-linux`, `aarch64-linux`, or `aarch64-darwin`. The default
-development shell supplies Node.js 24, pnpm, Git, and the remaining host tools.
-Only `x86_64-linux` has completed the full release matrix recorded in this
-repository.
+Prerequisites: a working [Nix](https://nixos.org/download/) installation on
+`x86_64-linux`, `aarch64-linux`, or `aarch64-darwin`.
 
 ```bash
 nix develop
@@ -80,61 +31,26 @@ pnpm install
 pnpm dev
 ```
 
-The development command uses the lifecycle-owning custom server, so Ctrl+C
-closes managed Quick Tunnels. Running it outside the development shell is also
-supported when the required tools are installed. Quick Tunnels specifically
-require `cloudflared` on `PATH`, or its absolute path in
-`NIXHOST_CLOUDFLARED_BIN`.
+Open the setup URL printed in your terminal to claim the instance and create
+the owner account. The link includes a one-time token that ties ownership to
+whoever has terminal access.
 
-Android-device automation uses the separate reproducible tool shell:
+## Deploy an application
 
-```bash
-nix develop .#android
-```
+1. **Connect GitHub** from the Applications page — NixHost creates a per-node
+   GitHub App through the manifest flow.
+2. **Search and select** a repository granted to the App installation, or paste
+   a public GitHub HTTPS URL.
+3. **Pick the flake output** (defaults to `apps.<system>.default`).
+4. **Configure** health path and environment variables.
+5. **Deploy** — NixHost clones, evaluates the flake, builds via `nix run`, and
+   health-checks the candidate before switching traffic.
 
-It supplies Maestro, ADB, Java, curl, and yq without adding those tools to the
-production closure.
+## Application contract
 
-Open `http://127.0.0.1:3000`. The first-run token is printed by the process and written to:
-
-```text
-$NIXHOST_DATA_DIR/setup-token.txt
-```
-
-The default data directory is `~/.local/share/nixhost` in production and can be changed through `NIXHOST_DATA_DIR`.
-
-## Production start outside the Nix package
-
-```bash
-pnpm install --frozen-lockfile
-pnpm biome:ci
-pnpm typecheck
-pnpm test
-pnpm build
-HOSTNAME=0.0.0.0 PORT=3000 pnpm start
-```
-
-The repository includes the resolved `pnpm-lock.yaml`, `flake.lock`, and Nix fixed-output dependency hash. Do not regenerate them casually; dependency updates must repeat the full validation gate in [`LOCAL_AGENT_PROMPT.md`](LOCAL_AGENT_PROMPT.md).
-
-CI and local browser automation use a separate loopback-only command:
-
-```bash
-pnpm build
-pnpm start:ci
-```
-
-It recreates only a guarded test-data directory and provisions the documented
-test admin `qwerty123456` / `qwerty123456`. Never use this command for a LAN or
-production node. `pnpm start` has no default credentials and always retains the
-one-time owner-claim flow.
-
-## Application flake contract
-
-A web application must remain in the foreground and listen on `HOST` and `PORT`. Mutable state belongs under `DATA_DIR`.
-
-`flake.nix` is the locked discovery entry point NixHost evaluates. Projects may
-keep the actual deployment package in a separate `nixhost.nix` and expose it
-from the flake, as both checked-in examples do.
+A web application must remain in the foreground and listen on `HOST` and `PORT`.
+Mutable state belongs under `DATA_DIR`. The repository must contain `flake.nix`
+and `flake.lock`.
 
 ```nix
 apps.${system}.default = {
@@ -143,58 +59,20 @@ apps.${system}.default = {
 };
 ```
 
-NixHost starts it with:
+See [`docs/DEPLOYMENT_CONTRACT.md`](docs/DEPLOYMENT_CONTRACT.md) and the
+[example projects](examples/).
 
-```bash
-nix run --no-write-lock-file .#default
-```
+## Stack
 
-See [`docs/DEPLOYMENT_CONTRACT.md`](docs/DEPLOYMENT_CONTRACT.md) and the example project.
-
-## Public push-redeployment acceptance
-
-The opt-in acceptance test clones a dedicated public GitHub repository, resolves
-its default branch, deploys the exact initial revision, pushes a marker commit,
-waits for the production background reconciler without invoking it directly,
-and verifies that the new exact revision replaces the healthy release. It also
-opens the real application Quick Tunnel before and after the push and requires
-that its URL stay healthy and unchanged across activation:
-
-```bash
-gh auth setup-git
-NIXHOST_PUBLIC_TEST_REPOSITORY_URL=https://github.com/imxade/nixhost-deployment-test.git \
-NIXHOST_PUBLIC_TEST_PUSH=1 \
-nix develop --command pnpm test:github-public
-```
-
-The test intentionally mutates the named remote and therefore requires both the
-URL and explicit push acknowledgement. The fixture's default branch is `trunk`;
-this also proves that an omitted production branch follows remote `HEAD` instead
-of assuming `main`.
-
-## Custom domains
-
-Each web application can have multiple hostnames such as `api.example.com` and `www.example.net`.
-
-- Cloudflare-managed zones authorized through OAuth or the manual API-token fallback are synchronized automatically.
-- Hostnames managed elsewhere are left untouched. Point them through your chosen DNS/TLS reverse proxy to the app's stable LAN port.
-- Each application's Domains tab shows whether every hostname is Cloudflare-managed, externally managed, awaiting synchronization, or failed, together with the stable origin port and last synchronization result.
-- Plain HTTP requests reaching the NixHost dashboard listener are also routed by `Host`.
-- TLS termination remains the responsibility of Cloudflare or the external reverse proxy.
-
-The dashboard hostname can be added or replaced after connection without
-re-entering Cloudflare credentials. Quick Tunnel URLs remain active alongside
-custom hostnames. They are temporary Cloudflare-owned convenience URLs, not
-reserved production domains, and can change after their `cloudflared` process
-is recreated.
-
-## Security warning
-
-Every imported repository can execute arbitrary code with the same host account as NixHost. Nix flakes provide reproducibility, not a security boundary. Only deploy repositories you trust. NixHost is not a multi-tenant sandbox.
+- Next.js App Router, React, TypeScript strict mode
+- Node.js 24, SQLite through `better-sqlite3`
+- Tailwind CSS, daisyUI
+- Zod validation, Server-Sent Events
+- Biome (format + lint), Vitest, Playwright
+- Nix, Git and cloudflared as managed executables
 
 ## Documentation
 
-- [Product requirements](docs/PRD.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Deployment contract](docs/DEPLOYMENT_CONTRACT.md)
 - [Security model](docs/SECURITY.md)
@@ -204,8 +82,16 @@ Every imported repository can execute arbitrary code with the same host account 
 - [Operations](docs/OPERATIONS.md)
 - [Testing](docs/TESTING.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md)
+- [Product requirements](docs/PRD.md)
+- [Specification](SPECIFICATION.md)
 - [Implementation status](PROJECT_STATUS.md)
+
+## Security
+
+Every imported repository executes arbitrary code under the NixHost OS account.
+Nix flakes provide reproducibility, not a security boundary. Only deploy
+repositories you trust.
 
 ## License
 
-Apache-2.0. Copyright 2026 Rituraj Basak. See `LICENSE` and `NOTICE`.
+Apache-2.0. Copyright 2026 Rituraj Basak. See `LICENSE`.

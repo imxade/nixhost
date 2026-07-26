@@ -45,13 +45,15 @@ can contribute to Android release evidence.
 
 ## Production Android direction
 
-A later integrated application should own:
-
-- fork the official Nix-on-Droid repository using the GitHub CLI.
-- add a persistent background service that keeps the NextHost application running.
-- add foreground service and persistent notification keep the project running
-- replace the launcher UI with a WebView that directly displays the web interface.
-- prefill the account creation key in the web interface during the initial account setup.
+- Fork the official Nix-on-Droid repository.
+- Install dependencies using the Nix-on-Droid shell.
+- Create the `.env` and other configuration files required by the project.
+- Add a persistent Android foreground service with a notification that keeps
+  the NixHost control plane running.
+- Replace the default launcher UI with a WebView that directly displays the
+  NixHost web interface.
+- Pre-fill the one-time setup token in the WebView during initial account
+  creation, eliminating the manual copy-paste step.
 
 The Next.js control plane remains unchanged and is started by this native lifecycle wrapper.
 
