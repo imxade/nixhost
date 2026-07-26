@@ -1,6 +1,7 @@
+import { spawn } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { parseQuickTunnelUrl } from "../../src/server/quick-tunnel-url.ts";
-import { quickTunnelArguments } from "../../src/server/quick-tunnels.ts";
+import { quickTunnelArguments, spawnedProcessId } from "../../src/server/quick-tunnels.ts";
 
 describe("Quick Tunnel URL discovery", () => {
   it("extracts the Cloudflare URL from structured or plain logs", () => {
@@ -29,5 +30,10 @@ describe("Quick Tunnel URL discovery", () => {
       "--url",
       "http://127.0.0.1:4100",
     ]);
+  });
+
+  it("preserves spawn errors instead of reporting a missing PID", async () => {
+    const child = spawn(`missing-cloudflared-${process.pid}`, [], { stdio: "ignore" });
+    await expect(spawnedProcessId(child)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

@@ -257,30 +257,29 @@ export class QuickTunnelController {
       return;
     }
 
+    let pid: number;
+    try {
+      pid = await spawnedProcessId(child);
+    } catch (error) {
+      this.recordFailure(target.key, cloudflaredStartError(error), previousFailures + 1);
+      return;
+    }
+
     let terminalHandled = false;
     child.once("error", (error) => {
       if (terminalHandled) return;
       terminalHandled = true;
       this.managed.delete(target.key);
-      this.recordFailure(target.key, errorMessage(error), previousFailures + 1);
+      this.recordFailure(target.key, cloudflaredStartError(error), previousFailures + 1);
     });
 
-    if (!child.pid) {
-      terminalHandled = true;
-      this.recordFailure(
-        target.key,
-        "cloudflared did not return a process ID",
-        previousFailures + 1,
-      );
-      return;
-    }
-    const identity = captureProcessIdentity(child.pid);
+    const identity = captureProcessIdentity(pid);
     if (!identity) {
       terminalHandled = true;
       terminateIdentity(
         {
-          pid: child.pid,
-          processGroupId: child.pid,
+          pid,
+          processGroupId: pid,
           startTicks: null,
           commandHash: null,
           commandSummary: null,
@@ -475,6 +474,35 @@ function delay(ms: number): Promise<void> {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export async function spawnedProcessId(child: ChildProcess): Promise<number> {
+  if (child.pid) return child.pid;
+  await new Promise<void>((resolve, reject) => {
+    const onSpawn = (): void => {
+      child.off("error", onError);
+      resolve();
+    };
+    const onError = (error: Error): void => {
+      child.off("spawn", onSpawn);
+      reject(error);
+    };
+    child.once("spawn", onSpawn);
+    child.once("error", onError);
+  });
+  if (!child.pid) throw new Error("cloudflared started without a process ID");
+  return child.pid;
+}
+
+function cloudflaredStartError(error: unknown): string {
+  const message = errorMessage(error);
+  if (
+    message.includes("ENOENT") ||
+    (error instanceof Error && "code" in error && error.code === "ENOENT")
+  ) {
+    return "cloudflared was not found. Run NixHost inside `nix develop` or set NIXHOST_CLOUDFLARED_BIN to its absolute path.";
+  }
+  return `Unable to start cloudflared: ${message}`;
 }
 
 export function quickTunnelArguments(localPort: number): string[] {
