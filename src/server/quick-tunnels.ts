@@ -494,13 +494,13 @@ export async function spawnedProcessId(child: ChildProcess): Promise<number> {
   return child.pid;
 }
 
-function cloudflaredStartError(error: unknown): string {
+export function cloudflaredStartError(error: unknown): string {
   const message = errorMessage(error);
   if (
     message.includes("ENOENT") ||
     (error instanceof Error && "code" in error && error.code === "ENOENT")
   ) {
-    return "cloudflared was not found. Run NixHost inside `nix develop` or set NIXHOST_CLOUDFLARED_BIN to its absolute path.";
+    return "Missing dependency: cloudflared. Install cloudflared or set NIXHOST_CLOUDFLARED_BIN to its absolute path.";
   }
   return `Unable to start cloudflared: ${message}`;
 }
