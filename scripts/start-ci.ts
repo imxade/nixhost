@@ -29,6 +29,7 @@ Object.assign(process.env, {
 process.env.PORT ??= "3001";
 process.env.NIXHOST_MIN_FREE_DISK_MB ??= "128";
 process.env.NIXHOST_MIN_FREE_MEMORY_MB ??= "64";
+process.env.NIXHOST_QUICK_TUNNELS_ENABLED ??= "false";
 
 const [{ getDb, closeDb, nowIso }, { hashPassword, randomToken }] = await Promise.all([
   import("../src/server/db.ts"),

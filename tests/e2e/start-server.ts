@@ -21,6 +21,7 @@ const child = spawn("pnpm", ["start"], {
     NIXHOST_DATA_DIR: dataDirectory,
     NIXHOST_MIN_FREE_DISK_MB: "128",
     NIXHOST_MIN_FREE_MEMORY_MB: "64",
+    NIXHOST_QUICK_TUNNELS_ENABLED: "false",
   },
 });
 
