@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-07-25.
+Last updated: 2026-07-26.
 
 ## Implemented
 
@@ -45,42 +45,21 @@ Last updated: 2026-07-25.
   proves exact-commit healthy redeployment through the stable proxy.
 - Apache-2.0 licensing with Rituraj Basak recorded as the owner.
 
-## Validation status for this Quick Tunnel revision
-
-The source-level checks run in the current artifact environment passed:
-
-```text
-TypeScript/TSX parser sweep across repository source
-internal relative/alias import resolution audit
-SQL migration application on a fresh SQLite database (7 migrations)
-tracked secret-pattern scan
-shell syntax checks for modified scripts
-git diff whitespace/error checks
-targeted execution: access-link composition, Quick URL parsing, dotenv parsing,
-                   bounded log reads, and symlink refusal
-```
-
-The current environment has Node.js 22, no installed project dependencies, no Nix,
-no `cloudflared`, and no outbound package-registry access. Therefore the existing
-Node.js 24/pnpm/Vitest/Next.js/Nix/live-Cloudflare validation matrix below was **not
-rerun for this revision**. It records the previously validated baseline only. Before
-release, rerun `pnpm check`, browser/integration tests, Nix checks, and the real
-Quick Tunnel/custom-domain acceptance matrix on the supported host.
-
 ## Validation completed on x86_64 Linux
 
-The following passed on 2026-07-25:
+The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
+Nix 2.34.8 and cloudflared 2026.7.2:
 
 ```text
-pnpm biome:ci
+pnpm biome:ci                   # 156 files
 pnpm typecheck
-pnpm test                         # 13 files, 46 tests
-pnpm build
-pnpm test:e2e                    # two isolated servers, Chromium, 2 scenarios
-pnpm test:examples               # both checked-in examples, exact commits
+pnpm test                       # 18 files, 56 tests
+pnpm build                      # Next.js 16.2.11 production build
+pnpm test:e2e                   # Chromium, 2 scenarios, three viewport sizes
+pnpm test:examples              # both checked-in examples, exact commits
 pnpm test:deployment
-pnpm db:doctor                   # integrity ok, WAL, no FK violations, baseline migrations exact
-pnpm security:check              # private modes and tracked-secret scan
+pnpm db:doctor                  # seven migrations, integrity ok, WAL, no FK violations
+pnpm security:check             # private modes and tracked-secret scan
 pnpm audit --prod --audit-level high
 pnpm licenses list --prod
 nix flake check --print-build-logs
@@ -91,13 +70,17 @@ nix flake check ./examples/npm-start-nixhost
 nix build ./examples/npm-start-nixhost
 NIXHOST_PUBLIC_TEST_REPOSITORY_URL=https://github.com/imxade/nixhost-deployment-test.git \
   NIXHOST_PUBLIC_TEST_PUSH=1 pnpm test:github-public
-NIXHOST_MAESTRO_ORIGIN=host ANDROID_SERIAL=emulator-5554 \
-  nix develop .#android --command scripts/android/run-maestro.sh ci-login development-emulator
 ```
 
 The direct-example harness copied each example into the root of its own Git repository and deployed it through the production engine without using the frontend. Both the minimal server and the npm `start` application activated at their exact commits, passed real health checks, returned through stable proxy ports and had their process groups stopped.
 
-The real-Nix deployment integration verified healthy activation, a failing candidate preserving the active release, rapid-queue superseding, recovery of the same detached process after control-plane restart, child process-group shutdown and stable-port unavailability after stop. The current Apache-licensed `result/bin/nixhost` artifact was also started with an empty isolated data directory; all five migrations ran, `/api/health`, `/api/setup/status`, `/setup` and a traced Next.js CSS asset were served before a clean SIGINT shutdown.
+The real-Nix deployment integration verified healthy activation, a failing candidate preserving the active release, rapid-queue superseding, recovery of the same detached process after control-plane restart, child process-group shutdown and stable-port unavailability after stop. The current Apache-licensed `result/bin/nixhost` artifact was also started with an empty isolated data directory; all seven migrations ran, `/api/health`, `/api/setup/status`, `/setup` and a traced Next.js CSS asset were served before a clean SIGINT shutdown.
+
+The newly built package was also started against an isolated data directory with
+Quick Tunnels enabled. Its dashboard health endpoint returned 200 locally and at
+`https://effectiveness-information-organized-jump.trycloudflare.com`, with the
+production CSP and no `unsafe-eval`. SIGINT stopped the tunnel and released the
+runtime lock without leaving a child process.
 
 Backup tests perform a real SQLite/application-data CLI round trip and reject a
 checksum-tampered archive before mutating current state. Browser tests verify
@@ -124,24 +107,39 @@ CSP and remained healthy through a complete branch-poll interval. The known
 broken commit's reconciliation count and latest timestamp did not change during
 that soak.
 
-GitHub manifest tests verify that LAN-only registration supplies GitHub's
-required hook URL using an inactive reserved public sentinel, requests only the
-supported push event, and enables installation setup returns. A configured
-`NIXHOST_PUBLIC_URL` supplies and activates the real public webhook origin.
+GitHub manifest tests verify that registration always supplies a syntactically
+valid public hook URL, requests only the supported push event, and enables
+installation setup returns. A configured `NIXHOST_PUBLIC_URL` supplies and
+activates the real public webhook origin.
 
 The public fixture
 `https://github.com/imxade/nixhost-deployment-test.git` uses `trunk` as remote
 HEAD. The acceptance test deployed
-`9a5657d96856555daec8dae6e4ec644f16f39ea7`, pushed
-`cf80d75d88578fc9af547acf281444eb95642005`, reconciled it, activated that exact
-revision through the healthy stable proxy, and superseded the previous release.
+`cf80d75d88578fc9af547acf281444eb95642005`, pushed
+`847ec6394705ab0810f93d21eda6ff503b0729e3`, and let the normal 15-second
+background polling loop detect it. The exact revision activated after 10 seconds,
+superseded the previous release and remained healthy through the stable proxy and
+the unchanged application Quick URL
+`https://path-babies-function-biotechnology.trycloudflare.com`.
 
 The Android development shell evaluated for `x86_64-linux`, `aarch64-linux`,
 and `aarch64-darwin`. Its Maestro 2.6.1 CI login flow passed on an Android 15
 x86_64 development emulator and recorded non-release evidence. The
 Nix-on-Droid runner correctly rejected that non-ARM64 device.
 
-The dependency audit originally identified high-severity `sharp`/libvips and PostCSS advisories in Next.js transitive dependencies. Exact pnpm overrides now resolve `sharp 0.35.0` and `postcss 8.5.18`; the repeated production audit reports no known vulnerabilities.
+Cloudflare OAuth is now an optional provider module controlled by
+`NIXHOST_CLOUDFLARE_OAUTH_ENABLED`, which defaults to false. Disabling that one
+switch prevents provider loading and consent/refresh operations while leaving
+Quick Tunnels, LAN routing and manual API-token configuration independent. Unit
+coverage verifies the disabled boundary even when OAuth credentials are present.
+Live OAuth and custom-domain acceptance remain external release gates.
+
+The security review reconfirmed argument-array process spawning, strict GitHub URL
+and branch validation, encrypted secrets, HMAC-verified/deduplicated webhooks,
+bounded webhook/log input, same-origin mutations, role checks, loopback-only
+forwarded-header trust, secure forwarded-HTTPS cookies and sanitized Git
+credentials. Five unused server exports and two redundant routing helpers were
+removed. The production dependency audit reports no known vulnerabilities.
 
 ## External and platform evidence still required
 

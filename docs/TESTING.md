@@ -76,6 +76,16 @@ for Cloudflare's initial DNS warm-up and can verify the edge through public DNS
 when the test host's resolver has negatively cached the newly assigned hostname.
 It must never be pointed at a repository whose history should remain untouched.
 
+The 2026-07-26 acceptance run used the public
+`imxade/nixhost-deployment-test` fixture whose default branch is `trunk`. Normal
+background reconciliation detected pushed commit
+`847ec6394705ab0810f93d21eda6ff503b0729e3` within 10 seconds, activated that
+exact revision and served it through the same application Quick Tunnel before
+and after redeployment. This proves public-clone, default-branch discovery,
+polling redeployment, stable proxy routing and live Quick Tunnel delivery; it
+does not substitute for a private GitHub App installation or signed-webhook
+acceptance test.
+
 ## Deployment fixtures
 
 Test with repositories that represent:
