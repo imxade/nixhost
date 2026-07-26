@@ -67,9 +67,10 @@ restart, a replacement process can receive a new URL. Set
 `NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
 only. Quick Tunnel URLs remain enabled alongside custom domains.
 
-Source development must use `npm run dev` or `pnpm dev`; those commands enter the
-locked Nix shell when necessary and run the lifecycle-owning custom server. Starting
-Next.js directly bypasses that lifecycle and is unsupported.
+Source development must use `npm run dev` or `pnpm dev` to run the
+lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or
+its absolute path in `NIXHOST_CLOUDFLARED_BIN`. Starting Next.js directly
+bypasses tunnel cleanup and is unsupported.
 
 ## Recovery
 
