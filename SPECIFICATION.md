@@ -57,7 +57,7 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
     provide a retry action instead of displaying an indefinite spinner.
 22. The custom server preserves WebSocket upgrades for host-routed applications
     and, during source development, for Next.js HMR from the host's current LAN
-    addresses.
+    addresses and the dashboard's same-origin Quick Tunnel.
 23. A Quick Tunnel URL is not presented as available until its
     `trycloudflare.com` hostname is present in public DNS. A control-plane
     startup failure before the HTTP server is ready must not leave tunnel

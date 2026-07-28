@@ -42,9 +42,11 @@ NixHost protects the management interface and stored credentials from unauthenti
   requires it for debugging. Production responses exclude `unsafe-eval`; the
   production E2E suite asserts that boundary.
 - Source development allows the host's current non-loopback LAN IPv4 addresses
-  to request Next.js development resources and HMR upgrades. This allowlist is
-  computed only in development; application mutation origin checks remain
-  enforced.
+  to request Next.js development resources and HMR upgrades. A dashboard Quick
+  Tunnel HMR upgrade is accepted only when its strict `trycloudflare.com` Host
+  and Origin match and the proxy connection comes from loopback. Arbitrary
+  Quick Tunnel origins stay blocked. This handling exists only in development;
+  application mutation origin checks remain enforced.
 
 LAN HTTP remains readable by an attacker who can observe the local network. Use a
 trusted LAN or local HTTPS. Cloudflare HTTPS protects the browser-to-edge connection

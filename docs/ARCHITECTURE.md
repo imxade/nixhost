@@ -52,7 +52,10 @@ The selected product constraint is “Next.js completely.” A custom Node HTTP 
 The runtime is also guarded on `globalThis` to avoid duplicate initialization
 from Next.js development reloads or instrumentation. The custom server forwards
 Next.js HTTP upgrades, and source development allows the host's current LAN IPv4
-addresses so HMR works when the dashboard is opened from another LAN device.
+addresses so HMR works when the dashboard is opened from another LAN device. It
+also admits a development HMR upgrade from the dashboard's strict, same-origin
+`trycloudflare.com` URL when local `cloudflared` proxies it over loopback;
+arbitrary cross-origin Quick Tunnel requests remain blocked.
 Quick Tunnel URLs remain in the starting state until Cloudflare's public DNS
 resolver returns an address for the assigned hostname.
 

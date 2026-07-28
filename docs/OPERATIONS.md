@@ -101,8 +101,10 @@ bypasses tunnel cleanup and is unsupported.
 The development command forwards Next.js HMR WebSocket upgrades. At startup,
 Next.js allows the host's current non-loopback LAN IPv4 addresses as development
 origins; restart the command after changing networks so the allowlist is
-recomputed. This development-only setting does not alter production origin
-checks.
+recomputed. The custom server also accepts the dashboard Quick Tunnel's strict
+same-origin HMR upgrade when it arrives from local `cloudflared`; other Quick
+Tunnel origins remain blocked. This development-only handling does not alter
+production origin checks.
 
 ## Recovery
 

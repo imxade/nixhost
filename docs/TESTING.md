@@ -42,8 +42,9 @@ the hourly authentication limit including `Retry-After`. The third production
 server runs the complete create/change/logout/login lifecycle with JavaScript
 disabled and fails if any password field appears in a request URL. A fourth
 source-development server verifies that the custom HTTP server completes the
-Next.js HMR WebSocket upgrade. Set `NIXHOST_E2E_PORT_BASE` when the default
-four-port range beginning at 3000 is already occupied.
+Next.js HMR WebSocket upgrade over both LAN and a simulated same-origin Quick
+Tunnel request. Set `NIXHOST_E2E_PORT_BASE` when the default four-port range
+beginning at 3000 is already occupied.
 
 Authenticated dashboard routes are also exercised at `320x568`, `768x1024`,
 and `1440x900`. The suite checks the applications, users, GitHub, Cloudflare,

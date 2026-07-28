@@ -5,6 +5,7 @@ import { config } from "./src/server/config.ts";
 import { events } from "./src/server/events.ts";
 import { logger } from "./src/server/logger.ts";
 import { lanHttpUrls } from "./src/server/network.ts";
+import { parseQuickTunnelUrl } from "./src/server/quick-tunnel-url.ts";
 import { bootRuntime } from "./src/server/runtime.ts";
 import { currentSetupToken, firstRunSetupUrl } from "./src/server/setup-links.ts";
 
@@ -62,6 +63,7 @@ server.on("upgrade", (request, socket, head) => {
   socket.once("close", () => upgradedSockets.delete(socket));
   if (platformRuntime.proxy.proxyDomainUpgrade(request, socket, head)) return;
   sanitizeForwardedHeaders(request);
+  allowSameOriginQuickTunnelHmr(request);
   void handleUpgrade(request, socket, head).catch((error: unknown) => {
     logger.error("Unhandled Next.js upgrade error", {
       error: error instanceof Error ? error.message : String(error),
@@ -121,6 +123,30 @@ function sanitizeForwardedHeaders(request: http.IncomingMessage): void {
     delete request.headers["x-forwarded-proto"];
   }
   request.headers["x-nixhost-client-ip"] = remoteAddress;
+}
+
+function allowSameOriginQuickTunnelHmr(request: http.IncomingMessage): void {
+  if (!development) return;
+  if (requestPath(request.url) !== "/_next/webpack-hmr") return;
+  const remoteAddress = request.socket.remoteAddress;
+  if (
+    remoteAddress !== "127.0.0.1" &&
+    remoteAddress !== "::1" &&
+    remoteAddress !== "::ffff:127.0.0.1"
+  ) {
+    return;
+  }
+  const host = request.headers.host;
+  const rawOrigin = request.headers.origin;
+  if (!host || typeof rawOrigin !== "string") return;
+  const quickTunnelOrigin = parseQuickTunnelUrl(`https://${host}`);
+  if (!quickTunnelOrigin) return;
+  try {
+    if (new URL(rawOrigin).origin.toLowerCase() !== quickTunnelOrigin) return;
+  } catch {
+    return;
+  }
+  delete request.headers.origin;
 }
 
 let shuttingDown = false;

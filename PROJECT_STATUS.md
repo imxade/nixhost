@@ -87,10 +87,11 @@ credential-bearing request URLs.
 
 The same run reproduced the source-development HMR failure over LAN, then
 verified that the custom server completes the Next.js WebSocket upgrade and
-allows the host's current LAN origin. The browser suite now covers this boundary
-in CI. A second browser scenario forces a competing Next.js development start
-and proves it exits before creating the persistent data directory or starting
-Quick Tunnels. It also injects initial API failures into Applications, GitHub,
+allows the host's current LAN origin and the dashboard's strict same-origin
+Quick Tunnel. The browser suite now covers this boundary in CI. A second browser
+scenario forces a competing Next.js development start and proves it exits before
+creating the persistent data directory or starting Quick Tunnels. It also
+injects initial API failures into Applications, GitHub,
 Cloudflare and System and verifies that each page stops loading, shows the
 failure and offers Retry. Host-routed application WebSocket upgrades now use the
 same verified proxy path as stable-port upgrades. Redundant no-op SSE handlers
