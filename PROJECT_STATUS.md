@@ -28,7 +28,8 @@ Last updated: 2026-07-28.
 - Automatic account-free Quick Tunnels for the dashboard and every web application's
   stable public port, with supervised lifecycle, strict URL parsing, simultaneous
   LAN/temporary/custom access links, public-DNS and end-to-end edge readiness
-  checks before link exposure, and safe cleanup before application deletion.
+  checks before link exposure, periodic published-route checks with rotation after
+  repeated edge failures, and safe cleanup before application deletion.
 - Webhook-first GitHub deployment detection using custom dashboard domain, explicit
   public URL, or dashboard Quick Tunnel in that order, with periodic reconciliation
   retained as missed-delivery and route-rotation recovery.
@@ -37,6 +38,10 @@ Last updated: 2026-07-28.
   in-progress work and prevents webhook or polling restarts until manual redeploy.
 - Multiline write-only dotenv-style secret entry and bounded, symlink-resistant
   deployment-log snapshot fallback when live SSE is unavailable.
+- Dotenv parsing covers CRLF/BOM input, comments, quoted values, embedded equals
+  signs and multiline quoted values. The deployment integration test verifies
+  that a complete pasted file remains separated after encryption and reaches
+  the launched application process, including valid empty assignments.
 - File-backed live logs with bounded active/inactive retention.
 - Verified, checksummed SQLite/application-data backup and rollback-safe restore commands.
 - Locked pnpm and Nix inputs, reproducible Nix dependency hash, CI security/audit/license gates and packaged operational commands.
@@ -99,7 +104,7 @@ and duplicated bounded request-body parsing were removed; an explicit
 TypeScript unused-local/unused-parameter audit also passed.
 
 The live `nixhost` branch of `https://github.com/imxade/kitsy.git` was deployed
-at exact commit `55f73a317906bfe6e0e73c2011e921ec1c8a5eb5`. The failure was
+at exact commit `f8371e9bbeedb080cec7680b3878898079200761`. The failure was
 reproduced: `cloudflared` announced the application's hostname before that name
 was usable through the public edge. With the readiness gate in place, both
 dashboard and application routes remained **Preparing** until Cloudflare DNS
@@ -110,6 +115,18 @@ HTTP 200 through its separate Quick Tunnel, and Playwright rendered the full
 application page through the public application URL. A
 controlled shutdown with active upgraded browser sockets exited promptly,
 stopped both tunnel process groups and released the runtime lock.
+
+On 2026-07-28, a real dashboard paste stored six separate Kitsy variables and
+the active application process received every value exactly, including spaces,
+an embedded equals sign, a quoted hash, a multiline value and an empty value.
+The API used `PUT` and returned key metadata without returning stored values.
+Pushing Kitsy commit `f8371e9bbeedb080cec7680b3878898079200761` to the deployed
+`nixhost` branch triggered the signed GitHub webhook, activated that exact commit
+in about 22 seconds and superseded the previous release while the stable LAN
+route remained HTTP 200. Repeated account-free edge probes also reproduced
+intermittent Cloudflare timeouts with a live connector; periodic route
+revalidation and automatic rotation now prevent such a hostname from remaining
+indefinitely advertised as healthy.
 
 The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
 Nix 2.34.8 and cloudflared 2026.7.2:

@@ -19,13 +19,15 @@ process.env.NIXHOST_MIN_FREE_MEMORY_MB = "64";
 process.env.NIXHOST_GIT_POLL_SECONDS = "86400";
 process.env.NIXHOST_METRICS_SECONDS = "2";
 
-const [{ PlatformRuntime }, database, appService, ports, processIdentity] = await Promise.all([
-  import("../../src/server/runtime.ts"),
-  import("../../src/server/db.ts"),
-  import("../../src/server/app-service.ts"),
-  import("../../src/server/ports.ts"),
-  import("../../src/server/process-identity.ts"),
-]);
+const [{ PlatformRuntime }, database, appService, environment, ports, processIdentity] =
+  await Promise.all([
+    import("../../src/server/runtime.ts"),
+    import("../../src/server/db.ts"),
+    import("../../src/server/app-service.ts"),
+    import("../../src/server/environment.ts"),
+    import("../../src/server/ports.ts"),
+    import("../../src/server/process-identity.ts"),
+  ]);
 
 let runtime: InstanceType<typeof PlatformRuntime> | null = null;
 const appId = crypto.randomUUID();
@@ -48,6 +50,27 @@ try {
         'on-failure', '/health', 2, 10, ?, ?, ?)`,
     )
     .run(appId, repository, publicPort, now, now);
+  const expectedEnvironment = {
+    FIXTURE_PLAIN: "alpha",
+    FIXTURE_SPACED: "two words",
+    FIXTURE_EQUALS: "left=right",
+    FIXTURE_HASH: "literal # hash",
+    FIXTURE_MULTILINE: "first\nsecond",
+    FIXTURE_EMPTY: "",
+  };
+  appService.setEnvironment(
+    appId,
+    environment.parseEnvironmentText(`
+# A complete dotenv paste is parsed, encrypted, stored and launched as separate values.
+FIXTURE_PLAIN=alpha
+FIXTURE_SPACED="two words"
+FIXTURE_EQUALS=left=right
+FIXTURE_HASH='literal # hash'
+FIXTURE_MULTILINE="first
+second"
+FIXTURE_EMPTY=
+`),
+  );
   await runtime.proxy.reconcile();
 
   const first = appService.queueDeployment(appId, {
@@ -63,6 +86,7 @@ try {
   assert.ok(running.process_command_hash);
   assert.ok(processIdentity.matchesProcessIdentity(running));
   assert.equal(await responseText(publicPort), "v1");
+  assert.deepEqual(JSON.parse(await responseText(publicPort, "/environment")), expectedEnvironment);
 
   createFixtureRepository(repository, 500, "v2");
   const secondCommit = git(repository, ["rev-parse", "HEAD"]).trim();
@@ -120,6 +144,7 @@ try {
   console.log(
     JSON.stringify({
       healthyActivation: true,
+      dotenvEnvironmentReachedProcess: true,
       failedCandidatePreservedRelease: true,
       queueSuperseding: true,
       recoveredProcessIdentity: true,
@@ -166,15 +191,28 @@ function createFixtureRepository(target: string, healthStatus: number, version: 
   fs.writeFileSync(
     path.join(target, "server.py"),
     `import http.server
+import json
 import os
 import subprocess
 
 child = subprocess.Popen(["sleep", "3600"])
+environment_keys = [
+    "FIXTURE_PLAIN",
+    "FIXTURE_SPACED",
+    "FIXTURE_EQUALS",
+    "FIXTURE_HASH",
+    "FIXTURE_MULTILINE",
+    "FIXTURE_EMPTY",
+]
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         status = ${healthStatus} if self.path == "/health" else 200
-        body = b"${version}"
+        body = (
+            json.dumps({key: os.environ.get(key) for key in environment_keys}).encode()
+            if self.path == "/environment"
+            else b"${version}"
+        )
         self.send_response(status)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -228,8 +266,8 @@ async function waitForDeployment(
   throw new Error(`Deployment ${id} did not reach ${terminalStates.join("/")} in time`);
 }
 
-async function responseText(port: number): Promise<string> {
-  const response = await fetch(`http://127.0.0.1:${port}/`);
+async function responseText(port: number, pathname = "/"): Promise<string> {
+  const response = await fetch(`http://127.0.0.1:${port}${pathname}`);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-nixhost-application-proxy"), "ready");
   return response.text();

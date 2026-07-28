@@ -75,6 +75,25 @@ describe("Quick Tunnel publication state", () => {
           status: "running",
           url: "https://publication-check.trycloudflare.com",
         });
+
+        routeIsReachable.mockResolvedValue(false);
+        for (let failure = 1; failure <= 2; failure++) {
+          makeRouteRecheckDue();
+          await controller.reconcile();
+          expect(readRoute()).toMatchObject({
+            status: "running",
+            url: "https://publication-check.trycloudflare.com",
+            failure_count: failure,
+          });
+        }
+
+        makeRouteRecheckDue();
+        await controller.reconcile();
+        expect(readRoute()).toMatchObject({
+          status: "error",
+          url: null,
+          failure_count: 3,
+        });
       } finally {
         await controller.close();
         if (tunnelProcess.exitCode === null && tunnelProcess.signalCode === null) {
@@ -85,9 +104,16 @@ describe("Quick Tunnel publication state", () => {
   );
 });
 
-function readRoute(): { status: string; url: string | null } {
+function readRoute(): { status: string; url: string | null; failure_count: number } {
   return database
     .getDb()
-    .prepare("SELECT status, url FROM quick_tunnels WHERE key = 'dashboard'")
-    .get() as { status: string; url: string | null };
+    .prepare("SELECT status, url, failure_count FROM quick_tunnels WHERE key = 'dashboard'")
+    .get() as { status: string; url: string | null; failure_count: number };
+}
+
+function makeRouteRecheckDue(): void {
+  database
+    .getDb()
+    .prepare("UPDATE quick_tunnels SET updated_at = ? WHERE key = 'dashboard'")
+    .run(new Date(0).toISOString());
 }

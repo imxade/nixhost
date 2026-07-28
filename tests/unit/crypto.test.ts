@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { hashPassword, sha256, verifyPassword } from "../../src/server/crypto.ts";
+import {
+  decryptSecret,
+  encryptSecret,
+  hashPassword,
+  sha256,
+  verifyPassword,
+} from "../../src/server/crypto.ts";
+
+process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 43).toString("base64");
 
 describe("credential primitives", () => {
   it("hashes and verifies passwords", async () => {
@@ -9,4 +17,10 @@ describe("credential primitives", () => {
     expect(await verifyPassword("wrong password", hash)).toBe(false);
   });
   it("creates stable digests", () => expect(sha256("nixhost")).toHaveLength(64));
+
+  it("round-trips empty encrypted values", () => {
+    const encrypted = encryptSecret("");
+    expect(encrypted.split(".")).toHaveLength(4);
+    expect(decryptSecret(encrypted)).toBe("");
+  });
 });

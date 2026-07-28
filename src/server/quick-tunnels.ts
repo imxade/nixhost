@@ -78,6 +78,8 @@ const STARTUP_TIMEOUT_MS = 90_000;
 const PUBLIC_ROUTE_TIMEOUT_MS = 90_000;
 const DNS_QUERY_TIMEOUT_MS = 10_000;
 const EDGE_QUERY_TIMEOUT_MS = 25_000;
+const RUNNING_ROUTE_RECHECK_MS = 60_000;
+const RUNNING_ROUTE_FAILURE_LIMIT = 3;
 const MAX_LOG_BYTES = 512 * 1024;
 export class QuickTunnelController {
   private readonly managed = new Map<string, ManagedQuickTunnel>();
@@ -199,7 +201,14 @@ export class QuickTunnelController {
     const alive = this.isRunning(row);
     if (alive) {
       const discoveredUrl = row.url ?? readQuickTunnelUrl(logPath(target.key));
-      if (discoveredUrl && (row.url !== discoveredUrl || row.status !== "running")) {
+      const requiresPublication =
+        Boolean(discoveredUrl) && (row.url !== discoveredUrl || row.status !== "running");
+      const requiresRecheck =
+        Boolean(discoveredUrl) &&
+        row.status === "running" &&
+        row.url === discoveredUrl &&
+        Date.parse(row.updated_at) + RUNNING_ROUTE_RECHECK_MS <= Date.now();
+      if (discoveredUrl && (requiresPublication || requiresRecheck)) {
         if (await this.routeIsReachable(discoveredUrl, target.targetType)) {
           const result = getDb()
             .prepare(
@@ -208,14 +217,38 @@ export class QuickTunnelController {
             )
             .run(discoveredUrl, nowIso(), target.key);
           if (result.changes === 0) return;
-          if (target.targetType === "dashboard") {
+          if (requiresPublication && target.targetType === "dashboard") {
             void synchronizeGitHubWebhook().catch(() => undefined);
           }
-          events.publish("quick_tunnel.ready", target.appId ? `app:${target.appId}` : "system", {
-            key: target.key,
-            url: discoveredUrl,
-            localPort: target.localPort,
-          });
+          if (requiresPublication) {
+            events.publish("quick_tunnel.ready", target.appId ? `app:${target.appId}` : "system", {
+              key: target.key,
+              url: discoveredUrl,
+              localPort: target.localPort,
+            });
+          }
+        } else if (requiresRecheck) {
+          const failures = row.failure_count + 1;
+          if (failures < RUNNING_ROUTE_FAILURE_LIMIT) {
+            getDb()
+              .prepare(
+                `UPDATE quick_tunnels SET failure_count = ?, last_error = ?,
+                 updated_at = ? WHERE key = ?`,
+              )
+              .run(
+                failures,
+                "Cloudflare Quick Tunnel public-edge check failed; retrying",
+                nowIso(),
+                target.key,
+              );
+          } else {
+            await this.stopRow(row);
+            this.recordFailure(
+              target.key,
+              "Cloudflare Quick Tunnel repeatedly stopped serving its public route",
+              failures,
+            );
+          }
         } else if (
           row.started_at &&
           Date.parse(row.started_at) + PUBLIC_ROUTE_TIMEOUT_MS < Date.now()

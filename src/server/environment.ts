@@ -9,7 +9,7 @@ export function parseEnvironmentText(text: string): Record<string, string> {
 
   for (let index = 0; index < lines.length; index++) {
     const original = lines[index] ?? "";
-    let line = original.trim();
+    let line = original.trimStart();
     if (!line || line.startsWith("#")) continue;
     if (line.startsWith("export ")) line = line.slice(7).trimStart();
 
@@ -38,8 +38,9 @@ export function parseEnvironmentText(text: string): Record<string, string> {
     }
     seen.add(key);
 
-    const rawValue = line.slice(separator + 1).trim();
-    variables[key] = parseValue(rawValue, index + 1);
+    const parsed = parseValue(lines, index, line.slice(separator + 1).trimStart());
+    variables[key] = parsed.value;
+    index = parsed.lastLineIndex;
     if (seen.size > MAX_ENVIRONMENT_ENTRIES) {
       throw new HttpError(
         400,
@@ -55,23 +56,65 @@ export function parseEnvironmentText(text: string): Record<string, string> {
   return variables;
 }
 
-function parseValue(value: string, lineNumber: number): string {
-  if (!value) return "";
-  const quote = value[0];
-  if (quote !== '"' && quote !== "'") return value;
-  if (value.length < 2 || value.at(-1) !== quote) {
+function parseValue(
+  lines: string[],
+  firstLineIndex: number,
+  rawValue: string,
+): { value: string; lastLineIndex: number } {
+  const quote = rawValue[0];
+  if (quote !== '"' && quote !== "'") {
+    const comment = rawValue.indexOf("#");
+    const value = comment === -1 ? rawValue : rawValue.slice(0, comment);
+    return { value: value.trim(), lastLineIndex: firstLineIndex };
+  }
+
+  let value = rawValue;
+  let lineIndex = firstLineIndex;
+  let closingQuote = findClosingQuote(value, quote);
+  while (closingQuote === -1 && lineIndex + 1 < lines.length) {
+    lineIndex += 1;
+    value += `\n${lines[lineIndex] ?? ""}`;
+    closingQuote = findClosingQuote(value, quote);
+  }
+  if (closingQuote === -1) {
     throw new HttpError(
       400,
-      `Environment line ${lineNumber} has an unterminated quoted value`,
+      `Environment line ${firstLineIndex + 1} has an unterminated quoted value`,
       "invalid_environment_text",
     );
   }
-  const inner = value.slice(1, -1);
-  if (quote === "'") return inner;
-  return inner.replace(/\\([\\"nrt])/g, (_, escaped: string) => {
-    if (escaped === "n") return "\n";
-    if (escaped === "r") return "\r";
-    if (escaped === "t") return "\t";
-    return escaped;
-  });
+
+  const trailing = value.slice(closingQuote + 1).trim();
+  if (trailing && !trailing.startsWith("#")) {
+    throw new HttpError(
+      400,
+      `Environment line ${lineIndex + 1} has unexpected text after a quoted value`,
+      "invalid_environment_text",
+    );
+  }
+  const inner = value.slice(1, closingQuote);
+  if (quote === "'") return { value: inner, lastLineIndex: lineIndex };
+  return {
+    value: inner.replace(/\\([\\"nrt])/g, (_, escaped: string) => {
+      if (escaped === "n") return "\n";
+      if (escaped === "r") return "\r";
+      if (escaped === "t") return "\t";
+      return escaped;
+    }),
+    lastLineIndex: lineIndex,
+  };
+}
+
+function findClosingQuote(value: string, quote: '"' | "'"): number {
+  for (let index = 1; index < value.length; index++) {
+    if (value[index] !== quote) continue;
+    if (quote === "'" || precedingBackslashCount(value, index) % 2 === 0) return index;
+  }
+  return -1;
+}
+
+function precedingBackslashCount(value: string, index: number): number {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor--) count += 1;
+  return count;
 }

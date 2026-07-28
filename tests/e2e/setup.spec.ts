@@ -243,6 +243,31 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   }
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  let environmentKeys: string[] = [];
+  await page.route("**/api/apps/log-test/environment", async (route) => {
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().postDataJSON()).toEqual({
+      dotenv: `# Complete .env paste
+PLAIN=alpha
+SPACED="two words"
+EQUALS=left=right
+HASH='literal # hash'
+EMPTY=
+`,
+      secret: true,
+    });
+    environmentKeys = ["EMPTY", "EQUALS", "HASH", "PLAIN", "SPACED"];
+    await route.fulfill({
+      json: {
+        ok: true,
+        data: environmentKeys.map((key) => ({
+          key,
+          secret: true,
+          updatedAt: "2026-07-28T00:00:00.000Z",
+        })),
+      },
+    });
+  });
   await page.route("**/api/apps/log-test", async (route) => {
     await route.fulfill({
       json: {
@@ -270,7 +295,11 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
           accessLinks: [],
           domains: [],
           cloudflare: { configured: false, enabled: false, running: false, routes: [] },
-          environment: [],
+          environment: environmentKeys.map((key) => ({
+            key,
+            secret: true,
+            updatedAt: "2026-07-28T00:00:00.000Z",
+          })),
           deployments: [
             {
               id: "deployment-log-test",
@@ -297,6 +326,21 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
     });
   });
   await page.goto("/apps/log-test");
+  await page.getByRole("tab", { name: "Environment" }).click();
+  await page.getByLabel("Environment variables").fill(`# Complete .env paste
+PLAIN=alpha
+SPACED="two words"
+EQUALS=left=right
+HASH='literal # hash'
+EMPTY=
+`);
+  await page.getByRole("button", { name: "Save secrets" }).click();
+  for (const key of ["EMPTY", "EQUALS", "HASH", "PLAIN", "SPACED"]) {
+    await expect(page.getByText(key, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByLabel("Environment variables")).toHaveValue("");
+
+  await page.getByRole("tab", { name: "Deployments" }).click();
   await page.getByRole("button", { name: "Logs" }).click();
   await expect(page.getByRole("tab", { name: "Logs" })).toBeChecked();
   await expect(page.locator("pre")).toContainText("[deployment] failed");

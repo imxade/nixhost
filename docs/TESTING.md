@@ -62,7 +62,10 @@ mocked API result is not a live Cloudflare acceptance result.
 Quick Tunnel unit coverage validates strict `trycloudflare.com` URL discovery,
 rejects deceptive suffixes, and requires both public DNS and an edge response
 from the intended dashboard or application proxy before making a route
-available. The deployment integration asserts the stable proxy readiness marker.
+available. Published routes are periodically rechecked and rotated after three
+consecutive public-edge failures. The deployment integration asserts the stable
+proxy readiness marker and proves that complete dotenv input survives encrypted
+storage and reaches the launched process as separate exact values.
 The development-runtime browser project also starts a colliding second control
 plane and verifies that Next.js fails before any persistent data directory or
 tunnel runtime is created. Access-link tests cover simultaneous LAN, temporary,

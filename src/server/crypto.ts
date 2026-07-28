@@ -91,8 +91,9 @@ export function encryptSecret(plaintext: string): string {
 }
 
 export function decryptSecret(encoded: string): string {
-  const [version, ivText, tagText, cipherText] = encoded.split(".");
-  if (version !== "v1" || !ivText || !tagText || !cipherText) {
+  const parts = encoded.split(".");
+  const [version, ivText, tagText, cipherText] = parts;
+  if (parts.length !== 4 || version !== "v1" || !ivText || !tagText || cipherText === undefined) {
     throw new Error("Unsupported encrypted secret format");
   }
   const decipher = crypto.createDecipheriv(
