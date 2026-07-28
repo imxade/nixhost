@@ -48,7 +48,8 @@ Last updated: 2026-07-28.
 - A separate production `nixhost.nix` package definition behind the locked flake contract, plus directly deployed `hello-nixhost` and npm-start examples.
 - A reproducible Android controller shell with Maestro/ADB/Java plus guarded
   Nix-on-Droid and Maestro acceptance scripts and a manually dispatched
-  physical-runner workflow that retains evidence.
+  physical-runner workflow that retains evidence. First-run Maestro automation
+  opens the complete claim URL and never enters a setup token manually.
 - Responsive dashboard coverage across phone, tablet and desktop viewports.
 - Opt-in public-GitHub acceptance automation that pushes a real commit and
   proves exact-commit healthy redeployment through the stable proxy.

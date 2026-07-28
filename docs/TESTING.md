@@ -147,7 +147,8 @@ The checked-in Android harness consists of:
 scripts/android/run-nix-on-droid.sh verify
 scripts/android/run-nix-on-droid.sh serve-ci
 scripts/android/run-maestro.sh ci-login
-scripts/android/run-maestro.sh first-run-setup
+SETUP_URL='<printed setup URL>' OWNER_USERNAME=owner OWNER_PASSWORD='<password>' \
+  scripts/android/run-maestro.sh first-run-setup
 .github/workflows/android-device.yml
 nix develop .#android
 ```

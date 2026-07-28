@@ -5,10 +5,8 @@ tags:
   - first-run
 ---
 - launchApp
-- openLink: ${NIXHOST_URL}/setup
+- openLink: ${SETUP_URL}
 - assertVisible: "Claim this NixHost"
-- tapOn: "Setup token"
-- inputText: ${SETUP_TOKEN}
 - tapOn: "Owner username"
 - inputText: ${OWNER_USERNAME}
 - tapOn: "Password"

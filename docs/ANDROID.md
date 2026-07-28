@@ -32,8 +32,8 @@ On a supported 64-bit ARM Android device, Nix-on-Droid can provide Nix, Node.js,
 6. Open the displayed LAN address from another device.
 7. From the controller, enter `nix develop .#android`; this locked shell supplies
    Maestro, ADB, Java, curl, and yq.
-8. Run `scripts/android/run-maestro.sh first-run-setup physical` with the required
-   environment values.
+8. Run `scripts/android/run-maestro.sh first-run-setup physical` with the complete
+   printed `SETUP_URL`, `OWNER_USERNAME`, and `OWNER_PASSWORD` environment values.
 9. Test screen-off, network switching, control-plane restart and reboot and
    retain the generated `artifacts/android/` evidence.
 
@@ -52,8 +52,9 @@ can contribute to Android release evidence.
   the NixHost control plane running.
 - Replace the default launcher UI with a WebView that directly displays the
   NixHost web interface.
-- Pre-fill the one-time setup token in the WebView during initial account
-  creation, eliminating the manual copy-paste step.
+- Open the generated one-time setup URL in the WebView during initial account
+  creation. The URL establishes the claim cookie; no token field or manual
+  copy-paste step exists.
 
 The Next.js control plane remains unchanged and is started by this native lifecycle wrapper.
 

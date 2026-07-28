@@ -9,12 +9,17 @@ case "$flow" in
     ;;
   first-run-setup)
     flow_file=".maestro/flows/first-run-setup.yaml"
-    for variable in SETUP_TOKEN OWNER_USERNAME OWNER_PASSWORD; do
+    for variable in SETUP_URL OWNER_USERNAME OWNER_PASSWORD; do
       if [[ -z "${!variable:-}" ]]; then
         echo "$variable is required for the first-run setup flow." >&2
         exit 2
       fi
     done
+    setup_url_pattern='^https?://[^[:space:]]+/api/setup/claim\?token=[A-Za-z0-9_-]+$'
+    if [[ ! "$SETUP_URL" =~ $setup_url_pattern ]]; then
+      echo "SETUP_URL must be a complete NixHost first-run setup URL." >&2
+      exit 2
+    fi
     ;;
   *)
     echo "Usage: scripts/android/run-maestro.sh [ci-login|first-run-setup] [physical|development-emulator]" >&2
@@ -122,7 +127,7 @@ maestro_arguments=(
 )
 if [[ "$flow" == "first-run-setup" ]]; then
   maestro_arguments+=(
-    -e "SETUP_TOKEN=$SETUP_TOKEN"
+    -e "SETUP_URL=$SETUP_URL"
     -e "OWNER_USERNAME=$OWNER_USERNAME"
     -e "OWNER_PASSWORD=$OWNER_PASSWORD"
   )
