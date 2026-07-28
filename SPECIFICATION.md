@@ -13,7 +13,10 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 1. Distinctive terminal links for the LAN address and, when available, the
    dashboard Quick Tunnel carry a one-time claim token. Opening either link
    authorizes owner creation without a token-entry field, and successful owner
-   creation starts an authenticated session.
+   creation starts an authenticated session. Setup and all other
+   credential-bearing forms submit through POST even before or without
+   client-side JavaScript; credentials must never fall back to URL query
+   parameters.
 2. Every dashboard/API operation requires an authenticated role after setup.
 3. GitHub is connected from the dashboard through a per-node GitHub App
    manifest flow. LAN manifests use an inactive reserved public hook URL because
@@ -50,6 +53,11 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 20. Every authenticated user can change their own password after confirming the
     current password. A successful change retains the initiating session and
     revokes that user's other sessions.
+21. Dashboard data failures leave the initial loading state, show the error and
+    provide a retry action instead of displaying an indefinite spinner.
+22. The custom server preserves WebSocket upgrades for host-routed applications
+    and, during source development, for Next.js HMR from the host's current LAN
+    addresses.
 
 ## Android distribution tracks
 

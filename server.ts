@@ -13,6 +13,7 @@ const handle = app.getRequestHandler();
 
 const platformRuntime = await bootRuntime();
 await app.prepare();
+const handleUpgrade = app.getUpgradeHandler();
 const loggedSetupOrigins = new Set<string>();
 
 function logSetupLink(label: string, baseUrl: string): void {
@@ -46,6 +47,17 @@ const server = http.createServer((request, response) => {
     if (!response.headersSent)
       response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
     response.end("Internal server error\n");
+  });
+});
+server.on("upgrade", (request, socket, head) => {
+  if (platformRuntime.proxy.proxyDomainUpgrade(request, socket, head)) return;
+  sanitizeForwardedHeaders(request);
+  void handleUpgrade(request, socket, head).catch((error: unknown) => {
+    logger.error("Unhandled Next.js upgrade error", {
+      error: error instanceof Error ? error.message : String(error),
+      path: requestPath(request.url),
+    });
+    socket.destroy();
   });
 });
 

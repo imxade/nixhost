@@ -4,9 +4,19 @@ import { type FormEvent, useState } from "react";
 import { apiFetch } from "@/lib/client-api";
 import { PageHeading } from "./page-heading";
 
-export function AccountClient({ username, role }: { username: string; role: string }) {
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+export function AccountClient({
+  username,
+  role,
+  initialError = "",
+  initialMessage = "",
+}: {
+  username: string;
+  role: string;
+  initialError?: string;
+  initialMessage?: string;
+}) {
+  const [error, setError] = useState(initialError);
+  const [message, setMessage] = useState(initialMessage);
   const [busy, setBusy] = useState(false);
 
   async function changePassword(event: FormEvent<HTMLFormElement>) {
@@ -29,6 +39,7 @@ export function AccountClient({ username, role }: { username: string; role: stri
         body: JSON.stringify({
           currentPassword: data.get("currentPassword"),
           newPassword,
+          confirmPassword: confirmation,
         }),
       });
       form.reset();
@@ -59,7 +70,12 @@ export function AccountClient({ username, role }: { username: string; role: stri
             </dl>
           </div>
         </section>
-        <form onSubmit={changePassword} className="card border border-base-300 bg-base-100">
+        <form
+          action="/api/auth/password"
+          method="post"
+          onSubmit={changePassword}
+          className="card border border-base-300 bg-base-100"
+        >
           <div className="card-body">
             <h2 className="card-title">Change password</h2>
             <p className="text-sm text-base-content/65">

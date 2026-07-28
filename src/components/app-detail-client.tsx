@@ -84,9 +84,13 @@ export function AppDetailClient({ appId }: { appId: string }) {
   useEffect(() => {
     void load();
     const source = new EventSource(`/api/events?scope=app:${appId}`);
-    source.onmessage = () => void load();
     source.addEventListener("deployment.state", () => void load());
     source.addEventListener("deployment.queued", () => void load());
+    source.addEventListener("application.stopped", () => void load());
+    source.addEventListener("process.exit", () => void load());
+    source.addEventListener("metric", () => void load());
+    source.addEventListener("quick_tunnel.ready", () => void load());
+    source.addEventListener("quick_tunnel.stopped", () => void load());
     const interval = setInterval(() => void load(), 5000);
     return () => {
       source.close();
@@ -539,7 +543,7 @@ export function AppDetailClient({ appId }: { appId: string }) {
               Enter secrets through an HTTPS dashboard link or a trusted private LAN. Plain HTTP on
               a shared or untrusted network does not protect values in transit.
             </div>
-            <form onSubmit={addEnv} className="mt-4 grid gap-3">
+            <form method="post" onSubmit={addEnv} className="mt-4 grid gap-3">
               <textarea
                 required
                 name="dotenv"
@@ -602,7 +606,7 @@ API_TOKEN=...
                 Hostnames in a connected Cloudflare zone are created and routed by NixHost. The
                 temporary public URL stays active when custom domains are added.
               </p>
-              <form onSubmit={saveDomains} className="mt-4 grid gap-3">
+              <form method="post" onSubmit={saveDomains} className="mt-4 grid gap-3">
                 <textarea
                   name="domains"
                   defaultValue={data.domains.join("\n")}
@@ -688,7 +692,7 @@ API_TOKEN=...
           onChange={() => setActiveTab("settings")}
         />
         <div role="tabpanel" className="tab-content border-base-300 bg-base-100 p-5">
-          <form onSubmit={saveSettings} className="grid max-w-3xl gap-4">
+          <form method="post" onSubmit={saveSettings} className="grid max-w-3xl gap-4">
             <label className="form-control">
               <span className="label-text mb-1">Name</span>
               <input name="name" defaultValue={app.name} className="input input-bordered" />

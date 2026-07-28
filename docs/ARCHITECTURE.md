@@ -47,7 +47,10 @@ The selected product constraint is “Next.js completely.” A custom Node HTTP 
 11. Prepare Next.js, listen on the LAN interface, and print distinctive
     token-bearing LAN/available Quick Tunnel claim links.
 
-The runtime is also guarded on `globalThis` to avoid duplicate initialization from Next.js development reloads or instrumentation.
+The runtime is also guarded on `globalThis` to avoid duplicate initialization
+from Next.js development reloads or instrumentation. The custom server forwards
+Next.js HTTP upgrades, and source development allows the host's current LAN IPv4
+addresses so HMR works when the dashboard is opened from another LAN device.
 
 ## Persistent state
 
@@ -100,7 +103,10 @@ Each web app receives:
 
 The built-in Node HTTP proxy supports ordinary HTTP and WebSocket upgrades. It returns 503 while the application has no healthy active release.
 
-Web applications can also own multiple normalized DNS hostnames. Ordinary HTTP requests on the dashboard listener are dispatched by `Host`; each app's stable port remains the provider-neutral origin for WebSockets and external DNS/TLS proxies.
+Web applications can also own multiple normalized DNS hostnames. Ordinary HTTP
+and WebSocket upgrade requests on the dashboard listener are dispatched by
+`Host`; each app's stable port remains the provider-neutral origin for external
+DNS/TLS proxies.
 
 Cloudflare synchronization persists one result per project hostname. The application Domains tab and the global Cloudflare page share that state, including managed/external/error status, zone, last error and synchronization time. Removal cleanup is ownership-checked before deleting a DNS record.
 

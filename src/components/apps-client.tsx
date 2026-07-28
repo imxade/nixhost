@@ -71,8 +71,9 @@ export function AppsClient() {
   useEffect(() => {
     void load();
     const source = new EventSource("/api/events");
-    source.onmessage = () => void load();
     source.addEventListener("deployment.state", () => void load());
+    source.addEventListener("deployment.queued", () => void load());
+    source.addEventListener("application.stopped", () => void load());
     source.addEventListener("quick_tunnel.ready", () => void load());
     source.addEventListener("quick_tunnel.stopped", () => void load());
     const interval = setInterval(() => void load(), 5000);
@@ -288,7 +289,7 @@ export function AppsClient() {
           <p className="mt-2 text-base-content/65">
             The repository must expose a runnable flake app for this host system.
           </p>
-          <form onSubmit={create} className="mt-6 grid gap-4">
+          <form method="post" onSubmit={create} className="mt-6 grid gap-4">
             <label className="form-control">
               <span className="label-text mb-1">Application name</span>
               <input name="name" required className="input input-bordered" placeholder="My API" />

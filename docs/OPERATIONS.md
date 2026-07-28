@@ -47,8 +47,10 @@ visually separated URL for that route. If Quick Tunnels are disabled or
 Each URL contains the one-time claim credential. Opening it exchanges the
 credential for a 30-minute HttpOnly setup cookie and redirects to the clean
 `/setup` address, where the owner chooses a username and password. The setup
-form never asks for or submits the token. Successful account creation consumes
-the token, removes its private local file, and signs in the new owner.
+form never asks for or submits the token. It is a native POST form with an
+enhanced client-side handler, so submission remains secure and functional if
+JavaScript has not hydrated or is disabled. Successful account creation
+consumes the token, removes its private local file, and signs in the new owner.
 
 Authenticated users can change their own password from **Account** after
 confirming the current password. The current browser remains signed in and the
@@ -90,6 +92,12 @@ Source development must use `npm run dev` or `pnpm dev` to run the
 lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or
 its absolute path in `NIXHOST_CLOUDFLARED_BIN`. Starting Next.js directly
 bypasses tunnel cleanup and is unsupported.
+
+The development command forwards Next.js HMR WebSocket upgrades. At startup,
+Next.js allows the host's current non-loopback LAN IPv4 addresses as development
+origins; restart the command after changing networks so the allowlist is
+recomputed. This development-only setting does not alter production origin
+checks.
 
 ## Recovery
 

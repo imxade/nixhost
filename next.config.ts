@@ -1,9 +1,23 @@
+import os from "node:os";
 import type { NextConfig } from "next";
 
 const development = process.env.NODE_ENV === "development";
 const scriptSources = ["'self'", "'unsafe-inline'", ...(development ? ["'unsafe-eval'"] : [])];
+const allowedDevOrigins = development
+  ? [
+      ...new Set(
+        Object.values(os.networkInterfaces())
+          .flat()
+          .filter((address): address is NonNullable<typeof address> =>
+            Boolean(address && !address.internal && address.family === "IPv4"),
+          )
+          .map((address) => address.address),
+      ),
+    ]
+  : undefined;
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins,
   devIndicators: false,
   poweredByHeader: false,
   reactStrictMode: true,

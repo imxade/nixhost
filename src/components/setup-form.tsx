@@ -3,9 +3,15 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { apiFetch } from "@/lib/client-api";
 
-export function SetupForm({ authorized }: { authorized: boolean }) {
+export function SetupForm({
+  authorized,
+  initialError = "",
+}: {
+  authorized: boolean;
+  initialError?: string;
+}) {
   const router = useRouter();
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,7 +35,12 @@ export function SetupForm({ authorized }: { authorized: boolean }) {
     }
   }
   return (
-    <form onSubmit={submit} className="card-body gap-5 px-6 py-7 sm:px-8 sm:py-8">
+    <form
+      action="/api/setup/complete"
+      method="post"
+      onSubmit={submit}
+      className="card-body gap-5 px-6 py-7 sm:px-8 sm:py-8"
+    >
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Claim this NixHost</h1>
         <p className="text-base-content/70 mt-2">

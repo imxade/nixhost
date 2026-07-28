@@ -22,6 +22,10 @@ NixHost protects the management interface and stored credentials from unauthenti
   require the current password, retain only the initiating session, and revoke
   the user's other sessions. Generic user administration cannot reset the
   protected owner password.
+- Setup, login, password-change and logout forms have native same-origin POST
+  behavior in addition to client-side enhancement. A missing or delayed
+  JavaScript handler cannot downgrade a credential submission to GET or place
+  passwords in browser history, request URLs or query logs.
 - Failed logins are limited in fixed one-hour windows: six per source/username
   pair and 30 across usernames from one source. Throttled responses include
   `Retry-After`.
@@ -37,6 +41,10 @@ NixHost protects the management interface and stored credentials from unauthenti
 - Development CSP permits `unsafe-eval` because the React development runtime
   requires it for debugging. Production responses exclude `unsafe-eval`; the
   production E2E suite asserts that boundary.
+- Source development allows the host's current non-loopback LAN IPv4 addresses
+  to request Next.js development resources and HMR upgrades. This allowlist is
+  computed only in development; application mutation origin checks remain
+  enforced.
 
 LAN HTTP remains readable by an attacker who can observe the local network. Use a
 trusted LAN or local HTTPS. Cloudflare HTTPS protects the browser-to-edge connection

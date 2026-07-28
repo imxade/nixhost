@@ -42,6 +42,48 @@ export async function api<T>(
 }
 
 export async function readJson(request: NextRequest, maxBytes = 64 * 1024): Promise<unknown> {
+  const text = await readBoundedText(request, maxBytes);
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new HttpError(400, "Request body must be valid JSON", "invalid_json");
+  }
+}
+
+export function isFormSubmission(request: NextRequest): boolean {
+  return (
+    request.headers
+      .get("content-type")
+      ?.toLowerCase()
+      .startsWith("application/x-www-form-urlencoded") === true
+  );
+}
+
+export async function readFormUrlEncoded(
+  request: NextRequest,
+  maxBytes = 64 * 1024,
+): Promise<Record<string, string>> {
+  if (!isFormSubmission(request)) {
+    throw new HttpError(415, "Expected a URL-encoded form submission", "unsupported_media_type");
+  }
+  const text = await readBoundedText(request, maxBytes);
+
+  const result: Record<string, string> = {};
+  for (const [key, value] of new URLSearchParams(text)) {
+    if (Object.hasOwn(result, key)) {
+      throw new HttpError(
+        400,
+        `Form field "${key}" was submitted more than once`,
+        "duplicate_field",
+      );
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
+async function readBoundedText(request: NextRequest, maxBytes: number): Promise<string> {
   const length = Number(request.headers.get("content-length") ?? 0);
   if (Number.isFinite(length) && length > maxBytes) {
     throw new HttpError(413, "Request body is too large", "body_too_large");
@@ -50,10 +92,5 @@ export async function readJson(request: NextRequest, maxBytes = 64 * 1024): Prom
   if (Buffer.byteLength(text) > maxBytes) {
     throw new HttpError(413, "Request body is too large", "body_too_large");
   }
-  if (!text) return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    throw new HttpError(400, "Request body must be valid JSON", "invalid_json");
-  }
+  return text;
 }

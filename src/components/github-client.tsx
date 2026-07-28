@@ -60,9 +60,16 @@ export function GitHubClient() {
           ) : undefined
         }
       />
-      {error && <div className="alert alert-error mb-5">{error}</div>}
+      {error && (
+        <div className="alert alert-error mb-5">
+          <span>{error}</span>
+          <button type="button" className="btn btn-sm" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      )}
       {!status ? (
-        <span className="loading loading-spinner loading-lg" />
+        !error && <span className="loading loading-spinner loading-lg" />
       ) : status.connected ? (
         <div className="space-y-5">
           <div className="card border border-base-300 bg-base-100">

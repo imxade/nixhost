@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/client-api";
+import { usePathname } from "next/navigation";
 import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -25,12 +24,6 @@ export function DashboardShell({
   role: string;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  async function logout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
-  }
   return (
     <div className="drawer lg:drawer-open min-h-screen">
       <input id="nixhost-drawer" type="checkbox" className="drawer-toggle" />
@@ -90,13 +83,12 @@ export function DashboardShell({
               <div className="font-medium">{username}</div>
               <div className="text-xs uppercase tracking-wide text-base-content/60">{role}</div>
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm w-full justify-start"
-              onClick={logout}
-            >
-              Sign out
-            </button>
+            <form action="/api/auth/logout" method="post">
+              <input type="hidden" name="intent" value="logout" />
+              <button type="submit" className="btn btn-ghost btn-sm w-full justify-start">
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       </aside>

@@ -36,7 +36,8 @@ export function DeploymentsClient() {
   useEffect(() => {
     void load();
     const source = new EventSource("/api/events");
-    source.onmessage = () => void load();
+    source.addEventListener("deployment.queued", () => void load());
+    source.addEventListener("deployment.state", () => void load());
     const timer = setInterval(() => void load(), 5000);
     return () => {
       source.close();

@@ -2,8 +2,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+const baseDataDirectory = process.env.NIXHOST_E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data");
+const instance = process.env.NIXHOST_E2E_INSTANCE?.trim();
 const dataDirectory = path.resolve(
-  process.env.NIXHOST_E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data"),
+  instance ? `${baseDataDirectory}-${instance}` : baseDataDirectory,
 );
 const basename = path.basename(dataDirectory);
 if (!basename.startsWith(".e2e-data") && !basename.startsWith("nixhost-e2e")) {
@@ -11,13 +13,14 @@ if (!basename.startsWith(".e2e-data") && !basename.startsWith("nixhost-e2e")) {
 }
 fs.rmSync(dataDirectory, { recursive: true, force: true });
 
-const child = spawn("pnpm", ["start"], {
+const command = process.env.NIXHOST_E2E_COMMAND === "dev" ? "dev" : "start";
+const child = spawn("pnpm", [command], {
   cwd: process.cwd(),
   stdio: "inherit",
   env: {
     ...process.env,
     HOSTNAME: "127.0.0.1",
-    PORT: "3000",
+    PORT: process.env.NIXHOST_E2E_PORT ?? "3000",
     NIXHOST_DATA_DIR: dataDirectory,
     NIXHOST_MIN_FREE_DISK_MB: "128",
     NIXHOST_MIN_FREE_MEMORY_MB: "64",

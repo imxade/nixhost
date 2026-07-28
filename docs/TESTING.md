@@ -31,19 +31,26 @@ Release CI expansion still required:
 - Nix `flake check` and package build;
 - dependency audit and secret scan.
 
-The browser suite starts two isolated loopback servers. The normal production
+The browser suite starts four isolated loopback servers. The normal production
 command covers claim-link owner setup without token entry, automatic
 authentication after account creation, current-password-verified password
 change, logout, old-password rejection, new-password login, cross-origin
 mutation rejection, user creation, and viewer role enforcement. The separate
 `pnpm start:ci` command provisions the explicit test-only admin
 `qwerty123456` / `qwerty123456`; its browser scenario verifies admin login and
-the hourly authentication limit including `Retry-After`.
+the hourly authentication limit including `Retry-After`. The third production
+server runs the complete create/change/logout/login lifecycle with JavaScript
+disabled and fails if any password field appears in a request URL. A fourth
+source-development server verifies that the custom HTTP server completes the
+Next.js HMR WebSocket upgrade. Set `NIXHOST_E2E_PORT_BASE` when the default
+four-port range beginning at 3000 is already occupied.
 
 Authenticated dashboard routes are also exercised at `320x568`, `768x1024`,
 and `1440x900`. The suite checks the applications, users, GitHub, Cloudflare,
 account, settings, and new-application screens for horizontal overflow and requires
-exactly one visible theme control at each size.
+exactly one visible theme control at each size. Applications, GitHub, Cloudflare
+and System also receive injected initial API failures; each must stop its loading
+indicator, display the failure and provide a retry action.
 
 Cloudflare tests cover PKCE construction, hashed single-use state, callback
 replay rejection, encrypted pending grants, paginated account/zone discovery,

@@ -53,13 +53,17 @@ Last updated: 2026-07-28.
 The first-run and account-management changes were validated on 2026-07-28:
 
 ```text
-pnpm biome:ci                   # 164 files
+pnpm biome:ci                   # 167 files
 pnpm typecheck
-pnpm test                       # 20 files, 64 tests
+pnpm test                       # 21 files, 66 tests
 pnpm build                      # includes /account and both new auth/setup APIs
-pnpm test:e2e                   # Chromium, both scenarios
+pnpm test:e2e                   # Chromium, four scenarios
+pnpm test:examples              # both checked-in examples, exact commits
+pnpm test:deployment
 pnpm db:doctor
 pnpm security:check
+pnpm audit --prod --audit-level high
+pnpm licenses list --prod
 nix flake check                 # complete source snapshot
 nix build                       # complete source snapshot, includes checks
 ```
@@ -68,11 +72,26 @@ The production Playwright scenario opens the token-bearing claim URL, confirms
 the token field is absent, creates the owner, proves the account is already
 authenticated, changes its password, signs out, rejects the old password and
 signs in with the new password. It also covers the Account page at phone,
-tablet and desktop widths. Startup probes proved that a missing `cloudflared`
+tablet and desktop widths. A second production authentication scenario repeats
+the entire lifecycle with JavaScript disabled and asserts that no credential
+field reaches a request URL. Startup probes proved that a missing `cloudflared`
 produces only the local claim block, while cloudflared 2026.7.2 produces a
 separate Quick Tunnel claim block and shuts down cleanly. A public curl to that
 temporary hostname timed out from the validation host, so this run does not add
-new external-edge reachability evidence.
+new external-edge reachability evidence. The built `result/bin/nixhost`
+artifact also passed the JavaScript-disabled create/change/logout/old-password
+rejection/new-password login flow over the host's LAN address with no
+credential-bearing request URLs.
+
+The same run reproduced the source-development HMR failure over LAN, then
+verified that the custom server completes the Next.js WebSocket upgrade and
+allows the host's current LAN origin. The browser suite now covers this boundary
+in CI. It also injects initial API failures into Applications, GitHub,
+Cloudflare and System and verifies that each page stops loading, shows the
+failure and offers Retry. Host-routed application WebSocket upgrades now use the
+same verified proxy path as stable-port upgrades. Redundant no-op SSE handlers
+and duplicated bounded request-body parsing were removed; an explicit
+TypeScript unused-local/unused-parameter audit also passed.
 
 The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
 Nix 2.34.8 and cloudflared 2026.7.2:

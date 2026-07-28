@@ -125,6 +125,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
     ]) {
       await page.goto(route);
       await expect(page.locator("main")).toBeVisible();
+      await expect(page.locator("main .loading-spinner")).toHaveCount(0);
       await expect(page.locator('button[aria-label="Toggle color theme"]:visible')).toHaveCount(1);
       const overflow = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
@@ -149,6 +150,28 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
     }
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+
+  for (const failureCase of [
+    { route: "/apps", endpoint: "**/api/apps" },
+    { route: "/integrations/github", endpoint: "**/api/github/status" },
+    { route: "/integrations/cloudflare", endpoint: "**/api/cloudflare/status" },
+    { route: "/system", endpoint: "**/api/system/status" },
+  ]) {
+    await page.route(failureCase.endpoint, async (route) => {
+      await route.fulfill({
+        status: 503,
+        json: {
+          ok: false,
+          error: { code: "test_failure", message: "Injected load failure" },
+        },
+      });
+    });
+    await page.goto(failureCase.route);
+    await expect(page.getByText("Injected load failure")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expect(page.locator("main .loading-spinner")).toHaveCount(0);
+    await page.unroute(failureCase.endpoint);
+  }
 
   await page.route("**/api/github/status", async (route) => {
     await route.fulfill({

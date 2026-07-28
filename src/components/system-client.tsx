@@ -48,7 +48,7 @@ export function SystemClient() {
   useEffect(() => {
     void load();
     const source = new EventSource("/api/events?scope=system");
-    source.onmessage = () => void load();
+    source.addEventListener("metric", () => void load());
     source.addEventListener("quick_tunnel.ready", () => void load());
     source.addEventListener("quick_tunnel.stopped", () => void load());
     const timer = setInterval(() => void load(), 5000);
@@ -67,9 +67,16 @@ export function SystemClient() {
         title="System"
         description="Current host health, dashboard access links, and public routing status."
       />
-      {error && <div className="alert alert-error mb-5">{error}</div>}
+      {error && (
+        <div className="alert alert-error mb-5">
+          <span>{error}</span>
+          <button type="button" className="btn btn-sm" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      )}
       {!data ? (
-        <span className="loading loading-spinner loading-lg" />
+        !error && <span className="loading loading-spinner loading-lg" />
       ) : (
         <>
           <section className="card mb-6 border border-base-300 bg-base-100">

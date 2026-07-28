@@ -69,7 +69,6 @@ export function CloudflareClient() {
       window.history.replaceState(null, "", window.location.pathname);
     }
     const source = new EventSource("/api/events?scope=system");
-    source.onmessage = () => void load();
     source.addEventListener("quick_tunnel.ready", () => void load());
     source.addEventListener("quick_tunnel.stopped", () => void load());
     const interval = setInterval(() => void load(), 5000);
@@ -230,7 +229,14 @@ export function CloudflareClient() {
         }
       />
 
-      {error && <div className="alert alert-error mb-5 break-words">{error}</div>}
+      {error && (
+        <div className="alert alert-error mb-5 break-words">
+          <span>{error}</span>
+          <button type="button" className="btn btn-sm" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {status && (
         <section className="card mb-5 border border-base-300 bg-base-100">
@@ -246,9 +252,11 @@ export function CloudflareClient() {
       )}
 
       {!status ? (
-        <div className="grid min-h-48 place-items-center">
-          <span className="loading loading-spinner loading-lg" />
-        </div>
+        !error && (
+          <div className="grid min-h-48 place-items-center">
+            <span className="loading loading-spinner loading-lg" />
+          </div>
+        )
       ) : status.configured ? (
         <ConfiguredConnection
           status={status}
@@ -343,7 +351,7 @@ function OAuthCompletionForm({
     );
   }
   return (
-    <form onSubmit={onSubmit} className="mt-3 grid gap-4">
+    <form method="post" onSubmit={onSubmit} className="mt-3 grid gap-4">
       <label className="form-control">
         <span className="label-text mb-1">Cloudflare zone</span>
         <select name="zone" required className="select select-bordered w-full">
@@ -386,7 +394,7 @@ function ManualConnectionForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form onSubmit={onSubmit} className="grid gap-3">
+    <form method="post" onSubmit={onSubmit} className="grid gap-3">
       <p className="text-sm text-base-content/65">
         Use a token restricted to Tunnel edit, Zone read, and DNS edit.
       </p>
@@ -476,6 +484,7 @@ function ConfiguredConnection({
       </section>
 
       <form
+        method="post"
         onSubmit={onSaveDashboard}
         className="card border border-base-300 bg-base-100"
         key={status.dashboardHostname ?? "dashboard-domain"}

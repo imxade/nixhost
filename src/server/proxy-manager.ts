@@ -22,13 +22,16 @@ export class ProxyManager {
   private readonly listeners = new Map<string, Listener>();
 
   proxyDomainRequest(request: IncomingMessage, response: ServerResponse): boolean {
-    const hostname = requestHostname(request.headers.host);
-    if (!hostname) return false;
-    const row = getDb()
-      .prepare("SELECT app_id FROM application_domains WHERE hostname = ?")
-      .get(hostname) as { app_id: string } | undefined;
-    if (!row) return false;
-    this.proxyHttp(row.app_id, request, response);
+    const appId = this.domainAppId(request);
+    if (!appId) return false;
+    this.proxyHttp(appId, request, response);
+    return true;
+  }
+
+  proxyDomainUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean {
+    const appId = this.domainAppId(request);
+    if (!appId) return false;
+    this.proxyUpgrade(appId, request, socket, head);
     return true;
   }
 
@@ -90,6 +93,15 @@ export class ProxyManager {
       .prepare("SELECT active_internal_port, desired_state FROM applications WHERE id = ?")
       .get(appId) as { active_internal_port: number | null; desired_state: string } | undefined;
     return row?.desired_state === "running" ? row.active_internal_port : null;
+  }
+
+  private domainAppId(request: IncomingMessage): string | null {
+    const hostname = requestHostname(request.headers.host);
+    if (!hostname) return null;
+    const row = getDb()
+      .prepare("SELECT app_id FROM application_domains WHERE hostname = ?")
+      .get(hostname) as { app_id: string } | undefined;
+    return row?.app_id ?? null;
   }
 
   private proxyHttp(appId: string, request: IncomingMessage, response: ServerResponse): void {

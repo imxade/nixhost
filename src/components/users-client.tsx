@@ -107,7 +107,11 @@ export function UsersClient() {
             </tbody>
           </table>
         </div>
-        <form onSubmit={create} className="card h-fit border border-base-300 bg-base-100">
+        <form
+          method="post"
+          onSubmit={create}
+          className="card h-fit border border-base-300 bg-base-100"
+        >
           <div className="card-body">
             <h2 className="card-title">Add user</h2>
             <label className="form-control">
