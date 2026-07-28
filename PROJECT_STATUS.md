@@ -27,8 +27,8 @@ Last updated: 2026-07-28.
   removed managed records.
 - Automatic account-free Quick Tunnels for the dashboard and every web application's
   stable public port, with supervised lifecycle, strict URL parsing, simultaneous
-  LAN/temporary/custom access links, public-DNS publication checks before link
-  exposure, and safe cleanup before application deletion.
+  LAN/temporary/custom access links, public-DNS and end-to-end edge readiness
+  checks before link exposure, and safe cleanup before application deletion.
 - Webhook-first GitHub deployment detection using custom dashboard domain, explicit
   public URL, or dashboard Quick Tunnel in that order, with periodic reconciliation
   retained as missed-delivery and route-rotation recovery.
@@ -57,7 +57,7 @@ were validated on 2026-07-28:
 ```text
 pnpm biome:ci                   # 168 files
 pnpm typecheck
-pnpm test                       # 22 files, 69 tests
+pnpm test                       # 22 files, 71 tests
 pnpm build                      # includes /account and both new auth/setup APIs
 pnpm test:e2e                   # Chromium, five scenarios across four projects
 pnpm test:examples              # both checked-in examples, exact commits
@@ -101,12 +101,13 @@ TypeScript unused-local/unused-parameter audit also passed.
 The live `nixhost` branch of `https://github.com/imxade/kitsy.git` was deployed
 at exact commit `55f73a317906bfe6e0e73c2011e921ec1c8a5eb5`. The failure was
 reproduced: `cloudflared` announced the application's hostname before that name
-was present in public DNS. With the publication gate in place, both dashboard
-and application routes remained **Preparing** until Cloudflare DNS returned an
-address. The Kitsy application then returned HTTP 200 through its stable LAN
-port and through the normally resolved Quick Tunnel URL, the dashboard health
-endpoint returned HTTP 200 through its separate Quick Tunnel, and Playwright
-rendered the full application page through the public application URL. A
+was usable through the public edge. With the readiness gate in place, both
+dashboard and application routes remained **Preparing** until Cloudflare DNS
+returned an address and the public edge reached the intended local proxy. The
+Kitsy application then returned HTTP 200 through its stable LAN port and through
+the normally resolved Quick Tunnel URL, the dashboard health endpoint returned
+HTTP 200 through its separate Quick Tunnel, and Playwright rendered the full
+application page through the public application URL. A
 controlled shutdown with active upgraded browser sockets exited promptly,
 stopped both tunnel process groups and released the runtime lock.
 

@@ -90,8 +90,9 @@ only. Quick Tunnel URLs remain enabled alongside custom domains.
 
 `cloudflared` can print an assigned hostname before its DNS record is usable.
 NixHost keeps that route in **Preparing** and does not expose a clickable URL
-until Cloudflare's public DNS-over-HTTPS resolver returns an address. Publication
-is retried for five minutes before the process is recycled with backoff.
+until Cloudflare's public DNS-over-HTTPS resolver returns an address and the
+public edge reaches the dashboard or intended application proxy. Readiness is
+retried for 90 seconds before the process is recycled with backoff.
 
 Source development must use `npm run dev` or `pnpm dev` to run the
 lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or

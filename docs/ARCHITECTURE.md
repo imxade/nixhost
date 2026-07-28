@@ -57,7 +57,8 @@ also admits a development HMR upgrade from the dashboard's strict, same-origin
 `trycloudflare.com` URL when local `cloudflared` proxies it over loopback;
 arbitrary cross-origin Quick Tunnel requests remain blocked.
 Quick Tunnel URLs remain in the starting state until Cloudflare's public DNS
-resolver returns an address for the assigned hostname.
+resolver returns an address and a request through the public edge reaches the
+dashboard health endpoint or the intended application's stable proxy.
 
 ## Persistent state
 

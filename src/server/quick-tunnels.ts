@@ -12,6 +12,7 @@ import {
   matchesProcessIdentity,
   type ProcessIdentity,
 } from "./process-identity.ts";
+import { APPLICATION_PROXY_READY_HEADER, APPLICATION_PROXY_READY_VALUE } from "./proxy-manager.ts";
 import { synchronizeGitHubWebhook } from "./public-webhook.ts";
 import { parseQuickTunnelUrl } from "./quick-tunnel-url.ts";
 import type { AppRow } from "./types.ts";
@@ -71,11 +72,12 @@ export interface QuickTunnelRoute {
   updatedAt: string;
 }
 
-type HostnamePublicationCheck = (url: string) => Promise<boolean>;
+type RouteReadinessCheck = (url: string, targetType: QuickTunnelTargetType) => Promise<boolean>;
 
 const STARTUP_TIMEOUT_MS = 90_000;
-const PUBLICATION_TIMEOUT_MS = 5 * 60_000;
+const PUBLIC_ROUTE_TIMEOUT_MS = 90_000;
 const DNS_QUERY_TIMEOUT_MS = 10_000;
+const EDGE_QUERY_TIMEOUT_MS = 25_000;
 const MAX_LOG_BYTES = 512 * 1024;
 export class QuickTunnelController {
   private readonly managed = new Map<string, ManagedQuickTunnel>();
@@ -84,7 +86,7 @@ export class QuickTunnelController {
   private closed = false;
 
   constructor(
-    private readonly hostnameIsPublished: HostnamePublicationCheck = quickTunnelHostnameIsPublished,
+    private readonly routeIsReachable: RouteReadinessCheck = quickTunnelRouteIsReachable,
   ) {}
 
   async boot(): Promise<void> {
@@ -198,7 +200,7 @@ export class QuickTunnelController {
     if (alive) {
       const discoveredUrl = row.url ?? readQuickTunnelUrl(logPath(target.key));
       if (discoveredUrl && (row.url !== discoveredUrl || row.status !== "running")) {
-        if (await this.hostnameIsPublished(discoveredUrl)) {
+        if (await this.routeIsReachable(discoveredUrl, target.targetType)) {
           const result = getDb()
             .prepare(
               `UPDATE quick_tunnels SET url = ?, status = 'running', failure_count = 0,
@@ -216,12 +218,12 @@ export class QuickTunnelController {
           });
         } else if (
           row.started_at &&
-          Date.parse(row.started_at) + PUBLICATION_TIMEOUT_MS < Date.now()
+          Date.parse(row.started_at) + PUBLIC_ROUTE_TIMEOUT_MS < Date.now()
         ) {
           await this.stopRow(row);
           this.recordFailure(
             target.key,
-            "Cloudflare did not publish the Quick Tunnel hostname in time",
+            "Cloudflare did not make the Quick Tunnel route reachable in time",
           );
         }
       } else if (
@@ -560,6 +562,29 @@ export async function quickTunnelHostnameIsPublished(
     );
     if (!response.ok) return false;
     return hasPublishedIpv4Answer(await response.json());
+  } catch {
+    return false;
+  }
+}
+
+export async function quickTunnelRouteIsReachable(
+  url: string,
+  targetType: QuickTunnelTargetType,
+  fetcher: typeof fetch = fetch,
+  hostnameIsPublished: (candidate: string) => Promise<boolean> = (candidate) =>
+    quickTunnelHostnameIsPublished(candidate, fetcher),
+): Promise<boolean> {
+  const normalized = parseQuickTunnelUrl(url);
+  if (!normalized || !(await hostnameIsPublished(normalized))) return false;
+  const endpoint = new URL(targetType === "dashboard" ? "/api/health" : "/", normalized);
+  try {
+    const response = await fetcher(endpoint, {
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(EDGE_QUERY_TIMEOUT_MS),
+    });
+    if (targetType === "dashboard") return response.status === 200;
+    return response.headers.get(APPLICATION_PROXY_READY_HEADER) === APPLICATION_PROXY_READY_VALUE;
   } catch {
     return false;
   }

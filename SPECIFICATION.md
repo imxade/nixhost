@@ -59,9 +59,10 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
     and, during source development, for Next.js HMR from the host's current LAN
     addresses and the dashboard's same-origin Quick Tunnel.
 23. A Quick Tunnel URL is not presented as available until its
-    `trycloudflare.com` hostname is present in public DNS. A control-plane
-    startup failure before the HTTP server is ready must not leave tunnel
-    processes or persistent-runtime state behind.
+    `trycloudflare.com` hostname is present in public DNS and Cloudflare's public
+    edge reaches the intended local route. A control-plane startup failure
+    before the HTTP server is ready must not leave tunnel processes or
+    persistent-runtime state behind.
 
 ## Android distribution tracks
 

@@ -18,6 +18,9 @@ interface Listener {
   sockets: Set<Socket>;
 }
 
+export const APPLICATION_PROXY_READY_HEADER = "x-nixhost-application-proxy";
+export const APPLICATION_PROXY_READY_VALUE = "ready";
+
 export class ProxyManager {
   private readonly listeners = new Map<string, Listener>();
 
@@ -107,7 +110,11 @@ export class ProxyManager {
   private proxyHttp(appId: string, request: IncomingMessage, response: ServerResponse): void {
     const port = this.targetPort(appId);
     if (!port) {
-      response.writeHead(503, { "content-type": "text/plain; charset=utf-8", "retry-after": "5" });
+      response.writeHead(503, {
+        "content-type": "text/plain; charset=utf-8",
+        "retry-after": "5",
+        [APPLICATION_PROXY_READY_HEADER]: APPLICATION_PROXY_READY_VALUE,
+      });
       response.end("Application unavailable\n");
       return;
     }
@@ -133,16 +140,18 @@ export class ProxyManager {
         headers,
       },
       (upstreamResponse) => {
-        response.writeHead(
-          upstreamResponse.statusCode ?? 502,
-          stripHopByHopHeaders(upstreamResponse.headers),
-        );
+        const responseHeaders = stripHopByHopHeaders(upstreamResponse.headers);
+        responseHeaders[APPLICATION_PROXY_READY_HEADER] = APPLICATION_PROXY_READY_VALUE;
+        response.writeHead(upstreamResponse.statusCode ?? 502, responseHeaders);
         upstreamResponse.pipe(response);
       },
     );
     upstream.on("error", () => {
       if (!response.headersSent)
-        response.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
+        response.writeHead(502, {
+          "content-type": "text/plain; charset=utf-8",
+          [APPLICATION_PROXY_READY_HEADER]: APPLICATION_PROXY_READY_VALUE,
+        });
       response.end("Upstream application connection failed\n");
     });
     request.on("aborted", () => upstream.destroy());

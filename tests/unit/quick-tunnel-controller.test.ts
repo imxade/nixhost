@@ -25,7 +25,7 @@ afterAll(() => {
 
 describe("Quick Tunnel publication state", () => {
   it.skipIf(process.platform !== "linux")(
-    "remains starting until public DNS contains the assigned hostname",
+    "remains starting until the assigned public route is reachable",
     async () => {
       pathsModule.ensureDataDirectories();
       const tunnelProcess = spawn(process.execPath, ["-e", "setInterval(() => {}, 1_000)"], {
@@ -63,13 +63,13 @@ describe("Quick Tunnel publication state", () => {
         { mode: 0o600 },
       );
 
-      const hostnameIsPublished = vi.fn(async () => false);
-      const controller = new quickTunnels.QuickTunnelController(hostnameIsPublished);
+      const routeIsReachable = vi.fn(async () => false);
+      const controller = new quickTunnels.QuickTunnelController(routeIsReachable);
       try {
         await controller.reconcile();
         expect(readRoute()).toMatchObject({ status: "starting", url: null });
 
-        hostnameIsPublished.mockResolvedValue(true);
+        routeIsReachable.mockResolvedValue(true);
         await controller.reconcile();
         expect(readRoute()).toMatchObject({
           status: "running",

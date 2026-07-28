@@ -5,6 +5,7 @@ import {
   cloudflaredStartError,
   quickTunnelArguments,
   quickTunnelHostnameIsPublished,
+  quickTunnelRouteIsReachable,
   spawnedProcessId,
 } from "../../src/server/quick-tunnels.ts";
 
@@ -85,6 +86,57 @@ describe("Quick Tunnel URL discovery", () => {
       quickTunnelHostnameIsPublished(
         "https://malformed-route.trycloudflare.com",
         mockDnsResponse({ Status: 0, Answer: [{ type: 1, data: "999.1.1.1" }] }),
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("requires the dashboard route to answer through Cloudflare's public edge", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response("ok", { status: 200 }));
+
+    await expect(
+      quickTunnelRouteIsReachable(
+        "https://dashboard-route.trycloudflare.com",
+        "dashboard",
+        fetcher,
+        async () => true,
+      ),
+    ).resolves.toBe(true);
+    expect(fetcher).toHaveBeenCalledWith(
+      new URL("https://dashboard-route.trycloudflare.com/api/health"),
+      expect.objectContaining({ cache: "no-store", redirect: "manual" }),
+    );
+
+    fetcher.mockResolvedValue(new Response("edge timeout", { status: 522 }));
+    await expect(
+      quickTunnelRouteIsReachable(
+        "https://dashboard-route.trycloudflare.com",
+        "dashboard",
+        fetcher,
+        async () => true,
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("requires the application response to pass through its stable proxy", async () => {
+    const proxyResponse = new Response("", {
+      status: 503,
+      headers: { "x-nixhost-application-proxy": "ready" },
+    });
+
+    await expect(
+      quickTunnelRouteIsReachable(
+        "https://application-route.trycloudflare.com",
+        "application",
+        vi.fn<typeof fetch>(async () => proxyResponse),
+        async () => true,
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      quickTunnelRouteIsReachable(
+        "https://application-route.trycloudflare.com",
+        "application",
+        vi.fn<typeof fetch>(async () => new Response("Cloudflare", { status: 522 })),
+        async () => true,
       ),
     ).resolves.toBe(false);
   });

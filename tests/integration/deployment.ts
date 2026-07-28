@@ -231,5 +231,6 @@ async function waitForDeployment(
 async function responseText(port: number): Promise<string> {
   const response = await fetch(`http://127.0.0.1:${port}/`);
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-nixhost-application-proxy"), "ready");
   return response.text();
 }
