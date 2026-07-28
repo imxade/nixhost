@@ -1,4 +1,5 @@
 import http from "node:http";
+import type { Duplex } from "node:stream";
 import next from "next";
 import { config } from "./src/server/config.ts";
 import { events } from "./src/server/events.ts";
@@ -11,9 +12,15 @@ const development = process.env.NODE_ENV !== "production";
 const app = next({ dev: development, hostname: config.HOSTNAME, port: config.PORT });
 const handle = app.getRequestHandler();
 
-const platformRuntime = await bootRuntime();
 await app.prepare();
 const handleUpgrade = app.getUpgradeHandler();
+let platformRuntime: Awaited<ReturnType<typeof bootRuntime>>;
+try {
+  platformRuntime = await bootRuntime();
+} catch (error) {
+  await app.close().catch(() => undefined);
+  throw error;
+}
 const loggedSetupOrigins = new Set<string>();
 
 function logSetupLink(label: string, baseUrl: string): void {
@@ -49,7 +56,10 @@ const server = http.createServer((request, response) => {
     response.end("Internal server error\n");
   });
 });
+const upgradedSockets = new Set<Duplex>();
 server.on("upgrade", (request, socket, head) => {
+  upgradedSockets.add(socket);
+  socket.once("close", () => upgradedSockets.delete(socket));
   if (platformRuntime.proxy.proxyDomainUpgrade(request, socket, head)) return;
   sanitizeForwardedHeaders(request);
   void handleUpgrade(request, socket, head).catch((error: unknown) => {
@@ -132,20 +142,20 @@ async function shutdown(signal: string, exitCode = 0): Promise<void> {
   });
 
   try {
-    const runtime = await bootRuntime();
-    await runtime.close();
+    await platformRuntime.close();
   } catch (error) {
     exitCode = 1;
     logger.error("Runtime shutdown failed", {
       error: error instanceof Error ? (error.stack ?? error.message) : String(error),
     });
-  } finally {
-    unsubscribeEvents();
-    server.closeAllConnections();
-    await serverClosed;
-    clearTimeout(forceExit);
-    process.exit(exitCode);
   }
+  unsubscribeEvents();
+  for (const socket of upgradedSockets) socket.destroy();
+  upgradedSockets.clear();
+  server.closeAllConnections();
+  await serverClosed;
+  clearTimeout(forceExit);
+  process.exit(exitCode);
 }
 
 process.on("SIGINT", () => void shutdown("SIGINT"));

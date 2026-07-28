@@ -12,7 +12,8 @@ optionally exposes it through Cloudflare Tunnel.
 - **LAN-first** — every application gets a stable port reachable at
   `http://<device-ip>:<port>` with no external dependency.
 - **Quick Tunnels** — account-free temporary `trycloudflare.com` URLs for the
-  dashboard and every web application when `cloudflared` is available.
+  dashboard and every web application, shown after public DNS publication when
+  `cloudflared` is available.
 - **Persistent named tunnels** — optional Cloudflare OAuth or manual API token
   connection for custom domains, DNS management and multi-zone support.
 - **Encrypted secrets** — environment variables are encrypted at rest and never

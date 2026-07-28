@@ -27,7 +27,8 @@ Last updated: 2026-07-28.
   removed managed records.
 - Automatic account-free Quick Tunnels for the dashboard and every web application's
   stable public port, with supervised lifecycle, strict URL parsing, simultaneous
-  LAN/temporary/custom access links, and safe cleanup before application deletion.
+  LAN/temporary/custom access links, public-DNS publication checks before link
+  exposure, and safe cleanup before application deletion.
 - Webhook-first GitHub deployment detection using custom dashboard domain, explicit
   public URL, or dashboard Quick Tunnel in that order, with periodic reconciliation
   retained as missed-delivery and route-rotation recovery.
@@ -50,14 +51,15 @@ Last updated: 2026-07-28.
 
 ## Validation completed on x86_64 Linux
 
-The first-run and account-management changes were validated on 2026-07-28:
+The first-run, account-management, development-runtime and Quick Tunnel changes
+were validated on 2026-07-28:
 
 ```text
-pnpm biome:ci                   # 167 files
+pnpm biome:ci                   # 168 files
 pnpm typecheck
-pnpm test                       # 21 files, 66 tests
+pnpm test                       # 22 files, 69 tests
 pnpm build                      # includes /account and both new auth/setup APIs
-pnpm test:e2e                   # Chromium, four scenarios
+pnpm test:e2e                   # Chromium, five scenarios across four projects
 pnpm test:examples              # both checked-in examples, exact commits
 pnpm test:deployment
 pnpm db:doctor
@@ -86,12 +88,26 @@ credential-bearing request URLs.
 The same run reproduced the source-development HMR failure over LAN, then
 verified that the custom server completes the Next.js WebSocket upgrade and
 allows the host's current LAN origin. The browser suite now covers this boundary
-in CI. It also injects initial API failures into Applications, GitHub,
+in CI. A second browser scenario forces a competing Next.js development start
+and proves it exits before creating the persistent data directory or starting
+Quick Tunnels. It also injects initial API failures into Applications, GitHub,
 Cloudflare and System and verifies that each page stops loading, shows the
 failure and offers Retry. Host-routed application WebSocket upgrades now use the
 same verified proxy path as stable-port upgrades. Redundant no-op SSE handlers
 and duplicated bounded request-body parsing were removed; an explicit
 TypeScript unused-local/unused-parameter audit also passed.
+
+The live `nixhost` branch of `https://github.com/imxade/kitsy.git` was deployed
+at exact commit `55f73a317906bfe6e0e73c2011e921ec1c8a5eb5`. The failure was
+reproduced: `cloudflared` announced the application's hostname before that name
+was present in public DNS. With the publication gate in place, both dashboard
+and application routes remained **Preparing** until Cloudflare DNS returned an
+address. The Kitsy application then returned HTTP 200 through its stable LAN
+port and through the normally resolved Quick Tunnel URL, the dashboard health
+endpoint returned HTTP 200 through its separate Quick Tunnel, and Playwright
+rendered the full application page through the public application URL. A
+controlled shutdown with active upgraded browser sockets exited promptly,
+stopped both tunnel process groups and released the runtime lock.
 
 The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
 Nix 2.34.8 and cloudflared 2026.7.2:

@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
+import { isIPv4 } from "node:net";
 import { spawnLogged } from "./command.ts";
 import { config } from "./config.ts";
 import { getDb, nowIso } from "./db.ts";
@@ -70,13 +71,21 @@ export interface QuickTunnelRoute {
   updatedAt: string;
 }
 
+type HostnamePublicationCheck = (url: string) => Promise<boolean>;
+
 const STARTUP_TIMEOUT_MS = 90_000;
+const PUBLICATION_TIMEOUT_MS = 5 * 60_000;
+const DNS_QUERY_TIMEOUT_MS = 10_000;
 const MAX_LOG_BYTES = 512 * 1024;
 export class QuickTunnelController {
   private readonly managed = new Map<string, ManagedQuickTunnel>();
   private timer: NodeJS.Timeout | null = null;
   private reconciliation: Promise<void> | null = null;
   private closed = false;
+
+  constructor(
+    private readonly hostnameIsPublished: HostnamePublicationCheck = quickTunnelHostnameIsPublished,
+  ) {}
 
   async boot(): Promise<void> {
     if (!config.NIXHOST_QUICK_TUNNELS_ENABLED) {
@@ -167,9 +176,7 @@ export class QuickTunnelController {
       }
     }
 
-    for (const target of expected.values()) {
-      await this.reconcileTarget(target);
-    }
+    await Promise.all([...expected.values()].map((target) => this.reconcileTarget(target)));
   }
 
   private async reconcileTarget(target: QuickTunnelTarget): Promise<void> {
@@ -191,20 +198,32 @@ export class QuickTunnelController {
     if (alive) {
       const discoveredUrl = row.url ?? readQuickTunnelUrl(logPath(target.key));
       if (discoveredUrl && (row.url !== discoveredUrl || row.status !== "running")) {
-        getDb()
-          .prepare(
-            `UPDATE quick_tunnels SET url = ?, status = 'running', failure_count = 0,
-             next_retry_at = NULL, last_error = NULL, updated_at = ? WHERE key = ?`,
-          )
-          .run(discoveredUrl, nowIso(), target.key);
-        if (target.targetType === "dashboard") {
-          void synchronizeGitHubWebhook().catch(() => undefined);
+        if (await this.hostnameIsPublished(discoveredUrl)) {
+          const result = getDb()
+            .prepare(
+              `UPDATE quick_tunnels SET url = ?, status = 'running', failure_count = 0,
+               next_retry_at = NULL, last_error = NULL, updated_at = ? WHERE key = ?`,
+            )
+            .run(discoveredUrl, nowIso(), target.key);
+          if (result.changes === 0) return;
+          if (target.targetType === "dashboard") {
+            void synchronizeGitHubWebhook().catch(() => undefined);
+          }
+          events.publish("quick_tunnel.ready", target.appId ? `app:${target.appId}` : "system", {
+            key: target.key,
+            url: discoveredUrl,
+            localPort: target.localPort,
+          });
+        } else if (
+          row.started_at &&
+          Date.parse(row.started_at) + PUBLICATION_TIMEOUT_MS < Date.now()
+        ) {
+          await this.stopRow(row);
+          this.recordFailure(
+            target.key,
+            "Cloudflare did not publish the Quick Tunnel hostname in time",
+          );
         }
-        events.publish("quick_tunnel.ready", target.appId ? `app:${target.appId}` : "system", {
-          key: target.key,
-          url: discoveredUrl,
-          localPort: target.localPort,
-        });
       } else if (
         !discoveredUrl &&
         row.started_at &&
@@ -518,4 +537,44 @@ export function quickTunnelArguments(localPort: number): string[] {
     "--url",
     `http://127.0.0.1:${localPort}`,
   ];
+}
+
+export async function quickTunnelHostnameIsPublished(
+  url: string,
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  const normalized = parseQuickTunnelUrl(url);
+  if (!normalized) return false;
+  const hostname = new URL(normalized).hostname;
+  try {
+    const response = await fetcher(
+      `https://cloudflare-dns.com/dns-query?${new URLSearchParams({
+        name: hostname,
+        type: "A",
+      })}`,
+      {
+        cache: "no-store",
+        headers: { accept: "application/dns-json" },
+        signal: AbortSignal.timeout(DNS_QUERY_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) return false;
+    return hasPublishedIpv4Answer(await response.json());
+  } catch {
+    return false;
+  }
+}
+
+function hasPublishedIpv4Answer(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as { Status?: unknown; Answer?: unknown };
+  if (candidate.Status !== 0 || !Array.isArray(candidate.Answer)) return false;
+  return candidate.Answer.some(
+    (answer) =>
+      Boolean(answer) &&
+      typeof answer === "object" &&
+      (answer as { type?: unknown }).type === 1 &&
+      typeof (answer as { data?: unknown }).data === "string" &&
+      isIPv4((answer as { data: string }).data),
+  );
 }

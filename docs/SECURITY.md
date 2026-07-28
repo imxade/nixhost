@@ -71,6 +71,9 @@ not an authorization boundary.
   Dashboard access still requires NixHost authentication. Hosted applications receive
   no automatic access control; their temporary URL must be treated as public and the
   application must implement authentication when needed.
+- Next.js is prepared before the persistent runtime starts. A framework startup
+  collision or initialization failure therefore cannot create detached Quick
+  Tunnels that outlive an unsuccessful control-plane start.
 - Persistent Cloudflare dashboard and application hostnames are explicitly supplied
   by the operator and created only in authorized zones.
 - Logs attempt no magical generic redaction; applications can transform or exfiltrate any secret provided to them.

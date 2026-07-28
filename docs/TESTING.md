@@ -58,11 +58,15 @@ refresh-token rotation, manual token validation, managed/external DNS states,
 ownership-checked DNS cleanup and the responsive OAuth/zone-selection UI. A
 mocked API result is not a live Cloudflare acceptance result.
 
-Quick Tunnel unit coverage validates strict `trycloudflare.com` URL discovery and
-rejects deceptive suffixes. Access-link tests cover simultaneous LAN, temporary,
-and custom routes. Environment tests cover multiline dotenv-style input, duplicate
-keys, invalid names, quoting, and size limits. Deployment-log tests verify bounded
-range/tail reads and refusal of symbolic links on platforms supporting `O_NOFOLLOW`.
+Quick Tunnel unit coverage validates strict `trycloudflare.com` URL discovery,
+rejects deceptive suffixes, and requires a public DNS answer before making a
+route available. The development-runtime browser project also starts a colliding
+second control plane and verifies that Next.js fails before any persistent data
+directory or tunnel runtime is created. Access-link tests cover simultaneous
+LAN, temporary, and custom routes. Environment tests cover multiline
+dotenv-style input, duplicate keys, invalid names, quoting, and size limits.
+Deployment-log tests verify bounded range/tail reads and refusal of symbolic
+links on platforms supporting `O_NOFOLLOW`.
 
 A release acceptance run must additionally start real `cloudflared` Quick Tunnels,
 verify one dashboard and one per-web-app URL, confirm links remain available beside

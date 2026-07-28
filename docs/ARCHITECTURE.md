@@ -34,23 +34,27 @@ The selected product constraint is “Next.js completely.” A custom Node HTTP 
 ## Boot sequence
 
 1. Validate environment configuration.
-2. Create private data directories.
-3. Acquire the exclusive runtime lock.
-4. Open SQLite and transactionally apply migrations.
-5. Create or recover the one-time setup token without logging it separately.
-6. Mark incomplete deployments interrupted.
-7. Recreate stable per-app LAN proxy listeners.
-8. Reconcile active application process IDs.
-9. Start metrics, Git reconciliation and deployment scheduling loops.
-10. Start account-free Quick Tunnels by default and the named Cloudflare tunnel
+2. Prepare Next.js before starting the persistent runtime, so a framework
+   startup failure cannot leave tunnel processes or a runtime lock behind.
+3. Create private data directories.
+4. Acquire the exclusive runtime lock.
+5. Open SQLite and transactionally apply migrations.
+6. Create or recover the one-time setup token without logging it separately.
+7. Mark incomplete deployments interrupted.
+8. Recreate stable per-app LAN proxy listeners.
+9. Reconcile active application process IDs.
+10. Start metrics, Git reconciliation and deployment scheduling loops.
+11. Start account-free Quick Tunnels by default and the named Cloudflare tunnel
     when configured and enabled.
-11. Prepare Next.js, listen on the LAN interface, and print distinctive
+12. Listen on the LAN interface and print distinctive
     token-bearing LAN/available Quick Tunnel claim links.
 
 The runtime is also guarded on `globalThis` to avoid duplicate initialization
 from Next.js development reloads or instrumentation. The custom server forwards
 Next.js HTTP upgrades, and source development allows the host's current LAN IPv4
 addresses so HMR works when the dashboard is opened from another LAN device.
+Quick Tunnel URLs remain in the starting state until Cloudflare's public DNS
+resolver returns an address for the assigned hostname.
 
 ## Persistent state
 

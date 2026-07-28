@@ -88,6 +88,11 @@ restart, a replacement process can receive a new URL. Set
 `NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
 only. Quick Tunnel URLs remain enabled alongside custom domains.
 
+`cloudflared` can print an assigned hostname before its DNS record is usable.
+NixHost keeps that route in **Preparing** and does not expose a clickable URL
+until Cloudflare's public DNS-over-HTTPS resolver returns an address. Publication
+is retried for five minutes before the process is recycled with backoff.
+
 Source development must use `npm run dev` or `pnpm dev` to run the
 lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or
 its absolute path in `NIXHOST_CLOUDFLARED_BIN`. Starting Next.js directly
