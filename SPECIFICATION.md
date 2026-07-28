@@ -10,7 +10,10 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
 
 ## Required behavior
 
-1. A one-time terminal token claims a new node and creates the owner account.
+1. Distinctive terminal links for the LAN address and, when available, the
+   dashboard Quick Tunnel carry a one-time claim token. Opening either link
+   authorizes owner creation without a token-entry field, and successful owner
+   creation starts an authenticated session.
 2. Every dashboard/API operation requires an authenticated role after setup.
 3. GitHub is connected from the dashboard through a per-node GitHub App
    manifest flow. LAN manifests use an inactive reserved public hook URL because
@@ -44,6 +47,9 @@ Only trusted GitHub repositories are accepted. Every production deployment requi
     NixHost does not create account-free or Vercel-style default public domains.
 19. Authenticated application, user, integration and settings flows remain
     operable without horizontal overflow on phone, tablet and desktop screens.
+20. Every authenticated user can change their own password after confirming the
+    current password. A successful change retains the initiating session and
+    revokes that user's other sessions.
 
 ## Android distribution tracks
 

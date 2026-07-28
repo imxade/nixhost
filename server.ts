@@ -1,8 +1,11 @@
 import http from "node:http";
 import next from "next";
 import { config } from "./src/server/config.ts";
+import { events } from "./src/server/events.ts";
 import { logger } from "./src/server/logger.ts";
+import { lanHttpUrls } from "./src/server/network.ts";
 import { bootRuntime } from "./src/server/runtime.ts";
+import { currentSetupToken, firstRunSetupUrl } from "./src/server/setup-links.ts";
 
 const development = process.env.NODE_ENV !== "production";
 const app = next({ dev: development, hostname: config.HOSTNAME, port: config.PORT });
@@ -10,6 +13,27 @@ const handle = app.getRequestHandler();
 
 const platformRuntime = await bootRuntime();
 await app.prepare();
+const loggedSetupOrigins = new Set<string>();
+
+function logSetupLink(label: string, baseUrl: string): void {
+  const token = currentSetupToken();
+  if (!token || loggedSetupOrigins.has(baseUrl)) return;
+  loggedSetupOrigins.add(baseUrl);
+  logger.setupLink(label, firstRunSetupUrl(baseUrl, token));
+}
+
+function logDashboardQuickSetupLink(): void {
+  const route = platformRuntime.quickTunnels
+    .status()
+    .routes.find((candidate) => candidate.targetType === "dashboard");
+  if (route?.running && route.url) logSetupLink("Quick Tunnel", route.url);
+}
+
+const unsubscribeEvents = events.subscribe((event) => {
+  if (event.type === "quick_tunnel.ready" && event.scope === "system") {
+    logDashboardQuickSetupLink();
+  }
+});
 
 const server = http.createServer((request, response) => {
   sanitizeForwardedHeaders(request);
@@ -17,13 +41,22 @@ const server = http.createServer((request, response) => {
   void handle(request, response).catch((error: unknown) => {
     logger.error("Unhandled Next.js request error", {
       error: error instanceof Error ? error.message : String(error),
-      url: request.url,
+      path: requestPath(request.url),
     });
     if (!response.headersSent)
       response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
     response.end("Internal server error\n");
   });
 });
+
+function requestPath(url: string | undefined): string {
+  if (!url) return "unknown";
+  try {
+    return new URL(url, "http://nixhost.local").pathname;
+  } catch {
+    return "invalid";
+  }
+}
 
 server.requestTimeout = 120_000;
 server.headersTimeout = 65_000;
@@ -35,6 +68,22 @@ server.listen(config.PORT, config.HOSTNAME, () => {
     address: `http://${config.HOSTNAME}:${config.PORT}`,
     environment: process.env.NODE_ENV,
   });
+  const loopback = ["127.0.0.1", "::1", "localhost"].includes(config.HOSTNAME);
+  const lanUrls = loopback ? [] : lanHttpUrls(config.PORT);
+  if (lanUrls.length > 0) {
+    for (const url of lanUrls) logSetupLink("LAN", url);
+  } else {
+    const configuredHost =
+      config.HOSTNAME === "0.0.0.0"
+        ? "127.0.0.1"
+        : config.HOSTNAME === "::"
+          ? "[::1]"
+          : config.HOSTNAME.includes(":")
+            ? `[${config.HOSTNAME}]`
+            : config.HOSTNAME;
+    logSetupLink("Local", `http://${configuredHost}:${config.PORT}`);
+  }
+  logDashboardQuickSetupLink();
 });
 
 function sanitizeForwardedHeaders(request: http.IncomingMessage): void {
@@ -79,6 +128,7 @@ async function shutdown(signal: string, exitCode = 0): Promise<void> {
       error: error instanceof Error ? (error.stack ?? error.message) : String(error),
     });
   } finally {
+    unsubscribeEvents();
     server.closeAllConnections();
     await serverClosed;
     clearTimeout(forceExit);

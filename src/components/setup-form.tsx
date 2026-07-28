@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { apiFetch } from "@/lib/client-api";
 
-export function SetupForm() {
+export function SetupForm({ authorized }: { authorized: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,6 @@ export function SetupForm() {
       await apiFetch("/api/setup/complete", {
         method: "POST",
         body: JSON.stringify({
-          token: data.get("token"),
           username: data.get("username"),
           password: data.get("password"),
         }),
@@ -34,7 +33,9 @@ export function SetupForm() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Claim this NixHost</h1>
         <p className="text-base-content/70 mt-2">
-          Enter the one-time token printed by the local process, then create the owner account.
+          {authorized
+            ? "Create the owner account for this device."
+            : "Open one of the first-run setup links printed by the NixHost process."}
         </p>
       </div>
       {error && (
@@ -42,40 +43,42 @@ export function SetupForm() {
           <span>{error}</span>
         </div>
       )}
-      <label className="form-control">
-        <span className="label-text mb-1">Setup token</span>
-        <input
-          name="token"
-          required
-          autoComplete="one-time-code"
-          className="input input-bordered font-mono"
-        />
-      </label>
-      <label className="form-control">
-        <span className="label-text mb-1">Owner username</span>
-        <input
-          name="username"
-          required
-          minLength={3}
-          autoComplete="username"
-          className="input input-bordered"
-        />
-      </label>
-      <label className="form-control">
-        <span className="label-text mb-1">Password</span>
-        <input
-          name="password"
-          required
-          minLength={12}
-          type="password"
-          autoComplete="new-password"
-          className="input input-bordered"
-        />
-        <span className="label-text-alt">Use at least 12 characters.</span>
-      </label>
-      <button type="submit" disabled={busy} className="btn btn-primary">
-        {busy ? <span className="loading loading-spinner" /> : "Create owner account"}
-      </button>
+      {authorized ? (
+        <>
+          <label className="form-control">
+            <span className="label-text mb-1">Owner username</span>
+            <input
+              name="username"
+              required
+              minLength={3}
+              autoComplete="username"
+              className="input input-bordered"
+            />
+          </label>
+          <label className="form-control">
+            <span className="label-text mb-1">Password</span>
+            <input
+              name="password"
+              required
+              minLength={12}
+              type="password"
+              autoComplete="new-password"
+              className="input input-bordered"
+            />
+            <span className="label-text-alt">Use at least 12 characters.</span>
+          </label>
+          <button type="submit" disabled={busy} className="btn btn-primary">
+            {busy ? <span className="loading loading-spinner" /> : "Create owner account"}
+          </button>
+        </>
+      ) : (
+        <div className="alert alert-info">
+          <span>
+            The link contains the one-time claim credential. If it expired or was opened on another
+            device, open the link again from that device.
+          </span>
+        </div>
+      )}
     </form>
   );
 }

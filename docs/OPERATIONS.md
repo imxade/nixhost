@@ -36,6 +36,25 @@ client and callback have been independently tested. A single
 without changing account-free Quick Tunnels, manual-token named tunnels, LAN
 routing, application deployment, or GitHub integration.
 
+## First-run claim
+
+On an empty data directory, NixHost prints a visually separated LAN setup URL
+(or a local URL when explicitly bound to loopback).
+When the dashboard Quick Tunnel starts successfully, it prints a second
+visually separated URL for that route. If Quick Tunnels are disabled or
+`cloudflared` cannot start, only the LAN URL is shown.
+
+Each URL contains the one-time claim credential. Opening it exchanges the
+credential for a 30-minute HttpOnly setup cookie and redirects to the clean
+`/setup` address, where the owner chooses a username and password. The setup
+form never asks for or submits the token. Successful account creation consumes
+the token, removes its private local file, and signs in the new owner.
+
+Authenticated users can change their own password from **Account** after
+confirming the current password. The current browser remains signed in and the
+user's other sessions are revoked. Sign out is available from the navigation
+sidebar.
+
 ## Backup
 
 Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixhost-backup`). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:

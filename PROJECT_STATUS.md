@@ -1,11 +1,14 @@
 # Implementation Status
 
-Last updated: 2026-07-26.
+Last updated: 2026-07-28.
 
 ## Implemented
 
 - Next.js App Router dashboard, strict TypeScript APIs and one persistent custom server/runtime.
 - One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.
+- Direct first-run LAN and available Quick Tunnel claim links, no token-entry
+  field, automatic owner login, and current-password-verified self-service
+  password changes that revoke other sessions.
 - Fixed one-hour password-failure limits: six per source/username and 30 per source, with `Retry-After` on throttled responses.
 - SQLite WAL state with forward-only, empty-database-tested migrations and encrypted stored secrets.
 - Locked GitHub App manifest flow with an inactive, schema-valid LAN hook, push-only
@@ -46,6 +49,30 @@ Last updated: 2026-07-26.
 - Apache-2.0 licensing with Rituraj Basak recorded as the owner.
 
 ## Validation completed on x86_64 Linux
+
+The first-run and account-management changes were validated on 2026-07-28:
+
+```text
+pnpm biome:ci                   # 164 files
+pnpm typecheck
+pnpm test                       # 20 files, 64 tests
+pnpm build                      # includes /account and both new auth/setup APIs
+pnpm test:e2e                   # Chromium, both scenarios
+pnpm db:doctor
+pnpm security:check
+nix flake check                 # complete source snapshot
+nix build                       # complete source snapshot, includes checks
+```
+
+The production Playwright scenario opens the token-bearing claim URL, confirms
+the token field is absent, creates the owner, proves the account is already
+authenticated, changes its password, signs out, rejects the old password and
+signs in with the new password. It also covers the Account page at phone,
+tablet and desktop widths. Startup probes proved that a missing `cloudflared`
+produces only the local claim block, while cloudflared 2026.7.2 produces a
+separate Quick Tunnel claim block and shuts down cleanly. A public curl to that
+temporary hostname timed out from the validation host, so this run does not add
+new external-edge reachability evidence.
 
 The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
 Nix 2.34.8 and cloudflared 2026.7.2:

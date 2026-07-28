@@ -7,10 +7,12 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-auth-test-"
 process.env.NIXHOST_DATA_DIR = dataDirectory;
 process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 23).toString("base64");
 
-const [{ login }, database] = await Promise.all([
-  import("../../src/server/auth.ts"),
-  import("../../src/server/db.ts"),
-]);
+const [{ authenticateSession, changeOwnPassword, createSession, login }, database, cryptoModule] =
+  await Promise.all([
+    import("../../src/server/auth.ts"),
+    import("../../src/server/db.ts"),
+    import("../../src/server/crypto.ts"),
+  ]);
 
 const now = "2026-07-24T12:00:00.000Z";
 database
@@ -22,8 +24,13 @@ database
   )
   .run(now, now);
 
-beforeEach(() => {
+beforeEach(async () => {
   database.getDb().prepare("DELETE FROM login_attempts").run();
+  database.getDb().prepare("DELETE FROM sessions").run();
+  database
+    .getDb()
+    .prepare("UPDATE users SET password_hash = ? WHERE id = 'owner'")
+    .run(await cryptoModule.hashPassword("original owner password"));
   vi.useFakeTimers();
   vi.setSystemTime(new Date(now));
 });
@@ -67,6 +74,50 @@ describe("hourly login limits", () => {
       status: 429,
       code: "login_rate_limited",
     });
+  });
+});
+
+describe("password changes", () => {
+  it("requires the current password, retains the current session, and revokes other sessions", async () => {
+    const currentSession = createSession("owner", "192.0.2.30", "auth-test-current");
+    const otherSession = createSession("owner", "192.0.2.31", "auth-test-other");
+
+    await expect(
+      changeOwnPassword({
+        userId: "owner",
+        currentPassword: "wrong current password",
+        newPassword: "replacement owner password",
+        currentSessionToken: currentSession.token,
+      }),
+    ).rejects.toMatchObject({
+      status: 401,
+      code: "invalid_current_password",
+    });
+
+    await changeOwnPassword({
+      userId: "owner",
+      currentPassword: "original owner password",
+      newPassword: "replacement owner password",
+      currentSessionToken: currentSession.token,
+      ip: "192.0.2.30",
+    });
+
+    expect(authenticateSession(currentSession.token)?.username).toBe("owner");
+    expect(authenticateSession(otherSession.token)).toBeNull();
+    await expect(
+      login({
+        username: "owner",
+        password: "original owner password",
+        ip: "192.0.2.30",
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "invalid_credentials" });
+    await expect(
+      login({
+        username: "owner",
+        password: "replacement owner password",
+        ip: "192.0.2.30",
+      }),
+    ).resolves.toMatchObject({ user: { username: "owner" } });
   });
 });
 

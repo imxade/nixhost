@@ -10,7 +10,6 @@ import {
 } from "./crypto.ts";
 import { getDb, nowIso, setSetting, setting } from "./db.ts";
 import { HttpError } from "./errors.ts";
-import { logger } from "./logger.ts";
 import { paths } from "./paths.ts";
 import type { Role, SessionRow, UserRow } from "./types.ts";
 
@@ -52,10 +51,12 @@ export function ensureSetupToken(): void {
   const token = randomToken(24);
   setSetting("setup_token_hash", sha256(token));
   fs.writeFileSync(paths.setupTokenFile, `${token}\n`, { mode: 0o600 });
-  logger.warn("NixHost first-run setup token", {
-    token,
-    file: paths.setupTokenFile,
-  });
+}
+
+export function setupTokenIsValid(token: string | undefined): boolean {
+  if (!token || isSetupComplete()) return false;
+  const expected = setting("setup_token_hash");
+  return Boolean(expected && timingSafeEqualText(sha256(token), expected));
 }
 
 export async function completeSetup(input: {
@@ -205,6 +206,61 @@ export function logout(token: string | undefined, ip?: string | null): void {
     entityType: "session",
     entityId: row.id,
     ip,
+  });
+}
+
+export async function changeOwnPassword(input: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+  currentSessionToken: string;
+  ip?: string | null;
+}): Promise<void> {
+  const user = getDb().prepare("SELECT * FROM users WHERE id = ?").get(input.userId) as
+    | UserRow
+    | undefined;
+  if (!user || user.disabled) {
+    throw new HttpError(401, "Authentication required", "unauthenticated");
+  }
+  if (!(await verifyPassword(input.currentPassword, user.password_hash))) {
+    audit({
+      userId: user.id,
+      action: "auth.password_change_failed",
+      entityType: "user",
+      entityId: user.id,
+      ip: input.ip,
+    });
+    throw new HttpError(401, "Current password is incorrect", "invalid_current_password");
+  }
+  validatePassword(input.newPassword);
+  if (input.currentPassword === input.newPassword) {
+    throw new HttpError(
+      400,
+      "New password must be different from the current password",
+      "password_unchanged",
+    );
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+  const currentSessionHash = sha256(input.currentSessionToken);
+  const db = getDb();
+  db.transaction(() => {
+    db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").run(
+      passwordHash,
+      nowIso(),
+      user.id,
+    );
+    db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?").run(
+      user.id,
+      currentSessionHash,
+    );
+  })();
+  audit({
+    userId: user.id,
+    action: "auth.password_changed",
+    entityType: "user",
+    entityId: user.id,
+    ip: input.ip,
   });
 }
 

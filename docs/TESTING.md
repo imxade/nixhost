@@ -32,7 +32,9 @@ Release CI expansion still required:
 - dependency audit and secret scan.
 
 The browser suite starts two isolated loopback servers. The normal production
-command covers one-time owner setup, session authentication, cross-origin
+command covers claim-link owner setup without token entry, automatic
+authentication after account creation, current-password-verified password
+change, logout, old-password rejection, new-password login, cross-origin
 mutation rejection, user creation, and viewer role enforcement. The separate
 `pnpm start:ci` command provisions the explicit test-only admin
 `qwerty123456` / `qwerty123456`; its browser scenario verifies admin login and
@@ -40,7 +42,7 @@ the hourly authentication limit including `Retry-After`.
 
 Authenticated dashboard routes are also exercised at `320x568`, `768x1024`,
 and `1440x900`. The suite checks the applications, users, GitHub, Cloudflare,
-settings, and new-application screens for horizontal overflow and requires
+account, settings, and new-application screens for horizontal overflow and requires
 exactly one visible theme control at each size.
 
 Cloudflare tests cover PKCE construction, hashed single-use state, callback

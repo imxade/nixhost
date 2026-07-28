@@ -6,7 +6,11 @@ NixHost protects the management interface and stored credentials from unauthenti
 
 ## Authentication
 
-- One-time setup token generated locally and stored with mode 0600.
+- One-time setup token generated locally and stored with mode 0600. In the
+  console and UI it appears only inside the distinctive first-run LAN/Quick
+  Tunnel claim URLs, not as a standalone log field or setup-form field. A valid
+  claim is exchanged for a 30-minute HttpOnly, SameSite=Lax cookie before owner
+  creation.
 - The production command has no default username or password.
 - The separate `pnpm start:ci` command binds only to loopback, recreates a
   guarded disposable data directory, and provisions the documented insecure
@@ -14,6 +18,10 @@ NixHost protects the management interface and stored credentials from unauthenti
 - Passwords hashed with scrypt and per-password random salt.
 - Random opaque session cookies; only token hashes are stored.
 - HttpOnly, SameSite=Lax cookies; Secure when accessed over HTTPS.
+- Account creation starts the owner's session. Self-service password changes
+  require the current password, retain only the initiating session, and revoke
+  the user's other sessions. Generic user administration cannot reset the
+  protected owner password.
 - Failed logins are limited in fixed one-hour windows: six per source/username
   pair and 30 across usernames from one source. Throttled responses include
   `Retry-After`.
@@ -70,7 +78,7 @@ For the integrated Android app, replace the local key-file fallback with Android
 
 ## Remaining high-priority hardening
 
-- Add re-authentication for owner password/user/Cloudflare changes.
+- Add re-authentication for owner user-management and Cloudflare changes.
 - Add optional local TLS and passkeys.
 - Add interrupted-write and disk-full fault injection to backup/restore tests.
 - Obtain independent security review before exposing the dashboard to the internet.

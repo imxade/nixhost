@@ -29,13 +29,21 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
 
   await page.goto("/");
   await expect(page).toHaveURL(/\/setup$/);
+  await expect(page.getByText("Open one of the first-run setup links")).toBeVisible();
+  await expect(page.getByLabel("Setup token")).toHaveCount(0);
+  await expect(page.getByLabel("Owner username")).toHaveCount(0);
+
+  await page.goto(`/api/setup/claim?token=${encodeURIComponent(token)}`);
+  await expect(page).toHaveURL(/\/setup$/);
+  await expect(page.getByLabel("Setup token")).toHaveCount(0);
+  await expect(page.getByLabel("Owner username")).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeVisible();
   await expect(page.locator("[data-brand-mark]")).toBeVisible();
   const lightLogoColor = await page
     .locator("[data-brand-mark] rect")
     .evaluate((element) => getComputedStyle(element).fill);
 
-  const labels = ["Setup token", "Owner username", "Password"];
+  const labels = ["Owner username", "Password"];
   const boxes = await Promise.all(labels.map((label) => page.getByLabel(label).boundingBox()));
   expect(boxes.every(Boolean)).toBe(true);
   for (const box of boxes.slice(1)) {
@@ -61,7 +69,6 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   expect((authCard?.x ?? 0) + (authCard?.width ?? 0)).toBeLessThanOrEqual(374);
   await page.setViewportSize({ width: 1280, height: 720 });
 
-  await page.getByLabel("Setup token").fill(token);
   await page.getByLabel("Owner username").fill("owner");
   await page.getByLabel("Password").fill("correct horse battery staple");
   await page.getByRole("button", { name: "Create owner account" }).click();
@@ -72,6 +79,34 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   await expect(page.getByRole("button", { name: "New application" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Connect GitHub" })).toHaveCount(1);
   expect(fs.existsSync(tokenPath)).toBe(false);
+  expect(
+    await page.evaluate(async () => {
+      const response = await fetch("/api/auth/me");
+      return response.json();
+    }),
+  ).toMatchObject({
+    ok: true,
+    data: { user: { username: "owner", role: "owner" } },
+  });
+
+  await page.goto("/account");
+  await page.getByLabel("Current password").fill("correct horse battery staple");
+  await page.getByLabel("New password", { exact: true }).fill("new correct horse battery staple");
+  await page.getByLabel("Confirm new password").fill("new correct horse battery staple");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(
+    page.getByText("Password changed. Other signed-in sessions were logged out."),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel("Username").fill("owner");
+  await page.getByLabel("Password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByText("Invalid username or password")).toBeVisible();
+  await page.getByLabel("Password").fill("new correct horse battery staple");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/apps$/);
 
   for (const viewport of [
     { width: 320, height: 568 },
@@ -86,6 +121,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
       "/integrations/cloudflare",
       "/system",
       "/users",
+      "/account",
     ]) {
       await page.goto(route);
       await expect(page.locator("main")).toBeVisible();

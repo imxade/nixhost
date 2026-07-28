@@ -5,6 +5,7 @@ import { type AuthenticatedUser, authenticateSession } from "./auth.ts";
 import { HttpError } from "./errors.ts";
 
 export const SESSION_COOKIE = "nixhost_session";
+export const SETUP_COOKIE = "nixhost_setup";
 
 export async function currentUser(): Promise<AuthenticatedUser | null> {
   const store = await cookies();

@@ -64,6 +64,13 @@ export async function updateUser(
   if (!target) throw new HttpError(404, "User not found", "user_not_found");
   if (target.role === "owner" && (input.disabled || input.role))
     throw new HttpError(400, "The owner account cannot be disabled or demoted", "owner_protected");
+  if (target.role === "owner" && input.password) {
+    throw new HttpError(
+      400,
+      "The owner must change their password from Account settings",
+      "owner_password_self_service",
+    );
+  }
   const updates: string[] = [];
   const values: unknown[] = [];
   const add = (column: string, value: unknown) => {

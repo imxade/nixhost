@@ -23,4 +23,16 @@ export const logger = {
   info: (message: string, context?: Context) => write("info", message, context),
   warn: (message: string, context?: Context) => write("warn", message, context),
   error: (message: string, context?: Context) => write("error", message, context),
+  setupLink: (label: string, url: string) => {
+    console.log(
+      [
+        "",
+        "╭─ NIXHOST FIRST-RUN SETUP ─────────────────────────────────────────",
+        `│ ${label}`,
+        `│ ${url}`,
+        "╰────────────────────────────────────────────────────────────────────",
+        "",
+      ].join("\n"),
+    );
+  },
 };

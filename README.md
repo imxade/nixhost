@@ -12,7 +12,7 @@ optionally exposes it through Cloudflare Tunnel.
 - **LAN-first** — every application gets a stable port reachable at
   `http://<device-ip>:<port>` with no external dependency.
 - **Quick Tunnels** — account-free temporary `trycloudflare.com` URLs for the
-  dashboard and every web application, available immediately.
+  dashboard and every web application when `cloudflared` is available.
 - **Persistent named tunnels** — optional Cloudflare OAuth or manual API token
   connection for custom domains, DNS management and multi-zone support.
 - **Encrypted secrets** — environment variables are encrypted at rest and never
@@ -31,9 +31,12 @@ pnpm install
 pnpm dev
 ```
 
-Open the setup URL printed in your terminal to claim the instance and create
-the owner account. The link includes a one-time token that ties ownership to
-whoever has terminal access.
+Open one of the clearly marked setup URLs printed in your terminal to claim the
+instance and create the owner account. NixHost prints the LAN URL (or a local
+URL for a loopback-only binding) and also prints a Quick Tunnel URL when
+`cloudflared` becomes available. The link carries the one-time claim token, so
+there is no token field to copy. Creating the owner account signs you in
+immediately.
 
 ## Deploy an application
 
