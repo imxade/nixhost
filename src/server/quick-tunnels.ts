@@ -569,6 +569,10 @@ export function quickTunnelArguments(localPort: number): string[] {
     "info",
     "--output",
     "json",
+    "--protocol",
+    "http2",
+    "--edge-ip-version",
+    "4",
     "--url",
     `http://127.0.0.1:${localPort}`,
   ];

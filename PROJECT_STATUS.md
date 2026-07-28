@@ -126,7 +126,10 @@ in about 22 seconds and superseded the previous release while the stable LAN
 route remained HTTP 200. Repeated account-free edge probes also reproduced
 intermittent Cloudflare timeouts with a live connector; periodic route
 revalidation and automatic rotation now prevent such a hostname from remaining
-indefinitely advertised as healthy.
+indefinitely advertised as healthy. A transport comparison on the same host
+returned 10/10 successful application requests over HTTP/2 and IPv4, while the
+automatic IPv6/QUIC path repeatedly timed out, so managed Quick Tunnels use the
+reliable transport explicitly.
 
 The following passed on 2026-07-26 with Node.js 24.18.0, pnpm 10.34.5,
 Nix 2.34.8 and cloudflared 2026.7.2:

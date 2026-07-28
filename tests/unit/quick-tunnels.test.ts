@@ -33,6 +33,10 @@ describe("Quick Tunnel URL discovery", () => {
       "info",
       "--output",
       "json",
+      "--protocol",
+      "http2",
+      "--edge-ip-version",
+      "4",
       "--url",
       "http://127.0.0.1:4100",
     ]);
