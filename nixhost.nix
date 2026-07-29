@@ -18,7 +18,7 @@ pkgs.stdenv.mkDerivation {
   version = "0.1.0";
   src = self;
   nativeBuildInputs = [
-    pkgs.nodejs_24
+    pkgs.nodejs_22
     pkgs.pnpm_10
     pkgs.pnpmConfigHook
     pkgs.python3
@@ -47,21 +47,21 @@ pkgs.stdenv.mkDerivation {
       pkgs.cloudflared
       pkgs.gnutar
     ]}:\$PATH"
-    exec ${pkgs.nodejs_24}/bin/node dist-server/server.js
+    exec ${pkgs.nodejs_22}/bin/node dist-server/server.js
     WRAPPER
     cat > $out/bin/nixhost-backup <<WRAPPER
     #!${pkgs.runtimeShell}
     set -euo pipefail
     cd $out/lib/nixhost
     export PATH="${pkgs.lib.makeBinPath [ pkgs.gnutar ]}:\$PATH"
-    exec ${pkgs.nodejs_24}/bin/node node_modules/tsx/dist/cli.mjs scripts/backup.ts "\$@"
+    exec ${pkgs.nodejs_22}/bin/node node_modules/tsx/dist/cli.mjs scripts/backup.ts "\$@"
     WRAPPER
     cat > $out/bin/nixhost-restore <<WRAPPER
     #!${pkgs.runtimeShell}
     set -euo pipefail
     cd $out/lib/nixhost
     export PATH="${pkgs.lib.makeBinPath [ pkgs.gnutar ]}:\$PATH"
-    exec ${pkgs.nodejs_24}/bin/node node_modules/tsx/dist/cli.mjs scripts/restore.ts "\$@"
+    exec ${pkgs.nodejs_22}/bin/node node_modules/tsx/dist/cli.mjs scripts/restore.ts "\$@"
     WRAPPER
     chmod +x $out/bin/nixhost $out/bin/nixhost-backup $out/bin/nixhost-restore
     runHook postInstall
