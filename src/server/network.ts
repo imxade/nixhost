@@ -3,9 +3,19 @@ import os from "node:os";
 
 type NetworkInterfaces = ReturnType<typeof os.networkInterfaces>;
 
+export function safeNetworkInterfaces(
+  read: () => NetworkInterfaces = os.networkInterfaces,
+): NetworkInterfaces {
+  try {
+    return read();
+  } catch {
+    return {};
+  }
+}
+
 export function lanHttpUrls(
   port: number,
-  networkInterfaces: NetworkInterfaces = os.networkInterfaces(),
+  networkInterfaces: NetworkInterfaces = safeNetworkInterfaces(),
   preferredInterface: string | null = defaultRouteInterface(),
 ): string[] {
   const addresses: Array<{ address: string; interfaceName: string; rank: number }> = [];

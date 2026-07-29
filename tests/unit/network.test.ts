@@ -1,10 +1,18 @@
 import type os from "node:os";
 import { describe, expect, it } from "vitest";
-import { lanHttpUrls } from "../../src/server/network.ts";
+import { lanHttpUrls, safeNetworkInterfaces } from "../../src/server/network.ts";
 
 type NetworkInterfaces = ReturnType<typeof os.networkInterfaces>;
 
 describe("LAN URL selection", () => {
+  it("degrades safely when the platform denies interface discovery", () => {
+    expect(
+      safeNetworkInterfaces(() => {
+        throw new Error("uv_interface_addresses denied");
+      }),
+    ).toEqual({});
+  });
+
   it("returns only the preferred route's IPv4 address", () => {
     const interfaces = {
       wlp3s0: [
