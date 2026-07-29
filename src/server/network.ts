@@ -15,11 +15,20 @@ export function safeNetworkInterfaces(
 
 export function lanHttpUrls(
   port: number,
-  networkInterfaces: NetworkInterfaces = safeNetworkInterfaces(),
+  networkInterfaces?: NetworkInterfaces,
   preferredInterface: string | null = defaultRouteInterface(),
+  explicitAddress: string | null = process.env.NIXHOST_LAN_ADDRESS?.trim() || null,
+  disableDiscovery = process.env.NIXHOST_DISABLE_LAN_DISCOVERY === "1",
 ): string[] {
+  if (explicitAddress && isIpv4(explicitAddress) && !isLoopbackIpv4(explicitAddress)) {
+    return [`http://${explicitAddress}:${port}`];
+  }
+  if (disableDiscovery) return [];
+
   const addresses: Array<{ address: string; interfaceName: string; rank: number }> = [];
-  for (const [interfaceName, interfaces] of Object.entries(networkInterfaces)) {
+  for (const [interfaceName, interfaces] of Object.entries(
+    networkInterfaces ?? safeNetworkInterfaces(),
+  )) {
     for (const address of interfaces ?? []) {
       if (address.internal || String(address.family) !== "IPv4") continue;
       addresses.push({
@@ -52,12 +61,27 @@ function interfaceRank(
 function isPrivateIpv4(address: string): boolean {
   const [first = Number.NaN, second = Number.NaN] = address.split(".").map(Number);
   return (
-    address.split(".").length === 4 &&
+    isIpv4(address) &&
     (first === 10 ||
       (first === 172 && second >= 16 && second <= 31) ||
       (first === 192 && second === 168) ||
       (first === 100 && second >= 64 && second <= 127))
   );
+}
+
+function isIpv4(address: string): boolean {
+  const octets = address.split(".");
+  return (
+    octets.length === 4 &&
+    octets.every(
+      (octet) =>
+        /^(0|[1-9][0-9]{0,2})$/.test(octet) && Number(octet) >= 0 && Number(octet) <= 255,
+    )
+  );
+}
+
+function isLoopbackIpv4(address: string): boolean {
+  return address.startsWith("127.");
 }
 
 function defaultRouteInterface(): string | null {
