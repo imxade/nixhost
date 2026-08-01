@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: nix develop --command scripts/android/run-nix-on-droid.sh verify
       - if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nix-on-droid-evidence-${{ github.run_id }}
           path: artifacts/android/
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: nix develop .#android --command scripts/android/run-maestro.sh ci-login
       - if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-evidence-${{ github.run_id }}
           path: artifacts/android/
