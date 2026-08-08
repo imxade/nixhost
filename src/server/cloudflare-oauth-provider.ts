@@ -315,10 +315,7 @@ function shouldRefresh(expiresAt: string | null): boolean {
 }
 
 function requiredConfig(
-  key:
-    | "CLOUDFLARE_OAUTH_CLIENT_ID"
-    | "CLOUDFLARE_OAUTH_REDIRECT_URI"
-    | "CLOUDFLARE_OAUTH_SCOPES",
+  key: "CLOUDFLARE_OAUTH_CLIENT_ID" | "CLOUDFLARE_OAUTH_REDIRECT_URI" | "CLOUDFLARE_OAUTH_SCOPES",
 ): string {
   const value = config[key];
   if (!value) {

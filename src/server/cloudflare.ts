@@ -336,20 +336,16 @@ export class CloudflareController {
     const row = getCloudflareConfig();
     if (!row?.tunnel_token_encrypted) throw new Error("Cloudflare tunnel token is unavailable");
     const log = `${paths.logs}/cloudflared.log`;
-    const child = spawnLogged(
-      config.CLOUDFLARED_BIN,
-      ["tunnel", "--no-autoupdate", "run"],
-      {
-        cwd: paths.data,
-        env: {
-          ...process.env,
-          TUNNEL_TOKEN: decryptSecret(row.tunnel_token_encrypted),
-        },
-        stdoutPath: log,
-        stderrPath: log,
-        detached: true,
+    const child = spawnLogged(config.CLOUDFLARED_BIN, ["tunnel", "--no-autoupdate", "run"], {
+      cwd: paths.data,
+      env: {
+        ...process.env,
+        TUNNEL_TOKEN: decryptSecret(row.tunnel_token_encrypted),
       },
-    );
+      stdoutPath: log,
+      stderrPath: log,
+      detached: true,
+    });
     if (!child.pid) throw new Error("cloudflared did not return a process ID");
     const identity = captureProcessIdentity(child.pid);
     if (!identity) {

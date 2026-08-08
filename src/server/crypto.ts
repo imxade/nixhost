@@ -60,7 +60,8 @@ function loadMasterKey(): Buffer {
   const fromEnvironment = process.env.PLATFORM_MASTER_KEY?.trim();
   if (fromEnvironment) {
     const key = Buffer.from(fromEnvironment, "base64");
-    if (key.length !== 32) throw new Error("PLATFORM_MASTER_KEY must be 32 bytes encoded as base64");
+    if (key.length !== 32)
+      throw new Error("PLATFORM_MASTER_KEY must be 32 bytes encoded as base64");
     cachedMasterKey = key;
     return key;
   }

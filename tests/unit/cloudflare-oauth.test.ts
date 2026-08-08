@@ -8,10 +8,8 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "platform-cloudflare
 process.env.PLATFORM_DATA_DIR = dataDirectory;
 process.env.PLATFORM_MASTER_KEY = Buffer.alloc(32, 21).toString("base64");
 process.env.CLOUDFLARE_OAUTH_CLIENT_ID = "cloudflare-public-client";
-process.env.CLOUDFLARE_OAUTH_REDIRECT_URI =
-  "http://127.0.0.1:3000/api/cloudflare/oauth/callback";
-process.env.CLOUDFLARE_OAUTH_SCOPES =
-  "account:cloudflare_tunnel:edit zone:zone:read zone:dns:edit";
+process.env.CLOUDFLARE_OAUTH_REDIRECT_URI = "http://127.0.0.1:3000/api/cloudflare/oauth/callback";
+process.env.CLOUDFLARE_OAUTH_SCOPES = "account:cloudflare_tunnel:edit zone:zone:read zone:dns:edit";
 process.env.CLOUDFLARE_OAUTH_ENABLED = "true";
 
 const tokenRequests: URLSearchParams[] = [];

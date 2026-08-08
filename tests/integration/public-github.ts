@@ -8,14 +8,10 @@ import tls from "node:tls";
 
 const repositoryUrl = process.env.PUBLIC_TEST_REPOSITORY_URL?.trim();
 if (!repositoryUrl || !/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\.git)?$/i.test(repositoryUrl)) {
-  throw new Error(
-    "Set PUBLIC_TEST_REPOSITORY_URL to a dedicated public GitHub test repository",
-  );
+  throw new Error("Set PUBLIC_TEST_REPOSITORY_URL to a dedicated public GitHub test repository");
 }
 if (process.env.PUBLIC_TEST_PUSH !== "1") {
-  throw new Error(
-    "Set PUBLIC_TEST_PUSH=1 to acknowledge that this test pushes a marker commit",
-  );
+  throw new Error("Set PUBLIC_TEST_PUSH=1 to acknowledge that this test pushes a marker commit");
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "platform-public-github-"));
