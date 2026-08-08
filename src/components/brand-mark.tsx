@@ -5,8 +5,8 @@ export function BrandMark({ className = "size-10" }: { className?: string }) {
   return (
     <Image
       src={BRAND_MARK_PATH}
-      width={1024}
-      height={1024}
+      width={512}
+      height={512}
       unoptimized
       className={className}
       alt={`${PRODUCT_NAME} logo`}
