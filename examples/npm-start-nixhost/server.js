@@ -25,7 +25,7 @@ const server = http.createServer((request, response) => {
 
   if (request.method === "GET" && request.url === "/") {
     sendJson(response, 200, {
-      message: "Hello from an npm run start app deployed by NixHost.",
+      message: "Hello from an npm run start app deployed by Nix Ship.",
       deploymentId: process.env.DEPLOYMENT_ID ?? null,
       dataDir: process.env.DATA_DIR ?? null,
     });

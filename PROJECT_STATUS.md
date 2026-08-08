@@ -1,8 +1,23 @@
 # Implementation Status
 
-Last updated: 2026-07-28.
+Last updated: 2026-08-08.
 
 ## Implemented
+
+- Product and GitHub repository renamed to Nix Ship and `imxade/nixship`, with
+  centralized user-facing brand constants and compatibility aliases for stable
+  `NIXHOST_*`, data, backup, and executable identifiers.
+- Persisted global active-deployment retention applied independently per project,
+  deterministic oldest-deployment deactivation, and preserved deployment history.
+- One supervised Quick Tunnel per running web deployment, including independent
+  lifecycle cleanup and deployment-specific temporary links.
+- Atomic no-rebuild production promotion through the existing project proxy, with
+  eligibility/race validation, an explicit production marker, and graceful
+  handling when no custom domain exists.
+- Clipboard controls for every displayed access URL, with URL-specific copying,
+  success feedback, and non-fatal failure feedback.
+- A design-only Harbur integration recommendation in
+  `docs/HARBUR_INTEGRATION_DESIGN.md`; no Harbur source was changed.
 
 - Next.js App Router dashboard, strict TypeScript APIs and one persistent custom server/runtime.
 - One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.
@@ -56,6 +71,29 @@ Last updated: 2026-07-28.
 - Apache-2.0 licensing with Rituraj Basak recorded as the owner.
 
 ## Validation completed on x86_64 Linux
+
+The multi-deployment and Nix Ship rename work was validated on 2026-08-08:
+
+```text
+pnpm biome:ci
+pnpm typecheck
+pnpm test                       # 24 files, 82 tests
+pnpm build
+pnpm test:e2e                   # Chromium, five scenarios
+pnpm test:deployment
+pnpm test:examples
+pnpm db:doctor                  # eight migrations, integrity and FK checks clean
+pnpm security:check
+nix flake check
+nix build
+```
+
+The live dashboard deployment path also cloned
+`https://github.com/imxade/kitsy.git`, resolved exact commit
+`b99bb7b4880e76011591da1820387048bb947e14`, built and launched its locked flake,
+activated the deployment, exposed a deployment-specific Quick Tunnel, and
+received HTTP 200 through that public Cloudflare URL. This was host-side
+acceptance evidence; Android and CI evidence is recorded separately when run.
 
 The first-run, account-management, development-runtime and Quick Tunnel changes
 were validated on 2026-07-28:
@@ -177,7 +215,7 @@ write denial, the separate CI admin and hourly throttle timing.
 
 The Cloudflare unit integration verifies PKCE/scopes, one-time callback state,
 refresh-token rotation, candidate rollback, managed and external per-project
-states, remote ingress construction, removal of stale NixHost-owned DNS, and
+states, remote ingress construction, removal of stale Nix Ship-owned DNS, and
 preservation of records whose target or ownership comment does not match. It
 uses a deterministic mocked Cloudflare API; it is not a live-account result.
 

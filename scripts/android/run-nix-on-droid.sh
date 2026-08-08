@@ -11,7 +11,7 @@ case "$mode" in
 esac
 
 if [[ ! -f flake.nix || ! -f package.json ]]; then
-  echo "Run this script from the NixHost repository root." >&2
+  echo "Run this script from the Nix Ship repository root." >&2
   exit 2
 fi
 

@@ -157,7 +157,7 @@ export function AppsClient() {
     <>
       <PageHeading
         title="Applications"
-        description="Import a locked Nix flake. NixHost deploys it, supervises it, and shows its available access URLs."
+        description="Import a locked Nix flake. Nix Ship deploys it, supervises it, and shows its available access URLs."
         actions={
           loaded ? (
             <>

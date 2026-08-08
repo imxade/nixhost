@@ -86,6 +86,13 @@ export interface DeploymentRow {
   cancel_requested: number;
 }
 
+export interface DeploymentWithAppRow extends DeploymentRow {
+  app_name: string;
+  app_kind: AppKind;
+  app_desired_state: DesiredState;
+  app_active_deployment_id: string | null;
+}
+
 export interface RuntimeMetric {
   timestamp: string;
   cpuPercent: number;

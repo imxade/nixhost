@@ -2,6 +2,7 @@ import os from "node:os";
 import type { NextRequest } from "next/server";
 import { dashboardAccessLinks } from "@/server/access-links";
 import { config } from "@/server/config";
+import { activeDeploymentLimit } from "@/server/deployment-settings";
 import { currentNixSystem } from "@/server/flake";
 import { getGitHubApp } from "@/server/github";
 import { api } from "@/server/http";
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         nixSystem,
       },
       metric: latestHostMetric(),
+      settings: { activeDeploymentLimit: activeDeploymentLimit() },
       github: {
         connected: Boolean(getGitHubApp()),
         webhookRoute: preferredPublicDashboardRoute(),

@@ -53,6 +53,8 @@ for (const file of listed.stdout.split("\0").filter(Boolean)) {
     continue;
   }
   const absolute = path.resolve(process.cwd(), file);
+  // A tracked file can be absent during a reviewed rename or deletion in a dirty worktree.
+  if (!fs.existsSync(absolute)) continue;
   const stats = fs.statSync(absolute);
   if (!stats.isFile() || stats.size > 2 * 1024 * 1024 || file === "pnpm-lock.yaml") continue;
   const contents = fs.readFileSync(absolute, "utf8");

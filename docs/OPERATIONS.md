@@ -28,7 +28,7 @@ with PKCE and token endpoint authentication method `none`. Never ship a
 Cloudflare OAuth client secret in this repository or the future APK. The
 redirect URI must resolve back to
 `/api/cloudflare/oauth/callback`; a loopback URI is suitable only when the
-browser and NixHost run on the same device.
+browser and Nix Ship run on the same device.
 
 OAuth is an optional provider module and defaults off. Turn it on only after its
 client and callback have been independently tested. A single
@@ -38,7 +38,7 @@ routing, application deployment, or GitHub integration.
 
 ## First-run claim
 
-On an empty data directory, NixHost prints a visually separated LAN setup URL
+On an empty data directory, Nix Ship prints a visually separated LAN setup URL
 (or a local URL when explicitly bound to loopback).
 When the dashboard Quick Tunnel starts successfully, it prints a second
 visually separated URL for that route. If Quick Tunnels are disabled or
@@ -59,7 +59,7 @@ sidebar.
 
 ## Backup
 
-Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixhost-backup`). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
+Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixship-backup`; the historical `nixhost-backup` alias remains available). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
 
 - SQLite database;
 - secrets key or external master key;
@@ -68,11 +68,11 @@ Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixhost-ba
 
 The Nix store and releases can be reconstructed from repositories and lock files. When `NIXHOST_MASTER_KEY` is externally managed, it is deliberately not copied into the backup and must be supplied during verification/restore.
 
-Restore with `pnpm restore -- /path/to/backup` while NixHost is stopped. Restore verifies the manifest, every checksum, archive paths, the master-key mode, SQLite integrity, and foreign keys before replacing current state. A failed replacement rolls the previous database, key, and application directory back into place.
+Restore with `pnpm restore -- /path/to/backup` while Nix Ship is stopped. Restore verifies the manifest, every checksum, archive paths, the master-key mode, SQLite integrity, and foreign keys before replacing current state. A failed replacement rolls the previous database, key, and application directory back into place.
 
 ## Automatic deployment
 
-NixHost registers the GitHub App webhook against the best public dashboard route:
+Nix Ship registers the GitHub App webhook against the best public dashboard route:
 custom domain, explicit stable URL, then current dashboard Quick Tunnel. LAN routes
 are never used. Branch polling runs periodically regardless of webhook availability
 and queues each previously unseen commit once. A failed commit is not retried on
@@ -81,18 +81,25 @@ commit with the repository fix.
 
 ## Temporary public access
 
-NixHost supervises the dashboard Quick Tunnel and one process per web application.
-The URL remains stable while NixHost and that process continue running. A graceful
-NixHost shutdown closes managed Quick Tunnels; after a crash, device reboot, or later
+Nix Ship supervises the dashboard Quick Tunnel and one process per active web deployment.
+Each URL remains stable while that deployment and its tunnel process continue running. A graceful
+Nix Ship shutdown closes managed Quick Tunnels; after a crash, device reboot, or later
 restart, a replacement process can receive a new URL. Set
 `NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
 only. Quick Tunnel URLs remain enabled alongside custom domains.
 
 `cloudflared` can print an assigned hostname before its DNS record is usable.
-NixHost keeps that route in **Preparing** and does not expose a clickable URL
+Nix Ship keeps that route in **Preparing** and does not expose a clickable URL
 until Cloudflare's public DNS-over-HTTPS resolver returns an address and the
 public edge reaches the dashboard or intended application proxy. Readiness is
 retried for 90 seconds before the process is recycled with backoff.
+
+The System page stores the global active-deployment limit (1–20). It applies
+independently to each project; lowering it immediately supersedes and stops each
+project's oldest excess releases and their tunnels. Deployment records and logs remain
+as history. A healthy retained release can be promoted from the project page when at
+least one production domain is configured; this switches the stable project route
+without rebuilding or replacing either release.
 
 Source development must use `npm run dev` or `pnpm dev` to run the
 lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or
@@ -110,7 +117,7 @@ production origin checks.
 ## Recovery
 
 - If the dashboard crashes, detached active apps should continue.
-- Restart NixHost; it reconciles process records and deployment state.
+- Restart Nix Ship; it reconciles process records and deployment state.
 - Interrupted builds are marked interrupted rather than assumed successful.
 - If SQLite integrity fails, stop the service and restore a verified backup; do not delete the database blindly.
 - If the encryption key is lost, encrypted GitHub/Cloudflare/application secrets cannot be recovered.
@@ -123,7 +130,7 @@ Completed deployment logs are removed after `NIXHOST_LOG_RETENTION_DAYS` and old
 
 ## Nix store pressure
 
-NixHost checks free filesystem space before builds but does not automatically garbage-collect the Nix store. Run garbage collection deliberately after confirming no required generations or roots will be removed. Automated or dashboard-triggered garbage collection is outside the current product contract because it cannot yet show and preserve the exact required closure safely.
+Nix Ship checks free filesystem space before builds but does not automatically garbage-collect the Nix store. Run garbage collection deliberately after confirming no required generations or roots will be removed. Automated or dashboard-triggered garbage collection is outside the current product contract because it cannot yet show and preserve the exact required closure safely.
 
 ## Updating
 

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -11,7 +12,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-3 border-b border-base-300 px-6 py-5 sm:px-8">
           <BrandMark className="size-10 shrink-0 shadow-sm" />
           <div>
-            <div className="text-lg font-bold tracking-tight">NixHost</div>
+            <div className="text-lg font-bold tracking-tight">{PRODUCT_NAME}</div>
             <div className="text-xs text-base-content/60">Private flake deployment host</div>
           </div>
         </div>

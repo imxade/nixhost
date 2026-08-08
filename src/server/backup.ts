@@ -269,10 +269,10 @@ function ensureNoActiveRuntime(): void {
         process_command_summary: lock.commandSummary ?? null,
       })
     ) {
-      throw new Error(`Stop NixHost before restoring; the control plane PID is ${lock.pid}`);
+      throw new Error(`Stop Nix Ship before restoring; the control plane PID is ${lock.pid}`);
     }
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Stop NixHost")) throw error;
+    if (error instanceof Error && error.message.startsWith("Stop Nix Ship")) throw error;
   }
   fs.rmSync(lockPath, { force: true });
 }
