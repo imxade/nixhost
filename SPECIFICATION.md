@@ -6,7 +6,7 @@ This file is the compact implementation contract. Detailed rationale and operati
 
 Nix Ship is a LAN-first personal application host. It runs as one persistent self-hosted Next.js and TypeScript control plane on any Nix-capable Linux or macOS host. It is not a VPS, virtual machine, container runtime, NixOS installation, or multi-tenant sandbox. Android support through Nix-on-Droid is tracked in [`docs/ANDROID.md`](docs/ANDROID.md) and the future APK distribution will live in a separate repository.
 
-Only trusted GitHub repositories are accepted. Every production deployment requires `flake.nix`, `flake.lock`, and a runnable `apps.<system>.<name>` output. A project may keep its production package in `nixhost.nix`, but the locked flake remains the only discovery and execution entry point. The normal deployment path never accepts arbitrary dashboard shell commands.
+Only trusted GitHub repositories are accepted. Every production deployment requires `flake.nix`, `flake.lock`, and a runnable `apps.<system>.<name>` output. A project may keep its production package in `live.nix`, but the locked flake remains the only discovery and execution entry point. The normal deployment path never accepts arbitrary dashboard shell commands.
 
 ## Required behavior
 
@@ -83,7 +83,7 @@ Both tracks retain the same network contract: authenticated local access over LA
 A runnable flake app must remain in the foreground and accept injected operational variables:
 
 ```text
-NIXHOST=1
+MANAGED_DEPLOYMENT=1
 APP_ID
 APP_NAME
 DEPLOYMENT_ID

@@ -33,7 +33,7 @@ if (listed.error || listed.status !== 0) {
 
 const forbiddenPaths = [
   /(^|\/)\.env($|\.)/i,
-  /(^|\/)(master\.key|setup-token\.txt|nixhost\.sqlite(?:-wal|-shm)?)$/i,
+  /(^|\/)(master\.key|setup-token\.txt|platform\.sqlite(?:-wal|-shm)?)$/i,
   /\.(?:p12|pfx|key|sqlite3?)$/i,
 ];
 const secretPatterns = [

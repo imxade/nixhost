@@ -53,7 +53,7 @@ describe("Quick Tunnel URL discovery", () => {
         Object.assign(new Error("spawn cloudflared ENOENT"), { code: "ENOENT" }),
       ),
     ).toBe(
-      "Missing dependency: cloudflared. Install cloudflared or set NIXHOST_CLOUDFLARED_BIN to its absolute path.",
+      "Missing dependency: cloudflared. Install cloudflared or set CLOUDFLARED_BIN to its absolute path.",
     );
   });
 

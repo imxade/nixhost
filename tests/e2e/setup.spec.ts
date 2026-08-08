@@ -8,7 +8,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
   request,
 }) => {
   const dataDirectory = path.resolve(
-    process.env.NIXHOST_E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data"),
+    process.env.E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data"),
   );
   const tokenPath = path.join(dataDirectory, "setup-token.txt");
   const token = fs.readFileSync(tokenPath, "utf8").trim();
@@ -55,7 +55,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
     expect(Math.abs((box?.width ?? 0) - (boxes[0]?.width ?? 0))).toBeLessThan(1);
   }
 
-  await page.evaluate(() => localStorage.setItem("nixhost-theme", "dracula"));
+  await page.evaluate(() => localStorage.setItem("platform-theme", "dracula"));
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dracula");
   expect(await page.locator("[data-brand-mark]").getAttribute("src")).toBe(lightLogoSource);
@@ -182,7 +182,7 @@ test("owner setup, session auth, origin checks, and viewer RBAC work end to end"
           connected: true,
           canManage: true,
           app: {
-            installUrl: "https://github.com/apps/nixhost-test/installations/new",
+            installUrl: "https://github.com/apps/platform-test/installations/new",
           },
         },
       },

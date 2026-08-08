@@ -96,14 +96,14 @@ export class QuickTunnelController {
   ) {}
 
   async boot(): Promise<void> {
-    if (!config.NIXHOST_QUICK_TUNNELS_ENABLED) {
+    if (!config.QUICK_TUNNELS_ENABLED) {
       await this.stopAllAndClear();
       return;
     }
     await this.reconcile();
     this.timer = setInterval(
       () => void this.reconcile(),
-      config.NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS * 1000,
+      config.QUICK_TUNNEL_RECONCILE_SECONDS * 1000,
     );
     this.timer.unref();
   }
@@ -127,7 +127,7 @@ export class QuickTunnelController {
       )
       .all() as QuickTunnelStatusRow[];
     return {
-      enabled: config.NIXHOST_QUICK_TUNNELS_ENABLED,
+      enabled: config.QUICK_TUNNELS_ENABLED,
       routes: rows.map((row) => {
         return {
           key: row.key,
@@ -168,7 +168,7 @@ export class QuickTunnelController {
   }
 
   async reconcile(): Promise<void> {
-    if (this.closed || !config.NIXHOST_QUICK_TUNNELS_ENABLED) return;
+    if (this.closed || !config.QUICK_TUNNELS_ENABLED) return;
     if (this.reconciliation) return this.reconciliation;
     this.reconciliation = this.reconcileOnce().finally(() => {
       this.reconciliation = null;
@@ -319,7 +319,7 @@ export class QuickTunnelController {
 
     let child: ChildProcess;
     try {
-      child = spawnLogged(config.NIXHOST_CLOUDFLARED_BIN, quickTunnelArguments(target.localPort), {
+      child = spawnLogged(config.CLOUDFLARED_BIN, quickTunnelArguments(target.localPort), {
         cwd: paths.data,
         env: process.env,
         stdoutPath: log,
@@ -590,7 +590,7 @@ export function cloudflaredStartError(error: unknown): string {
     message.includes("ENOENT") ||
     (error instanceof Error && "code" in error && error.code === "ENOENT")
   ) {
-    return "Missing dependency: cloudflared. Install cloudflared or set NIXHOST_CLOUDFLARED_BIN to its absolute path.";
+    return "Missing dependency: cloudflared. Install cloudflared or set CLOUDFLARED_BIN to its absolute path.";
   }
   return `Unable to start cloudflared: ${message}`;
 }

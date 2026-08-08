@@ -1,6 +1,6 @@
 { pkgs }:
 pkgs.writeShellApplication {
-  name = "hello-nixhost";
+  name = "hello-flake";
   runtimeInputs = [ pkgs.python3 ];
   text = ''
     : "''${HOST:=127.0.0.1}"

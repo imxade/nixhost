@@ -252,21 +252,21 @@ export class PlatformRuntime {
 }
 
 declare global {
-  var __nixhostRuntimePromise: Promise<PlatformRuntime> | undefined;
+  var __platformRuntimePromise: Promise<PlatformRuntime> | undefined;
 }
 
 export function bootRuntime(): Promise<PlatformRuntime> {
-  if (!globalThis.__nixhostRuntimePromise) {
+  if (!globalThis.__platformRuntimePromise) {
     const runtime = new PlatformRuntime();
-    globalThis.__nixhostRuntimePromise = runtime
+    globalThis.__platformRuntimePromise = runtime
       .boot()
       .then(() => runtime)
       .catch((error) => {
-        globalThis.__nixhostRuntimePromise = undefined;
+        globalThis.__platformRuntimePromise = undefined;
         throw error;
       });
   }
-  return globalThis.__nixhostRuntimePromise;
+  return globalThis.__platformRuntimePromise;
 }
 
 export async function getRuntime(): Promise<PlatformRuntime> {

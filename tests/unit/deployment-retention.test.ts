@@ -3,10 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
-const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-deployment-retention-"));
-process.env.NIXHOST_DATA_DIR = dataDirectory;
-process.env.NIXHOST_MASTER_KEY = Buffer.alloc(32, 51).toString("base64");
-process.env.NIXHOST_QUICK_TUNNELS_ENABLED = "false";
+const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "platform-deployment-retention-"));
+process.env.PLATFORM_DATA_DIR = dataDirectory;
+process.env.PLATFORM_MASTER_KEY = Buffer.alloc(32, 51).toString("base64");
+process.env.QUICK_TUNNELS_ENABLED = "false";
 
 const [database, deploymentSettings, engineModule, supervisorModule, proxyModule, tunnelModule] =
   await Promise.all([

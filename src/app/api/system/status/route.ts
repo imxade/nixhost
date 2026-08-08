@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       github: {
         connected: Boolean(getGitHubApp()),
         webhookRoute: preferredPublicDashboardRoute(),
-        reconciliationSeconds: config.NIXHOST_GIT_POLL_SECONDS,
+        reconciliationSeconds: config.SOURCE_POLL_SECONDS,
       },
       cloudflare,
       quickTunnels,

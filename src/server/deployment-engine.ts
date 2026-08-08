@@ -127,7 +127,7 @@ export class DeploymentEngine {
   }
 
   private async tick(): Promise<void> {
-    if (this.stopping || this.active >= config.NIXHOST_BUILD_CONCURRENCY) return;
+    if (this.stopping || this.active >= config.BUILD_CONCURRENCY) return;
     const deployment = claimDeployment();
     if (!deployment) return;
     this.active++;
@@ -311,7 +311,7 @@ async function cleanupReleaseWorktrees(appId: string): Promise<void> {
      AND state != 'running'
      ORDER BY queued_at DESC LIMIT -1 OFFSET ?`,
     )
-    .all(appId, config.NIXHOST_RELEASE_RETENTION) as Array<{
+    .all(appId, config.RELEASE_RETENTION) as Array<{
     id: string;
     release_dir: string;
   }>;
@@ -377,14 +377,14 @@ function ensureNotCancelled(id: string): void {
 
 function preflightResources(): void {
   const metric = latestHostMetric();
-  if (metric.freeDiskBytes < config.NIXHOST_MIN_FREE_DISK_MB * 1024 * 1024) {
+  if (metric.freeDiskBytes < config.MIN_FREE_DISK_MB * 1024 * 1024) {
     throw new HttpError(
       409,
       "Deployment blocked because free disk space is below the configured reserve",
       "insufficient_disk",
     );
   }
-  if (os.freemem() < config.NIXHOST_MIN_FREE_MEMORY_MB * 1024 * 1024) {
+  if (os.freemem() < config.MIN_FREE_MEMORY_MB * 1024 * 1024) {
     throw new HttpError(
       409,
       "Deployment blocked because available memory is below the configured reserve",

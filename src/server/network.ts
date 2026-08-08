@@ -17,8 +17,8 @@ export function lanHttpUrls(
   port: number,
   networkInterfaces?: NetworkInterfaces,
   preferredInterface: string | null = defaultRouteInterface(),
-  explicitAddress: string | null = process.env.NIXHOST_LAN_ADDRESS?.trim() || null,
-  disableDiscovery = process.env.NIXHOST_DISABLE_LAN_DISCOVERY === "1",
+  explicitAddress: string | null = process.env.LAN_ADDRESS?.trim() || null,
+  disableDiscovery = process.env.DISABLE_LAN_DISCOVERY === "1",
 ): string[] {
   if (explicitAddress && isIpv4(explicitAddress) && !isLoopbackIpv4(explicitAddress)) {
     return [`http://${explicitAddress}:${port}`];

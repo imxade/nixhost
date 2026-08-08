@@ -6,7 +6,7 @@ Last updated: 2026-08-08.
 
 - Product and GitHub repository renamed to Nix Ship and `imxade/nixship`, with
   centralized user-facing brand constants and compatibility aliases for stable
-  `NIXHOST_*`, data, backup, and executable identifiers.
+  `PLATFORM_*`, data, backup, and executable identifiers.
 - Persisted global active-deployment retention applied independently per project,
   deterministic oldest-deployment deactivation, and preserved deployment history.
 - One supervised Quick Tunnel per running web deployment, including independent
@@ -60,7 +60,7 @@ Last updated: 2026-08-08.
 - File-backed live logs with bounded active/inactive retention.
 - Verified, checksummed SQLite/application-data backup and rollback-safe restore commands.
 - Locked pnpm and Nix inputs, reproducible Nix dependency hash, CI security/audit/license gates and packaged operational commands.
-- A separate production `nixhost.nix` package definition behind the locked flake contract, plus directly deployed `hello-nixhost` and npm-start examples.
+- A separate production `live.nix` package definition behind the locked flake contract, plus directly deployed `hello-flake` and npm-start examples.
 - A reproducible Android controller shell with Maestro/ADB/Java plus guarded
   Nix-on-Droid and Maestro acceptance scripts and a manually dispatched
   physical-runner workflow that retains evidence. First-run Maestro automation
@@ -124,7 +124,7 @@ field reaches a request URL. Startup probes proved that a missing `cloudflared`
 produces only the local claim block, while cloudflared 2026.7.2 produces a
 separate Quick Tunnel claim block and shuts down cleanly. A public curl to that
 temporary hostname timed out from the validation host, so this run does not add
-new external-edge reachability evidence. The built `result/bin/nixhost`
+new external-edge reachability evidence. The built `result/bin/nixship`
 artifact also passed the JavaScript-disabled create/change/logout/old-password
 rejection/new-password login flow over the host's LAN address with no
 credential-bearing request URLs.
@@ -187,17 +187,17 @@ pnpm audit --prod --audit-level high
 pnpm licenses list --prod
 nix flake check --print-build-logs
 nix build --print-build-logs
-nix flake check ./examples/hello-nixhost
-nix build ./examples/hello-nixhost
-nix flake check ./examples/npm-start-nixhost
-nix build ./examples/npm-start-nixhost
-NIXHOST_PUBLIC_TEST_REPOSITORY_URL=https://github.com/imxade/nixhost-deployment-test.git \
-  NIXHOST_PUBLIC_TEST_PUSH=1 pnpm test:github-public
+nix flake check ./examples/hello-flake
+nix build ./examples/hello-flake
+nix flake check ./examples/npm-start-flake
+nix build ./examples/npm-start-flake
+PUBLIC_TEST_REPOSITORY_URL=https://github.com/imxade/platform-deployment-test.git \
+  PUBLIC_TEST_PUSH=1 pnpm test:github-public
 ```
 
 The direct-example harness copied each example into the root of its own Git repository and deployed it through the production engine without using the frontend. Both the minimal server and the npm `start` application activated at their exact commits, passed real health checks, returned through stable proxy ports and had their process groups stopped.
 
-The real-Nix deployment integration verified healthy activation, a failing candidate preserving the active release, rapid-queue superseding, recovery of the same detached process after control-plane restart, child process-group shutdown and stable-port unavailability after stop. The current Apache-licensed `result/bin/nixhost` artifact was also started with an empty isolated data directory; all seven migrations ran, `/api/health`, `/api/setup/status`, `/setup` and a traced Next.js CSS asset were served before a clean SIGINT shutdown.
+The real-Nix deployment integration verified healthy activation, a failing candidate preserving the active release, rapid-queue superseding, recovery of the same detached process after control-plane restart, child process-group shutdown and stable-port unavailability after stop. The current Apache-licensed `result/bin/nixship` artifact was also started with an empty isolated data directory; all seven migrations ran, `/api/health`, `/api/setup/status`, `/setup` and a traced Next.js CSS asset were served before a clean SIGINT shutdown.
 
 The newly built package was also started against an isolated data directory with
 Quick Tunnels enabled. Its dashboard health endpoint returned 200 locally and at
@@ -224,7 +224,7 @@ deployments, so branch polling cannot continuously retry the same broken
 revision. A manual redeploy can retry a transient host failure; a repository
 fix arrives as a new commit and remains automatically deployable.
 
-The newly built `result/bin/nixhost` applied migration 006 to the existing
+The newly built `result/bin/nixship` applied migration 006 to the existing
 production data directory, served a ready health response with the production
 CSP and remained healthy through a complete branch-poll interval. The known
 broken commit's reconciliation count and latest timestamp did not change during
@@ -232,11 +232,11 @@ that soak.
 
 GitHub manifest tests verify that registration always supplies a syntactically
 valid public hook URL, requests only the supported push event, and enables
-installation setup returns. A configured `NIXHOST_PUBLIC_URL` supplies and
+installation setup returns. A configured `PLATFORM_PUBLIC_URL` supplies and
 activates the real public webhook origin.
 
 The public fixture
-`https://github.com/imxade/nixhost-deployment-test.git` uses `trunk` as remote
+`https://github.com/imxade/platform-deployment-test.git` uses `trunk` as remote
 HEAD. The acceptance test deployed
 `cf80d75d88578fc9af547acf281444eb95642005`, pushed
 `847ec6394705ab0810f93d21eda6ff503b0729e3`, and let the normal 15-second
@@ -251,7 +251,7 @@ x86_64 development emulator and recorded non-release evidence. The
 Nix-on-Droid runner correctly rejected that non-ARM64 device.
 
 Cloudflare OAuth is now an optional provider module controlled by
-`NIXHOST_CLOUDFLARE_OAUTH_ENABLED`, which defaults to false. Disabling that one
+`CLOUDFLARE_OAUTH_ENABLED`, which defaults to false. Disabling that one
 switch prevents provider loading and consent/refresh operations while leaving
 Quick Tunnels, LAN routing and manual API-token configuration independent. Unit
 coverage verifies the disabled boundary even when OAuth credentials are present.

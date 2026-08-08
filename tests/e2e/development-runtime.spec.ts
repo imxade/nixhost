@@ -50,7 +50,7 @@ test("custom development server completes the Next.js HMR WebSocket upgrade", as
 });
 
 test("a Next.js startup failure occurs before the persistent runtime starts", () => {
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-startup-collision-"));
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "platform-startup-collision-"));
   const dataDirectory = path.join(temporaryRoot, "data");
   try {
     const result = spawnSync("pnpm", ["dev"], {
@@ -61,8 +61,8 @@ test("a Next.js startup failure occurs before the persistent runtime starts", ()
         ...process.env,
         HOSTNAME: "127.0.0.1",
         PORT: "39999",
-        NIXHOST_DATA_DIR: dataDirectory,
-        NIXHOST_QUICK_TUNNELS_ENABLED: "false",
+        PLATFORM_DATA_DIR: dataDirectory,
+        QUICK_TUNNELS_ENABLED: "false",
       },
     });
     expect(result.status).not.toBe(0);

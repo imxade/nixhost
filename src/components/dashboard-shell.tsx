@@ -27,11 +27,11 @@ export function DashboardShell({
   const pathname = usePathname();
   return (
     <div className="drawer lg:drawer-open min-h-screen">
-      <input id="nixhost-drawer" type="checkbox" className="drawer-toggle" />
+      <input id="platform-drawer" type="checkbox" className="drawer-toggle" />
       <div className="dashboard-surface drawer-content flex min-h-screen min-w-0 flex-col">
         <header className="navbar sticky top-0 z-20 gap-2 border-b border-base-300 bg-base-100/95 px-3 backdrop-blur lg:hidden">
           <label
-            htmlFor="nixhost-drawer"
+            htmlFor="platform-drawer"
             className="btn btn-square btn-ghost"
             aria-label="Open navigation"
           >
@@ -48,7 +48,7 @@ export function DashboardShell({
         </main>
       </div>
       <aside className="drawer-side z-30">
-        <label htmlFor="nixhost-drawer" aria-label="Close navigation" className="drawer-overlay" />
+        <label htmlFor="platform-drawer" aria-label="Close navigation" className="drawer-overlay" />
         <div className="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100/95 p-4 shadow-2xl backdrop-blur lg:shadow-none">
           <Link href="/apps" className="flex items-center gap-3 px-3 py-4">
             <BrandMark className="size-10 shrink-0 drop-shadow-sm" />

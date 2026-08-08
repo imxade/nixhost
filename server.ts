@@ -76,7 +76,7 @@ server.on("upgrade", (request, socket, head) => {
 function requestPath(url: string | undefined): string {
   if (!url) return "unknown";
   try {
-    return new URL(url, "http://nixhost.local").pathname;
+    return new URL(url, "http://platform.local").pathname;
   } catch {
     return "invalid";
   }
@@ -122,7 +122,7 @@ function sanitizeForwardedHeaders(request: http.IncomingMessage): void {
     delete request.headers["x-forwarded-host"];
     delete request.headers["x-forwarded-proto"];
   }
-  request.headers["x-nixhost-client-ip"] = remoteAddress;
+  request.headers["x-platform-client-ip"] = remoteAddress;
 }
 
 function allowSameOriginQuickTunnelHmr(request: http.IncomingMessage): void {

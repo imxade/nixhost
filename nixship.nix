@@ -64,9 +64,7 @@ pkgs.stdenv.mkDerivation {
     exec ${pkgs.nodejs_22}/bin/node node_modules/tsx/dist/cli.mjs scripts/restore.ts "\$@"
     WRAPPER
     chmod +x $out/bin/nixship $out/bin/nixship-backup $out/bin/nixship-restore
-    ln -s nixship $out/bin/nixhost
-    ln -s nixship-backup $out/bin/nixhost-backup
-    ln -s nixship-restore $out/bin/nixhost-restore
+    ln -s nixship-backup $out/bin/platform-backup
     runHook postInstall
   '';
   doCheck = true;

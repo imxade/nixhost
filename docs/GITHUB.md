@@ -44,7 +44,7 @@ GitHub cannot deliver to RFC1918/LAN addresses. Nix Ship therefore selects the
 webhook route in this order:
 
 1. enabled custom Cloudflare dashboard hostname;
-2. explicit `NIXHOST_PUBLIC_URL`;
+2. explicit `PLATFORM_PUBLIC_URL`;
 3. current dashboard `trycloudflare.com` Quick Tunnel;
 4. inactive `https://example.com/` sentinel when no public route exists.
 
@@ -59,7 +59,7 @@ changes, and time spent offline. GitHub does not automatically guarantee
 redelivery of every failed webhook, so webhooks are the low-latency signal while
 repository state remains the source of truth.
 
-`NIXHOST_PUBLIC_URL` is optional and is useful when a stable public origin exists
+`PLATFORM_PUBLIC_URL` is optional and is useful when a stable public origin exists
 outside the managed Cloudflare dashboard domain.
 
 ## Offline behavior
@@ -75,13 +75,13 @@ validated before they enter Git refspecs.
 ## Public push-redeployment test
 
 `pnpm test:github-public` is an explicitly destructive external acceptance
-test. With `NIXHOST_PUBLIC_TEST_PUSH=1`, it clones the named public test
+test. With `PUBLIC_TEST_PUSH=1`, it clones the named public test
 repository, deploys its exact remote-HEAD revision, pushes a marker commit, runs
 the production reconciliation code, and requires the pushed revision to become
 healthy on the stable proxy while the previous release becomes superseded.
 
 The maintained fixture is
-`https://github.com/imxade/nixhost-deployment-test.git`, whose default branch is
+`https://github.com/imxade/platform-deployment-test.git`, whose default branch is
 `trunk`. This verifies both push-triggered redeployment and default-branch
 resolution. It does not replace the live GitHub App authorization, signed
 webhook, selected private repository, or missed-webhook recovery gates.

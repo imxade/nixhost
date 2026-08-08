@@ -18,7 +18,7 @@ const server = http.createServer((request, response) => {
   if (request.method === "GET" && request.url === "/health") {
     sendJson(response, 200, {
       status: "ok",
-      app: "npm-start-nixhost",
+      app: "npm-start-flake",
     });
     return;
   }
@@ -51,7 +51,7 @@ server.on("error", (error) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`npm-start-nixhost listening on http://${host}:${port}`);
+  console.log(`npm-start-flake listening on http://${host}:${port}`);
 });
 
 process.on("SIGINT", () => shutDown("SIGINT"));

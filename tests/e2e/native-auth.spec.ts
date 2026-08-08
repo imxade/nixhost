@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 test("auth lifecycle works through native POST forms without JavaScript", async ({ page }) => {
   const baseDataDirectory =
-    process.env.NIXHOST_E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data");
+    process.env.E2E_DATA_DIR || path.join(process.cwd(), ".e2e-data");
   const tokenPath = path.resolve(`${baseDataDirectory}-native`, "setup-token.txt");
   const token = fs.readFileSync(tokenPath, "utf8").trim();
   const leakedCredentialUrls: string[] = [];

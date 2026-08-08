@@ -58,7 +58,7 @@ not an authorization boundary.
 - Application values, GitHub private key/secret, Cloudflare API/tunnel tokens,
   OAuth PKCE verifiers and OAuth access/refresh tokens are encrypted with
   AES-256-GCM.
-- Master key comes from `NIXHOST_MASTER_KEY` or a mode-0600 local key file.
+- Master key comes from `PLATFORM_MASTER_KEY` or a mode-0600 local key file.
 - Existing values are never sent back to the dashboard.
 - Enter or rotate secrets only through an HTTPS dashboard route or a trusted private
   LAN. Plain LAN HTTP does not protect secrets in transit from observers on that

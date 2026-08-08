@@ -24,7 +24,7 @@
           mkNixShipShell = packages: pkgs.mkShell {
             inherit packages;
             shellHook = ''
-              export NIXHOST_DATA_DIR="''${NIXHOST_DATA_DIR:-$PWD/.local-data}"
+              export PLATFORM_DATA_DIR="''${PLATFORM_DATA_DIR:-$PWD/.local-data}"
               echo "Nix Ship development shell (${system})"
               echo "Run: pnpm install && pnpm dev"
             '';

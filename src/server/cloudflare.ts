@@ -337,7 +337,7 @@ export class CloudflareController {
     if (!row?.tunnel_token_encrypted) throw new Error("Cloudflare tunnel token is unavailable");
     const log = `${paths.logs}/cloudflared.log`;
     const child = spawnLogged(
-      config.NIXHOST_CLOUDFLARED_BIN,
+      config.CLOUDFLARED_BIN,
       ["tunnel", "--no-autoupdate", "run"],
       {
         cwd: paths.data,
@@ -695,7 +695,7 @@ async function deleteManagedDnsRecord(row: CloudflareRow, hostname: string): Pro
   for (const record of records) {
     if (
       record.content !== expectedContent ||
-      !["Managed by Nix Ship", "Managed by NixHost"].includes(record.comment ?? "")
+      !["Managed by Nix Ship", "Managed by Nix Ship"].includes(record.comment ?? "")
     ) {
       continue;
     }

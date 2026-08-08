@@ -63,8 +63,8 @@ dashboard health endpoint or the intended application's stable proxy.
 ## Persistent state
 
 ```text
-$NIXHOST_DATA_DIR/
-  nixhost.sqlite
+$PLATFORM_DATA_DIR/
+  platform.sqlite
   repositories/       bare Git mirrors
   releases/           immutable worktrees per deployment
   applications/<id>/  persistent data and caches
@@ -123,7 +123,7 @@ Cloudflare synchronization persists one result per project hostname. The applica
 
 Cloudflare OAuth is deliberately outside the tunnel and DNS controller. The
 stable facade dynamically loads `cloudflare-oauth-provider.ts` only when
-`NIXHOST_CLOUDFLARE_OAUTH_ENABLED=true` and the complete client configuration is
+`CLOUDFLARE_OAUTH_ENABLED=true` and the complete client configuration is
 present. Disabling that one switch leaves account-free Quick Tunnels and manual
 API-token named tunnels intact.
 

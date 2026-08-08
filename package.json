@@ -22,7 +22,7 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "NIXHOST_DISABLE_RUNTIME=1 next build && tsc -p tsconfig.server.json",
+    "build": "DISABLE_PLATFORM_RUNTIME=1 next build && tsc -p tsconfig.server.json",
     "start": "NODE_ENV=production node dist-server/server.js",
     "start:ci": "tsx scripts/start-ci.ts",
     "format": "biome format --write .",

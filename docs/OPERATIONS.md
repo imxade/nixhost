@@ -7,20 +7,20 @@ See `.env.example`. The important values are:
 ```text
 HOSTNAME=0.0.0.0
 PORT=3000
-NIXHOST_DATA_DIR=~/.local/share/nixhost
-NIXHOST_MASTER_KEY=<base64 32-byte key, recommended>
-NIXHOST_PUBLIC_URL=<optional stable HTTPS origin>
-NIXHOST_QUICK_TUNNELS_ENABLED=true
-NIXHOST_QUICK_TUNNEL_RECONCILE_SECONDS=10
-NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false
-NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<optional public OAuth client ID>
-NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=<exact registered callback URI>
-NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<exact space-delimited client scopes>
-NIXHOST_BUILD_CONCURRENCY=1
-NIXHOST_GIT_POLL_SECONDS=60
-NIXHOST_METRICS_SECONDS=5
-NIXHOST_MIN_FREE_DISK_MB=1024
-NIXHOST_MIN_FREE_MEMORY_MB=256
+PLATFORM_DATA_DIR=~/.local/share/nix-platform
+PLATFORM_MASTER_KEY=<base64 32-byte key, recommended>
+PLATFORM_PUBLIC_URL=<optional stable HTTPS origin>
+QUICK_TUNNELS_ENABLED=true
+QUICK_TUNNEL_RECONCILE_SECONDS=10
+CLOUDFLARE_OAUTH_ENABLED=false
+CLOUDFLARE_OAUTH_CLIENT_ID=<optional public OAuth client ID>
+CLOUDFLARE_OAUTH_REDIRECT_URI=<exact registered callback URI>
+CLOUDFLARE_OAUTH_SCOPES=<exact space-delimited client scopes>
+BUILD_CONCURRENCY=1
+SOURCE_POLL_SECONDS=60
+METRICS_INTERVAL_SECONDS=5
+MIN_FREE_DISK_MB=1024
+MIN_FREE_MEMORY_MB=256
 ```
 
 The Cloudflare client must be registered as a public Authorization Code client
@@ -32,7 +32,7 @@ browser and Nix Ship run on the same device.
 
 OAuth is an optional provider module and defaults off. Turn it on only after its
 client and callback have been independently tested. A single
-`NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false` disconnects authorization and refresh
+`CLOUDFLARE_OAUTH_ENABLED=false` disconnects authorization and refresh
 without changing account-free Quick Tunnels, manual-token named tunnels, LAN
 routing, application deployment, or GitHub integration.
 
@@ -59,14 +59,14 @@ sidebar.
 
 ## Backup
 
-Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixship-backup`; the historical `nixhost-backup` alias remains available). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
+Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixship-backup`; the historical `platform-backup` alias remains available). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
 
 - SQLite database;
 - secrets key or external master key;
 - application persistent data;
 - optionally logs and Git mirrors.
 
-The Nix store and releases can be reconstructed from repositories and lock files. When `NIXHOST_MASTER_KEY` is externally managed, it is deliberately not copied into the backup and must be supplied during verification/restore.
+The Nix store and releases can be reconstructed from repositories and lock files. When `PLATFORM_MASTER_KEY` is externally managed, it is deliberately not copied into the backup and must be supplied during verification/restore.
 
 Restore with `pnpm restore -- /path/to/backup` while Nix Ship is stopped. Restore verifies the manifest, every checksum, archive paths, the master-key mode, SQLite integrity, and foreign keys before replacing current state. A failed replacement rolls the previous database, key, and application directory back into place.
 
@@ -85,7 +85,7 @@ Nix Ship supervises the dashboard Quick Tunnel and one process per active web de
 Each URL remains stable while that deployment and its tunnel process continue running. A graceful
 Nix Ship shutdown closes managed Quick Tunnels; after a crash, device reboot, or later
 restart, a replacement process can receive a new URL. Set
-`NIXHOST_QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
+`QUICK_TUNNELS_ENABLED=false` before startup to keep the node LAN/custom-domain
 only. Quick Tunnel URLs remain enabled alongside custom domains.
 
 `cloudflared` can print an assigned hostname before its DNS record is usable.
@@ -103,7 +103,7 @@ without rebuilding or replacing either release.
 
 Source development must use `npm run dev` or `pnpm dev` to run the
 lifecycle-owning custom server. Quick Tunnels require `cloudflared` on `PATH`, or
-its absolute path in `NIXHOST_CLOUDFLARED_BIN`. Starting Next.js directly
+its absolute path in `CLOUDFLARED_BIN`. Starting Next.js directly
 bypasses tunnel cleanup and is unsupported.
 
 The development command forwards Next.js HMR WebSocket upgrades. At startup,
@@ -126,7 +126,7 @@ production origin checks.
 
 ## Log retention
 
-Completed deployment logs are removed after `NIXHOST_LOG_RETENTION_DAYS` and oldest inactive logs are removed when total log usage exceeds `NIXHOST_LOG_MAX_MB`. If active append targets alone exceed the hard cap, they are truncated in place so the running process keeps its file descriptor while disk use remains bounded. Metric samples are pruned after seven days.
+Completed deployment logs are removed after `LOG_RETENTION_DAYS` and oldest inactive logs are removed when total log usage exceeds `LOG_MAX_MB`. If active append targets alone exceed the hard cap, they are truncated in place so the running process keeps its file descriptor while disk use remains bounded. Metric samples are pruned after seven days.
 
 ## Nix store pressure
 

@@ -228,7 +228,7 @@ export function setEnvironment(
     if (!/^[A-Z_][A-Z0-9_]*$/i.test(key))
       throw new HttpError(400, `Invalid environment variable name: ${key}`, "invalid_env_key");
     if (
-      key.startsWith("NIXHOST_") ||
+      key.startsWith("PLATFORM_") ||
       ["PORT", "HOST", "DATA_DIR", "CACHE_DIR", "LOG_DIR"].includes(key)
     ) {
       throw new HttpError(400, `${key} is reserved by Nix Ship`, "reserved_env_key");

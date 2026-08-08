@@ -13,7 +13,7 @@ export class GitReconciler {
   private running = false;
 
   boot(): void {
-    this.timer = setInterval(() => void this.reconcile(), config.NIXHOST_GIT_POLL_SECONDS * 1000);
+    this.timer = setInterval(() => void this.reconcile(), config.SOURCE_POLL_SECONDS * 1000);
     this.timer.unref();
     setTimeout(() => void this.reconcile(), 5000).unref();
   }

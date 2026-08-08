@@ -21,14 +21,14 @@
           pkgs = import nixpkgs { inherit system; };
         in
         {
-          default = import ./nixhost.nix { inherit pkgs; };
+          default = import ./live.nix { inherit pkgs; };
         }
       );
 
       apps = forAllSystems (system: {
         default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/npm-start-nixhost";
+          program = "${self.packages.${system}.default}/bin/npm-start-flake";
         };
       });
     };

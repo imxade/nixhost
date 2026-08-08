@@ -158,7 +158,7 @@ describe("database migrations", () => {
 });
 
 function temporaryDatabase(): Database.Database {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "nixhost-migrations-"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "platform-migrations-"));
   temporaryDirectories.push(directory);
   const db = new Database(path.join(directory, "test.sqlite"));
   db.pragma("foreign_keys = ON");

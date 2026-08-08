@@ -11,7 +11,7 @@ Nix Ship refuses an unlocked production deployment. The lock file is the reprodu
 
 The flake is the locked, standard Nix entry point rather than a development-only
 file. To keep concerns separate, a repository may put its production package in
-`nixhost.nix` and import it from `flake.nix`. Nix Ship evaluates only the flake
+`live.nix` and import it from `flake.nix`. Nix Ship evaluates only the flake
 output; it never executes a loose Nix file or dashboard-provided command.
 
 ## Required output
@@ -41,7 +41,7 @@ The executable must:
 Injected variables:
 
 ```text
-NIXHOST=1
+MANAGED_DEPLOYMENT=1
 APP_ID
 APP_NAME
 DEPLOYMENT_ID

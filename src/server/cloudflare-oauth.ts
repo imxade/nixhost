@@ -87,10 +87,10 @@ export async function cloudflareAuthorizationAccessToken(
 
 function cloudflareOAuthAvailable(): boolean {
   return Boolean(
-    config.NIXHOST_CLOUDFLARE_OAUTH_ENABLED &&
-      config.NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID &&
-      config.NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI &&
-      config.NIXHOST_CLOUDFLARE_OAUTH_SCOPES,
+    config.CLOUDFLARE_OAUTH_ENABLED &&
+      config.CLOUDFLARE_OAUTH_CLIENT_ID &&
+      config.CLOUDFLARE_OAUTH_REDIRECT_URI &&
+      config.CLOUDFLARE_OAUTH_SCOPES,
   );
 }
 

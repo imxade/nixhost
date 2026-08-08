@@ -21,9 +21,9 @@ a different URL.
 
 ## Quick Tunnel operating contract
 
-- Quick Tunnels are enabled by default. Set `NIXHOST_QUICK_TUNNELS_ENABLED=false`
+- Quick Tunnels are enabled by default. Set `QUICK_TUNNELS_ENABLED=false`
   before startup to make a node LAN/custom-domain only. Set
-  `NIXHOST_CLOUDFLARED_BIN` when `cloudflared` is not on `PATH`.
+  `CLOUDFLARED_BIN` when `cloudflared` is not on `PATH`.
 - Nix Ship uses a separate Quick Tunnel process per active web deployment. This avoids
   path-prefix rewriting and preserves normal application assumptions about `/`,
   cookies, redirects, assets, and WebSockets.
@@ -250,23 +250,23 @@ Enable it and set all three client values in the service environment before
 starting Nix Ship:
 
 ```text
-NIXHOST_CLOUDFLARE_OAUTH_ENABLED=true
-NIXHOST_CLOUDFLARE_OAUTH_CLIENT_ID=<client ID from Cloudflare>
-NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI=https://console.example.com/api/cloudflare/oauth/callback
-NIXHOST_CLOUDFLARE_OAUTH_SCOPES=<space-delimited exact scope IDs>
+CLOUDFLARE_OAUTH_ENABLED=true
+CLOUDFLARE_OAUTH_CLIENT_ID=<client ID from Cloudflare>
+CLOUDFLARE_OAUTH_REDIRECT_URI=https://console.example.com/api/cloudflare/oauth/callback
+CLOUDFLARE_OAUTH_SCOPES=<space-delimited exact scope IDs>
 ```
 
 For example, if Cloudflare returns the IDs `scope.one`, `scope.two` and
 `scope.three`, set:
 
 ```text
-NIXHOST_CLOUDFLARE_OAUTH_SCOPES=scope.one scope.two scope.three
+CLOUDFLARE_OAUTH_SCOPES=scope.one scope.two scope.three
 ```
 
 Do not put human-readable permission labels, commas, JSON, colon-delimited
-values or a client secret in `NIXHOST_CLOUDFLARE_OAUTH_SCOPES`.
+values or a client secret in `CLOUDFLARE_OAUTH_SCOPES`.
 
-`NIXHOST_PUBLIC_URL` is optional. GitHub webhook routing automatically prefers the
+`PLATFORM_PUBLIC_URL` is optional. GitHub webhook routing automatically prefers the
 enabled custom dashboard domain, then this explicit stable origin, then the current
 dashboard Quick Tunnel URL.
 
@@ -274,7 +274,7 @@ The Cloudflare redirect URI and the value registered on the OAuth client must
 match exactly, including scheme, host, path and port. Restart Nix Ship after
 changing its process environment. The **Connect Cloudflare** button remains
 unavailable until the feature switch, client ID, redirect URI and scope string
-are all present. Set `NIXHOST_CLOUDFLARE_OAUTH_ENABLED=false` to disconnect the
+are all present. Set `CLOUDFLARE_OAUTH_ENABLED=false` to disconnect the
 complete OAuth provider at one boundary. Account-free Quick Tunnels and manual
 API-token named tunnels do not depend on it and continue working.
 
@@ -328,7 +328,7 @@ a proxied CNAME. Nix Ship performs both operations:
 To remove the public dashboard route, clear the hostname and save. Nix Ship
 removes the previous DNS record only when it still targets this node's tunnel
 and carries the `Managed by Nix Ship` ownership comment. It also moves the GitHub App webhook to the next available route: an explicit
-`NIXHOST_PUBLIC_URL`, then the current dashboard Quick Tunnel, or the inactive
+`PLATFORM_PUBLIC_URL`, then the current dashboard Quick Tunnel, or the inactive
 sentinel when no public route remains.
 
 The dashboard hostname cannot also belong to a hosted application.
@@ -505,7 +505,7 @@ Nix Ship process environment, then restart the packaged process. Editing
 ### Cloudflare reports an invalid redirect URI
 
 Compare the registered URI and
-`NIXHOST_CLOUDFLARE_OAUTH_REDIRECT_URI` character for character. Check:
+`CLOUDFLARE_OAUTH_REDIRECT_URI` character for character. Check:
 
 - `https`, not `http`, for a public callback;
 - the exact hostname;
@@ -552,8 +552,8 @@ runtime configuration.
 ### The tunnel remains Starting or repeatedly reconnects
 
 1. Inspect
-   `~/.local/share/nixhost/logs/cloudflared.log`, or the equivalent path under
-   `NIXHOST_DATA_DIR`.
+   `~/.local/share/nix-platform/logs/cloudflared.log`, or the equivalent path under
+   `PLATFORM_DATA_DIR`.
 2. Confirm the host can make outbound connections to Cloudflare. Cloudflare's
    tunnel guide calls out port `7844` for connectivity checks.
 3. Confirm system time and DNS resolution are correct.

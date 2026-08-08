@@ -58,7 +58,7 @@ export class ProcessSupervisor {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       ...Object.fromEntries(envRows.map((row) => [row.key, decryptSecret(row.value_encrypted)])),
-      NIXHOST: "1",
+      MANAGED_DEPLOYMENT: "1",
       APP_ID: app.id,
       APP_NAME: app.name,
       DEPLOYMENT_ID: deployment.id,
