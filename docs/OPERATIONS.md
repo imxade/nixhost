@@ -59,7 +59,7 @@ sidebar.
 
 ## Backup
 
-Create a consistent backup with `pnpm backup -- /path/to/target` (or `nixship-backup`; the historical `platform-backup` alias remains available). The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
+Create a consistent backup with `pnpm backup -- /path/to/target` or `nixship-backup`. The target must not already exist. It uses SQLite's online backup API, archives application data, writes SHA-256 checksums, and atomically publishes the completed backup directory. Preserve:
 
 - SQLite database;
 - secrets key or external master key;

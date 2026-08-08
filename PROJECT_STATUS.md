@@ -4,9 +4,9 @@ Last updated: 2026-08-08.
 
 ## Implemented
 
-- Product and GitHub repository renamed to Nix Ship and `imxade/nixship`, with
-  centralized user-facing brand constants and compatibility aliases for stable
-  `PLATFORM_*`, data, backup, and executable identifiers.
+- User-facing brand values remain centralized while runtime identifiers use the
+  neutral `PLATFORM_*` contract. Old environment, data, backup, and executable
+  names were removed as a deliberate clean break.
 - Persisted global active-deployment retention applied independently per project,
   deterministic oldest-deployment deactivation, and preserved deployment history.
 - One supervised Quick Tunnel per running web deployment, including independent
