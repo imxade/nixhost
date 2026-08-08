@@ -23,6 +23,7 @@ describe("database migrations", () => {
     apply(db, migration("006_cloudflare_oauth.sql"));
     apply(db, migration("007_quick_tunnels.sql"));
     apply(db, migration("008_active_deployments.sql"));
+    apply(db, migration("009_source_integrations.sql"));
 
     expect(
       db
@@ -62,6 +63,16 @@ describe("database migrations", () => {
     expect(db.prepare("SELECT deployment_id FROM quick_tunnels").columns()[0]?.name).toBe(
       "deployment_id",
     );
+    expect(
+      db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'integration_connections'",
+        )
+        .get(),
+    ).toEqual({ name: "integration_connections" });
+    expect(db.prepare("SELECT source_provider FROM applications").columns()[0]?.name).toBe(
+      "source_provider",
+    );
     expect(db.pragma("foreign_key_check")).toEqual([]);
     db.close();
   });
@@ -89,6 +100,7 @@ describe("database migrations", () => {
     apply(db, migration("006_cloudflare_oauth.sql"));
     apply(db, migration("007_quick_tunnels.sql"));
     apply(db, migration("008_active_deployments.sql"));
+    apply(db, migration("009_source_integrations.sql"));
 
     expect(db.prepare("SELECT hostname, app_id FROM application_domains").all()).toEqual([
       { hostname: "app.example.com", app_id: "app-1" },

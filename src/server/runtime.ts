@@ -5,9 +5,11 @@ import { ensureSetupToken, purgeExpiredSessions } from "./auth.ts";
 import { CloudflareController } from "./cloudflare.ts";
 import { getDb, nowIso } from "./db.ts";
 import { DeploymentEngine } from "./deployment-engine.ts";
-import { HttpError } from "./errors.ts";
+import { errorMessage, HttpError } from "./errors.ts";
 import { events } from "./events.ts";
 import { GitReconciler } from "./git-reconciler.ts";
+import { latestHarburRevision } from "./harbur.ts";
+import { HarburReconciler } from "./harbur-reconciler.ts";
 import { LogRetentionController } from "./log-retention.ts";
 import { logger } from "./logger.ts";
 import { MetricsCollector } from "./metrics.ts";
@@ -33,6 +35,7 @@ export class PlatformRuntime {
   readonly quickTunnels = new QuickTunnelController();
   readonly deployments = new DeploymentEngine(this.supervisor, this.proxy, this.quickTunnels);
   readonly git = new GitReconciler();
+  readonly harbur = new HarburReconciler();
   readonly logRetention = new LogRetentionController();
   private maintenanceTimer: NodeJS.Timeout | null = null;
   private closed = false;
@@ -42,12 +45,13 @@ export class PlatformRuntime {
     acquireRuntimeLock();
     getDb();
     ensureSetupToken();
-    recoverDesiredState(this.supervisor);
+    await recoverDesiredState(this.supervisor);
     await this.proxy.reconcile();
     this.supervisor.boot();
     this.metrics.boot();
     await this.deployments.boot();
     this.git.boot();
+    this.harbur.boot();
     this.logRetention.boot();
     await this.cloudflare.boot();
     await this.quickTunnels.boot();
@@ -63,6 +67,7 @@ export class PlatformRuntime {
     this.closed = true;
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
     this.git.close();
+    this.harbur.close();
     this.logRetention.close();
     this.metrics.close();
     await this.deployments.close();
@@ -231,10 +236,13 @@ export class PlatformRuntime {
          ORDER BY activated_at DESC LIMIT 1`,
       )
       .get(appId) as DeploymentRow | undefined;
+    const commitSha =
+      latest?.commit_sha ??
+      (app.source_provider === "harbur" ? await latestHarburRevision(app) : null);
     return queueDeployment(appId, {
       trigger: "restart",
-      commitSha: latest?.commit_sha ?? null,
-      requestedRef: latest?.commit_sha ?? app.branch,
+      commitSha,
+      requestedRef: commitSha ?? app.branch,
     });
   }
 
@@ -273,7 +281,7 @@ export async function getRuntime(): Promise<PlatformRuntime> {
   return bootRuntime();
 }
 
-function recoverDesiredState(supervisor: ProcessSupervisor): void {
+async function recoverDesiredState(supervisor: ProcessSupervisor): Promise<void> {
   const apps = getDb()
     .prepare("SELECT * FROM applications WHERE desired_state = 'running'")
     .all() as AppRow[];
@@ -302,8 +310,34 @@ function recoverDesiredState(supervisor: ProcessSupervisor): void {
          ('queued','preparing','fetching','evaluating','starting','health-checking','activating') LIMIT 1`,
       )
       .get(app.id);
-    if (!pending) queueDeployment(app.id, { trigger: "restart", requestedRef: app.branch });
+    if (!pending) {
+      let commitSha = recoveryRevision(app, running);
+      if (app.source_provider === "harbur" && !commitSha) {
+        try {
+          commitSha = await latestHarburRevision(app);
+        } catch (error) {
+          logger.warn("Harbur recovery revision could not be resolved", {
+            appId: app.id,
+            error: errorMessage(error),
+          });
+          continue;
+        }
+      }
+      queueDeployment(app.id, {
+        trigger: "restart",
+        commitSha,
+        requestedRef: commitSha ?? app.branch,
+      });
+    }
   }
+}
+
+export function recoveryRevision(
+  app: Pick<AppRow, "source_provider">,
+  deployments: Array<Pick<DeploymentRow, "commit_sha">>,
+) {
+  if (app.source_provider !== "harbur") return null;
+  return deployments.find((deployment) => deployment.commit_sha)?.commit_sha ?? null;
 }
 
 function acquireRuntimeLock(): void {

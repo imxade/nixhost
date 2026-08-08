@@ -14,7 +14,7 @@
 
 **Reason:** This keeps the application package reproducible and prevents the control plane from becoming an unrestricted remote shell interface.
 
-## ADR-003 — GitHub-only repository import initially
+## ADR-003 — GitHub is the initial Git provider
 
 **Decision:** Accept dashboard-selected GitHub App repositories or canonical HTTPS `github.com/<owner>/<repo>` URLs only.
 
@@ -69,3 +69,11 @@ exposed through outbound tunnels without inventing a default Nix Ship domain.
 **Reason:** The intended Android experience is install, open, configure and host. The Next.js control plane, Nix flake application contract, authenticated LAN access and optional Cloudflare path remain consistent across distributions.
 
 **Consequence:** APK readiness requires an explicit Android packaging design, compliant delivery of the Nix/runtime dependencies, Maestro UI automation and physical multi-OEM lifecycle tests. The APK source, foreground-service adapter, signing configuration and binaries belong to a separate Android distribution repository. Documentation in this repository must not imply that the APK exists until those gates pass.
+
+## ADR-011 — Harbur uses immutable snapshots, not Drive or Git emulation
+
+**Decision:** Integrate Harbur through its versioned read-only repository, exact-snapshot and durable event-feed API. Store one encrypted instance token and a per-connection cursor. Do not read Google Drive directly or make Harbur emulate Git.
+
+**Reason:** Harbur owns repository authorization and Drive layout, while Nix Ship owns deployment verification and promotion. A narrow HTTP contract avoids duplicated Drive permission logic and lets a merge identify the exact content-addressed revision that is deployed.
+
+**Consequence:** Harbur snapshots are size/digest verified and safely extracted before ordinary flake evaluation. Private/LAN instance access requires explicit owner configuration; workloads remain trusted and are not isolated.

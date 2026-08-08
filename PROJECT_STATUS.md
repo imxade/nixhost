@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-08-08.
+Last updated: 2026-08-09.
 
 ## Implemented
 
@@ -16,8 +16,9 @@ Last updated: 2026-08-08.
   handling when no custom domain exists.
 - Clipboard controls for every displayed access URL, with URL-specific copying,
   success feedback, and non-fatal failure feedback.
-- A design-only Harbur integration recommendation in
-  `docs/HARBUR_INTEGRATION_DESIGN.md`; no Harbur source was changed.
+- Harbur immutable SHA-256 snapshots, encrypted one-time instance connection,
+  public/private discovery, exact-revision safe materialization, durable cursor polling,
+  and merge-revision deployment deduplication.
 
 - Next.js App Router dashboard, strict TypeScript APIs and one persistent custom server/runtime.
 - One-time owner claim, authenticated sessions, login throttling, role enforcement and user management.

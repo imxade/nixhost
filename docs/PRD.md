@@ -14,7 +14,7 @@ Nix Ship is comparable in workflow to a small Vercel, Coolify or Dokploy node, b
 2. Visit its LAN address.
 3. Claim it with the one-time terminal token.
 4. Create the owner account.
-5. Connect GitHub or enter a public HTTPS GitHub repository URL.
+5. Connect GitHub, enter a public HTTPS GitHub repository URL, or connect Harbur once.
 6. Select repository and flake app output; optionally override the repository's default branch.
 7. Configure health path and environment variables.
 8. Deploy.
@@ -34,7 +34,7 @@ Nix Ship is comparable in workflow to a small Vercel, Coolify or Dokploy node, b
 
 ### Applications
 
-- Import HTTPS GitHub repositories.
+- Import HTTPS GitHub repositories or immutable Harbur repository snapshots.
 - Require `flake.nix` and `flake.lock`.
 - Discover and validate the selected flake app output for the current Nix system.
 - Support web and worker applications.

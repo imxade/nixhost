@@ -79,6 +79,14 @@ and queues each previously unseen commit once. A failed commit is not retried on
 every poll; use **Redeploy latest** for a transient host failure, or push a new
 commit with the repository fix.
 
+Harbur connections use the same `SOURCE_POLL_SECONDS` interval. A public-only manual connection
+needs no token. For private repositories and automatic merge deployment, configure a random
+`INTEGRATION_READ_TOKEN` on Harbur, then connect its origin and token from **Harbur** in the
+dashboard. Nix Ship encrypts the token and polls Harbur's durable event cursor; a merged pull request queues its
+exact immutable SHA-256 snapshot once. Rotating the Harbur token requires verifying the same
+origin again. Disconnect is blocked while applications still reference the connection. See
+[`HARBUR_INTEGRATION_DESIGN.md`](HARBUR_INTEGRATION_DESIGN.md) for the trust and archive boundary.
+
 ## Temporary public access
 
 Nix Ship supervises the dashboard Quick Tunnel and one process per active web deployment.

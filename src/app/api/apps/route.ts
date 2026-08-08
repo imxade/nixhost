@@ -8,6 +8,7 @@ import {
 } from "@/server/app-service";
 import { requireRole } from "@/server/auth";
 import { events } from "@/server/events";
+import { latestHarburRevision } from "@/server/harbur";
 import { api, readJson } from "@/server/http";
 import { clientIp, requestUser } from "@/server/next-auth";
 import { getRuntime } from "@/server/runtime";
@@ -62,7 +63,12 @@ export async function POST(request: NextRequest) {
     const runtimeInstance = await getRuntime();
     await runtimeInstance.proxy.reconcile();
     await runtimeInstance.quickTunnels.reconcile();
-    const deployment = queueDeployment(app.id, { trigger: "manual" });
+    const revision = app.source_provider === "harbur" ? await latestHarburRevision(app) : null;
+    const deployment = queueDeployment(app.id, {
+      trigger: "manual",
+      commitSha: revision,
+      requestedRef: revision ?? undefined,
+    });
     events.publish("deployment.queued", `app:${app.id}`, {
       deploymentId: deployment.id,
       trigger: "manual",

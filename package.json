@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "better-sqlite3": "13.0.1",
+    "jszip": "3.10.1",
     "next": "16.2.11",
     "react": "19.2.8",
     "react-dom": "19.2.8",

@@ -55,7 +55,7 @@ not an authorization boundary.
 
 ## Secret storage
 
-- Application values, GitHub private key/secret, Cloudflare API/tunnel tokens,
+- Application values, GitHub private key/secret, Harbur read tokens, Cloudflare API/tunnel tokens,
   OAuth PKCE verifiers and OAuth access/refresh tokens are encrypted with
   AES-256-GCM.
 - Master key comes from `PLATFORM_MASTER_KEY` or a mode-0600 local key file.
@@ -86,6 +86,13 @@ For the integrated Android app, replace the local key-file fallback with Android
 
 - Executable and argument arrays are passed directly to `spawn`.
 - Git credentials are supplied as process environment configuration, not embedded in repository URLs.
+- Harbur credentials are Bearer headers only. Harbur origins cannot contain credentials, paths,
+  queries or fragments; redirects are rejected and DNS is rechecked before each request. Public
+  destinations require HTTPS, while LAN/private access and private HTTP require an explicit owner
+  opt-in.
+- Harbur archives are content-addressed and checked for compressed, per-file, entry-count and total
+  expanded-size limits. Extraction rejects traversal, original-name sanitization, symlinks and
+  non-regular entries, verifies CRC/digest, and atomically publishes only a complete locked flake.
 - Applications receive a controlled working directory and explicit runtime variables.
 - Each application starts in a distinct POSIX process group for group termination.
 

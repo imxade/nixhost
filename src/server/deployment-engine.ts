@@ -7,6 +7,7 @@ import { errorMessage, HttpError } from "./errors.ts";
 import { events } from "./events.ts";
 import { inspectFlake } from "./flake.ts";
 import { prepareRelease, removeReleaseWorktree } from "./git.ts";
+import { prepareHarburRelease } from "./harbur.ts";
 import { logger } from "./logger.ts";
 import { latestHostMetric } from "./metrics.ts";
 import { allocateInternalPort } from "./ports.ts";
@@ -157,12 +158,15 @@ export class DeploymentEngine {
         deploymentId: deployment.id,
         state: "fetching",
       });
-      const release = await prepareRelease(
-        app,
-        deployment.id,
-        deployment.commit_sha,
-        abortController.signal,
-      );
+      const release =
+        app.source_provider === "harbur"
+          ? await prepareHarburRelease(
+              app,
+              deployment.id,
+              deployment.commit_sha,
+              abortController.signal,
+            )
+          : await prepareRelease(app, deployment.id, deployment.commit_sha, abortController.signal);
       releaseDir = release.releaseDir;
       getDb()
         .prepare("UPDATE deployments SET commit_sha = ?, release_dir = ? WHERE id = ?")
