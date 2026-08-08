@@ -10,7 +10,7 @@
 
 ## ADR-002 — Nix flakes are the only deployment definition
 
-**Decision:** Require `flake.nix`, `flake.lock`, and a runnable flake app output. A project can isolate production packaging in `nixhost.nix`, imported by the flake, but NixHost never evaluates that loose file directly. Do not add dashboard-defined build/start shell commands.
+**Decision:** Require `flake.nix`, `flake.lock`, and a runnable flake app output. A project can isolate production packaging in `nixhost.nix`, imported by the flake, but Nix Ship never evaluates that loose file directly. Do not add dashboard-defined build/start shell commands.
 
 **Reason:** This keeps the application package reproducible and prevents the control plane from becoming an unrestricted remote shell interface.
 
@@ -48,7 +48,7 @@ operator-owned domains on persistent named tunnels.
 **Reason:** Initial use must not require a public account or domain. OAuth avoids
 asking end users to construct long-lived API tokens, while named tunnels provide
 stable DNS, SSE and availability. The same localhost origins can later be
-exposed through outbound tunnels without inventing a default NixHost domain.
+exposed through outbound tunnels without inventing a default Nix Ship domain.
 
 ## ADR-008 — No security claim between applications
 

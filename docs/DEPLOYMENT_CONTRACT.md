@@ -7,11 +7,11 @@ flake.nix
 flake.lock
 ```
 
-NixHost refuses an unlocked production deployment. The lock file is the reproducibility boundary for external flake inputs.
+Nix Ship refuses an unlocked production deployment. The lock file is the reproducibility boundary for external flake inputs.
 
 The flake is the locked, standard Nix entry point rather than a development-only
 file. To keep concerns separate, a repository may put its production package in
-`nixhost.nix` and import it from `flake.nix`. NixHost evaluates only the flake
+`nixhost.nix` and import it from `flake.nix`. Nix Ship evaluates only the flake
 output; it never executes a loose Nix file or dashboard-provided command.
 
 ## Required output
@@ -63,7 +63,7 @@ nix flake show --json
 nix run --no-write-lock-file .#<output>
 ```
 
-NixHost passes arguments as an array and does not construct a user-controlled shell command.
+Nix Ship passes arguments as an array and does not construct a user-controlled shell command.
 
 ## Health
 
@@ -71,4 +71,4 @@ A web deployment activates when its configured path returns HTTP 200–399 befor
 
 ## Trust
 
-The flake can execute arbitrary build and runtime code as the NixHost OS account. Do not import untrusted repositories. Nix evaluation and the Nix store are not application isolation.
+The flake can execute arbitrary build and runtime code as the Nix Ship OS account. Do not import untrusted repositories. Nix evaluation and the Nix store are not application isolation.

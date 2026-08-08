@@ -95,7 +95,7 @@ function cloudflareOAuthAvailable(): boolean {
 }
 
 function assertCloudflareOAuthAvailable(
-  message = "Cloudflare OAuth is disabled or incomplete on this NixHost distribution",
+  message = "Cloudflare OAuth is disabled or incomplete on this Nix Ship distribution",
 ): void {
   if (!cloudflareOAuthAvailable()) {
     throw new HttpError(503, message, "cloudflare_oauth_unavailable");

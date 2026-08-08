@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { BrandMark } from "./brand-mark";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -38,7 +39,7 @@ export function DashboardShell({
           </label>
           <Link href="/apps" className="flex min-w-0 flex-1 items-center gap-2.5">
             <BrandMark className="size-8 shrink-0 shadow-sm" />
-            <span className="truncate text-xl font-bold tracking-tight">NixHost</span>
+            <span className="truncate text-xl font-bold tracking-tight">{PRODUCT_NAME}</span>
           </Link>
           <ThemeToggle compact />
         </header>
@@ -52,7 +53,7 @@ export function DashboardShell({
           <Link href="/apps" className="flex items-center gap-3 px-3 py-4">
             <BrandMark className="size-10 shrink-0 shadow-sm" />
             <div>
-              <div className="text-xl font-bold">NixHost</div>
+              <div className="text-xl font-bold">{PRODUCT_NAME}</div>
               <div className="text-xs text-base-content/60">LAN deployment control plane</div>
             </div>
           </Link>

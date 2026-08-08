@@ -24,7 +24,7 @@ const examples = [
   {
     name: "hello-nixhost",
     healthPath: "/",
-    expectedBody: "Hello from NixHost",
+    expectedBody: "Hello from Nix Ship",
   },
   {
     name: "npm-start-nixhost",
@@ -115,7 +115,7 @@ function createExampleRepository(name: string): string {
   }
   execFileSync("git", ["init", "--initial-branch=fixture-head", target], { stdio: "ignore" });
   git(target, ["config", "user.email", "examples@nixhost.invalid"]);
-  git(target, ["config", "user.name", "NixHost examples"]);
+  git(target, ["config", "user.name", "Nix Ship examples"]);
   git(target, ["add", "."]);
   git(target, ["commit", "-m", `test ${name}`]);
   return target;

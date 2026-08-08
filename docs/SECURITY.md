@@ -2,7 +2,7 @@
 
 ## Threat model
 
-NixHost protects the management interface and stored credentials from unauthenticated LAN clients. It does not protect the host from a malicious deployed repository, and it does not isolate one application from another.
+Nix Ship protects the management interface and stored credentials from unauthenticated LAN clients. It does not protect the host from a malicious deployed repository, and it does not isolate one application from another.
 
 ## Authentication
 
@@ -70,7 +70,7 @@ not an authorization boundary.
   feature switch and all public-client settings are present. Manual API-token
   access and account-free Quick Tunnels do not load or depend on the provider.
 - Quick Tunnels create temporary public hostnames automatically unless disabled.
-  Dashboard access still requires NixHost authentication. Hosted applications receive
+  Dashboard access still requires Nix Ship authentication. Hosted applications receive
   no automatic access control; their temporary URL must be treated as public and the
   application must implement authentication when needed.
 - Next.js is prepared before the persistent runtime starts. A framework startup

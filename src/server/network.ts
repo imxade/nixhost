@@ -74,8 +74,7 @@ function isIpv4(address: string): boolean {
   return (
     octets.length === 4 &&
     octets.every(
-      (octet) =>
-        /^(0|[1-9][0-9]{0,2})$/.test(octet) && Number(octet) >= 0 && Number(octet) <= 255,
+      (octet) => /^(0|[1-9][0-9]{0,2})$/.test(octet) && Number(octet) >= 0 && Number(octet) <= 255,
     )
   );
 }

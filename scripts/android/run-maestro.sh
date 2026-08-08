@@ -17,7 +17,7 @@ case "$flow" in
     done
     setup_url_pattern='^https?://[^[:space:]]+/api/setup/claim\?token=[A-Za-z0-9_-]+$'
     if [[ ! "$SETUP_URL" =~ $setup_url_pattern ]]; then
-      echo "SETUP_URL must be a complete NixHost first-run setup URL." >&2
+      echo "SETUP_URL must be a complete Nix Ship first-run setup URL." >&2
       exit 2
     fi
     ;;

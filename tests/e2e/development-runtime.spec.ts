@@ -25,7 +25,7 @@ test("custom development server completes the Next.js HMR WebSocket upgrade", as
   });
 
   await page.goto("/setup");
-  await expect(page.getByRole("heading", { name: "Claim this NixHost" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Claim this Nix Ship" })).toBeVisible();
   await expect.poll(() => hmrSocket?.url()).toContain("/_next/webpack-hmr");
   await Promise.race([
     receivedFrame,

@@ -231,7 +231,7 @@ export function setEnvironment(
       key.startsWith("NIXHOST_") ||
       ["PORT", "HOST", "DATA_DIR", "CACHE_DIR", "LOG_DIR"].includes(key)
     ) {
-      throw new HttpError(400, `${key} is reserved by NixHost`, "reserved_env_key");
+      throw new HttpError(400, `${key} is reserved by Nix Ship`, "reserved_env_key");
     }
     if (Buffer.byteLength(value) > 64 * 1024)
       throw new HttpError(400, `${key} exceeds 64 KiB`, "env_value_too_large");

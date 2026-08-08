@@ -1,5 +1,5 @@
 {
-  description = "Minimal NixHost web application";
+  description = "Minimal Nix Ship web application";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { self, nixpkgs }:
     let

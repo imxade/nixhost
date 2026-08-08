@@ -39,14 +39,14 @@ const cloudflareFetch = vi.fn(async (input: string | URL | Request, init?: Reque
       result = [{ id: "foreign-record", content: "tunnel-id.cfargotunnel.com", comment: null }];
     } else if (hostname === "changed.example.com") {
       result = [
-        { id: "changed-record", content: "other.example.net", comment: "Managed by NixHost" },
+        { id: "changed-record", content: "other.example.net", comment: "Managed by Nix Ship" },
       ];
     } else if (hostname?.endsWith(".example.com")) {
       result = [
         {
           id: "dns-record",
           content: "tunnel-id.cfargotunnel.com",
-          comment: "Managed by NixHost",
+          comment: hostname === "stale.example.com" ? "Managed by NixHost" : "Managed by Nix Ship",
         },
       ];
     } else {
@@ -203,6 +203,7 @@ describe("Cloudflare application routes", () => {
     );
     insertStatus.run("foreign.example.com", now);
     insertStatus.run("changed.example.com", now);
+    insertStatus.run("stale.example.com", now);
     await controller.syncIngress();
 
     expect(controller.status().routes).toEqual([]);
@@ -211,7 +212,8 @@ describe("Cloudflare application routes", () => {
       apiCalls.some(
         (call) =>
           call.init?.method === "DELETE" &&
-          call.url.endsWith("/zones/zone-primary/dns_records/dns-record"),
+          call.url.endsWith("/zones/zone-primary/dns_records/dns-record") &&
+          call.url.includes("stale.example.com") === false,
       ),
     ).toBe(true);
     expect(

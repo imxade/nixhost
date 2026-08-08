@@ -1,9 +1,12 @@
 {
-  "name": "nixhost",
+  "name": "nixship",
   "version": "0.1.0",
   "private": true,
   "author": "Rituraj Basak",
   "license": "Apache-2.0",
+  "repository": "https://github.com/imxade/nixship",
+  "homepage": "https://github.com/imxade/nixship#readme",
+  "bugs": "https://github.com/imxade/nixship/issues",
   "description": "LAN-first Next.js control plane for deploying trusted Nix flake applications on Nix-capable devices.",
   "type": "module",
   "packageManager": "pnpm@10.34.5",

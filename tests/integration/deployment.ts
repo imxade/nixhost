@@ -166,7 +166,7 @@ function createFixtureRepository(target: string, healthStatus: number, version: 
     const serverSource = "$" + "{./server.py}";
     execFileSync("git", ["init", "--initial-branch=main", target], { stdio: "ignore" });
     git(target, ["config", "user.email", "fixture@nixhost.invalid"]);
-    git(target, ["config", "user.name", "NixHost fixture"]);
+    git(target, ["config", "user.name", "Nix Ship fixture"]);
     fs.copyFileSync(path.join(process.cwd(), "flake.lock"), path.join(target, "flake.lock"));
     fs.writeFileSync(
       path.join(target, "flake.nix"),

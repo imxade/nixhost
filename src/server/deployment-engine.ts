@@ -2,6 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import os from "node:os";
 import { config } from "./config.ts";
 import { getDb, nowIso } from "./db.ts";
+import { activeDeploymentLimit } from "./deployment-settings.ts";
 import { errorMessage, HttpError } from "./errors.ts";
 import { events } from "./events.ts";
 import { inspectFlake } from "./flake.ts";
@@ -11,6 +12,7 @@ import { latestHostMetric } from "./metrics.ts";
 import { allocateInternalPort } from "./ports.ts";
 import type { ProcessSupervisor } from "./process-supervisor.ts";
 import type { ProxyManager } from "./proxy-manager.ts";
+import type { QuickTunnelController } from "./quick-tunnels.ts";
 import type { AppRow, DeploymentRow, DeploymentState } from "./types.ts";
 
 export class DeploymentEngine {
@@ -22,6 +24,7 @@ export class DeploymentEngine {
   constructor(
     private readonly supervisor: ProcessSupervisor,
     private readonly proxy: ProxyManager,
+    private readonly quickTunnels: QuickTunnelController,
   ) {}
 
   async boot(): Promise<void> {
@@ -72,6 +75,55 @@ export class DeploymentEngine {
         .run(nowIso(), deploymentId);
     })();
     this.abortControllers.get(deploymentId)?.abort();
+  }
+
+  async enforceActiveDeploymentLimit(appId: string): Promise<string[]> {
+    const running = getDb()
+      .prepare(
+        `SELECT * FROM deployments
+         WHERE app_id = ? AND state = 'running'
+         ORDER BY activated_at DESC, queued_at DESC, id DESC`,
+      )
+      .all(appId) as DeploymentRow[];
+    const stale = running.slice(activeDeploymentLimit());
+    if (stale.length === 0) return [];
+
+    const staleIds = new Set(stale.map((deployment) => deployment.id));
+    const survivor = running.find((deployment) => !staleIds.has(deployment.id)) ?? null;
+    const app = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(appId) as AppRow;
+    const stoppedAt = nowIso();
+    getDb().transaction(() => {
+      const supersede = getDb().prepare(
+        `UPDATE deployments SET state = 'superseded', finished_at = ?
+         WHERE id = ? AND state = 'running'`,
+      );
+      for (const deployment of stale) supersede.run(stoppedAt, deployment.id);
+      if (app.active_deployment_id && staleIds.has(app.active_deployment_id)) {
+        getDb()
+          .prepare(
+            `UPDATE applications SET active_deployment_id = ?, active_internal_port = ?, updated_at = ?
+             WHERE id = ?`,
+          )
+          .run(survivor?.id ?? null, survivor?.internal_port ?? null, stoppedAt, appId);
+      }
+    })();
+    for (const deployment of stale) {
+      await this.supervisor.stopDeployment(deployment.id);
+      events.publish("deployment.deactivated", `app:${appId}`, {
+        deploymentId: deployment.id,
+        reason: "active_deployment_limit",
+      });
+    }
+    await this.proxy.reconcile();
+    await this.quickTunnels.reconcile();
+    return stale.map((deployment) => deployment.id);
+  }
+
+  async enforceActiveDeploymentLimits(): Promise<void> {
+    const apps = getDb().prepare("SELECT id FROM applications ORDER BY id").all() as Array<{
+      id: string;
+    }>;
+    for (const app of apps) await this.enforceActiveDeploymentLimit(app.id);
   }
 
   private async tick(): Promise<void> {
@@ -183,7 +235,6 @@ export class DeploymentEngine {
         );
       }
       ensureNotCancelled(deployment.id);
-      const previousDeploymentId = app.active_deployment_id;
       const activatedAt = nowIso();
       getDb().transaction(() => {
         getDb()
@@ -197,18 +248,10 @@ export class DeploymentEngine {
             "UPDATE deployments SET state = 'running', activated_at = ?, failure_code = NULL, failure_message = NULL WHERE id = ?",
           )
           .run(activatedAt, deployment.id);
-        if (previousDeploymentId && previousDeploymentId !== deployment.id) {
-          getDb()
-            .prepare(
-              "UPDATE deployments SET state = 'superseded', finished_at = ? WHERE id = ? AND state = 'running'",
-            )
-            .run(activatedAt, previousDeploymentId);
-        }
       })();
       await this.proxy.reconcile();
-      if (previousDeploymentId && previousDeploymentId !== deployment.id) {
-        await this.supervisor.stopDeployment(previousDeploymentId);
-      }
+      await this.enforceActiveDeploymentLimit(app.id);
+      await this.quickTunnels.reconcile();
       events.publish("deployment.state", `app:${app.id}`, {
         deploymentId: deployment.id,
         state: "running",
@@ -265,10 +308,10 @@ async function cleanupReleaseWorktrees(appId: string): Promise<void> {
   const stale = getDb()
     .prepare(
       `SELECT id, release_dir FROM deployments WHERE app_id = ? AND release_dir IS NOT NULL
-     AND id != COALESCE((SELECT active_deployment_id FROM applications WHERE id = ?), '')
+     AND state != 'running'
      ORDER BY queued_at DESC LIMIT -1 OFFSET ?`,
     )
-    .all(appId, appId, config.NIXHOST_RELEASE_RETENTION) as Array<{
+    .all(appId, config.NIXHOST_RELEASE_RETENTION) as Array<{
     id: string;
     release_dir: string;
   }>;
