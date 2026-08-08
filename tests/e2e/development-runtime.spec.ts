@@ -4,6 +4,7 @@ import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { expect, test, type WebSocket } from "@playwright/test";
 
 test("custom development server completes the Next.js HMR WebSocket upgrade", async ({ page }) => {
@@ -65,7 +66,7 @@ test("a Next.js startup failure occurs before the persistent runtime starts", ()
       },
     });
     expect(result.status).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain(
+    expect(stripVTControlCharacters(`${result.stdout}\n${result.stderr}`)).toContain(
       "Another next dev server is already running",
     );
     expect(fs.existsSync(dataDirectory)).toBe(false);
